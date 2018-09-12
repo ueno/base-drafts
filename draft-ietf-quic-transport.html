@@ -1800,6 +1800,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p id="rfc.section.6.10.p.3">Path validation can be used at any time by either endpoint.  For instance, an endpoint might check that a peer is still in possession of its address after a period of quiescence.</p>
 <p id="rfc.section.6.10.p.4">Path validation is not designed as a NAT traversal mechanism. Though the mechanism described here might be effective for the creation of NAT bindings that support NAT traversal, the expectation is that one or other peer is able to receive packets without first having sent a packet on that path. Effective NAT traversal needs additional synchronization mechanisms that are not provided here.</p>
 <p id="rfc.section.6.10.p.5">An endpoint MAY bundle PATH_CHALLENGE and PATH_RESPONSE frames that are used for path validation with other frames.  For instance, an endpoint may pad a packet carrying a PATH_CHALLENGE for PMTU discovery, or an endpoint may bundle a PATH_RESPONSE with its own PATH_CHALLENGE.</p>
+<p id="rfc.section.6.10.p.6">When probing a new path, an endpoint might want to ensure that its peer has an unused connection ID available for responses. The endpoint can send NEW_CONNECTION_ID and PATH_CHALLENGE frames in the same packet. This ensures that an unused connection ID will be available to the peer when sending a response.</p>
 <h3 id="rfc.section.6.10.1">
 <a href="#rfc.section.6.10.1">6.10.1.</a> <a href="#initiation" id="initiation">Initiation</a>
 </h3>
@@ -1836,7 +1837,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <a href="#rfc.section.6.11.1">6.11.1.</a> <a href="#probing" id="probing">Probing a New Path</a>
 </h3>
 <p id="rfc.section.6.11.1.p.1">An endpoint MAY probe for peer reachability from a new local address using path validation <a href="#migrate-validate" class="xref">Section 6.10</a> prior to migrating the connection to the new local address.  Failure of path validation simply means that the new path is not usable for this connection.  Failure to validate a path does not cause the connection to end unless there are no valid alternative paths available.</p>
-<p id="rfc.section.6.11.1.p.2">An endpoint uses a new connection ID for probes sent from a new local address, see <a href="#migration-linkability" class="xref">Section 6.11.5</a> for further discussion.</p>
+<p id="rfc.section.6.11.1.p.2">An endpoint uses a new connection ID for probes sent from a new local address, see <a href="#migration-linkability" class="xref">Section 6.11.5</a> for further discussion. An endpoint that uses a new local address needs to ensure that at least one new connection ID is available at the peer. That can be achieved by including a NEW_CONNECTION_ID frame in the probe.</p>
 <p id="rfc.section.6.11.1.p.3">Receiving a PATH_CHALLENGE frame from a peer indicates that the peer is probing for reachability on a path. An endpoint sends a PATH_RESPONSE in response as per <a href="#migrate-validate" class="xref">Section 6.10</a>.</p>
 <p id="rfc.section.6.11.1.p.4">PATH_CHALLENGE, PATH_RESPONSE, and PADDING frames are &#8220;probing frames&#8221;, and all other frames are &#8220;non-probing frames&#8221;.  A packet containing only probing frames is a &#8220;probing packet&#8221;, and a packet containing any other frame is a &#8220;non-probing packet&#8221;.</p>
 <h3 id="rfc.section.6.11.2">
@@ -1885,6 +1886,13 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p id="rfc.section.6.11.5.p.2">This eliminates the use of the connection ID for linking activity from the same connection on different networks.  Protection of packet numbers ensures that packet numbers cannot be used to correlate activity.  This does not prevent other properties of packets, such as timing and size, from being used to correlate activity.</p>
 <p id="rfc.section.6.11.5.p.3">Clients MAY move to a new connection ID at any time based on implementation-specific concerns.  For example, after a period of network inactivity NAT rebinding might occur when the client begins sending data again.</p>
 <p id="rfc.section.6.11.5.p.4">A client might wish to reduce linkability by employing a new connection ID and source UDP port when sending traffic after a period of inactivity.  Changing the UDP port from which it sends packets at the same time might cause the packet to appear as a connection migration. This ensures that the mechanisms that support migration are exercised even for clients that don&#8217;t experience NAT rebindings or genuine migrations.  Changing port number can cause a peer to reset its congestion state (see <a href="#migration-cc" class="xref">Section 6.11.4</a>), so the port SHOULD only be changed infrequently.</p>
+<p id="rfc.section.6.11.5.p.5">Endpoints that use connection IDs with length greater than zero could have their activity correlated if their peers keep using the same destination connection ID after migration. Endpoints that receive packets with a previously unused Destination Connection ID SHOULD change to sending packets with a connection ID that has not been used on any other network path.  The goal is to ensure absence of correlation between the pairs of client and server connection ID used on different paths. To fulfill this privacy requirement, endpoints that initiate migration and use connection IDs with length greater than zero SHOULD provide their peers with new connection IDs before migration.</p>
+<p></p>
+
+<dl>
+<dt>Caution:</dt>
+<dd style="margin-left: 8">If both endpoints change connection ID in response to seeing a change in connection ID from their peer, then this can trigger an infinite sequence of changes.</dd>
+</dl>
 <h2 id="rfc.section.6.12">
 <a href="#rfc.section.6.12">6.12.</a> <a href="#preferred-address" id="preferred-address">Server&#8217;s Preferred Address</a>
 </h2>
