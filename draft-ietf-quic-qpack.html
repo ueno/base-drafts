@@ -313,7 +313,7 @@ ul.toc li {
 <link href="#rfc.section.7.1" rel="Chapter" title="7.1 Single Pass Encoding">
 <link href="#rfc.section.7.2" rel="Chapter" title="7.2 Preventing Eviction Races">
 <link href="#rfc.section.7.3" rel="Chapter" title="7.3 Reference Tracking">
-<link href="#rfc.section.7.3.1" rel="Chapter" title="7.3.1 Blocked Eviction">
+<link href="#rfc.section.7.3.1" rel="Chapter" title="7.3.1 Blocked Dynamic Table Insertions">
 <link href="#rfc.section.7.3.2" rel="Chapter" title="7.3.2 Blocked Decoding">
 <link href="#rfc.section.7.4" rel="Chapter" title="7.4 Speculative table updates">
 <link href="#rfc.section.7.5" rel="Chapter" title="7.5 Sample One Pass Encoding Algorithm">
@@ -468,7 +468,7 @@ ul.toc li {
 </li>
 <li>7.3.   <a href="#rfc.section.7.3">Reference Tracking</a>
 </li>
-<ul><li>7.3.1.   <a href="#rfc.section.7.3.1">Blocked Eviction</a>
+<ul><li>7.3.1.   <a href="#rfc.section.7.3.1">Blocked Dynamic Table Insertions</a>
 </li>
 <li>7.3.2.   <a href="#rfc.section.7.3.2">Blocked Decoding</a>
 </li>
@@ -612,7 +612,7 @@ d = count of entries dropped
 <li>Abandonment of a stream which might have remaining header blocks</li>
 <li>Receipt of new dynamic table entries</li>
 </ul>
-<p id="rfc.section.2.3.1.p.3">Regardless of whether a header block contained blocking references, the knowledge that it has been processed permits the encoder to evict entries to which no unacknowledged references remain; see <a href="#blocked-eviction" class="xref">Section 7.3.1</a>.  When a stream is reset or abandoned, the indication that these header blocks will never be processed serves a similar function; see <a href="#stream-cancellation" class="xref">Section 5.3.3</a>.</p>
+<p id="rfc.section.2.3.1.p.3">Regardless of whether a header block contained blocking references, the knowledge that it has been processed permits the encoder to evict entries to which no unacknowledged references remain; see <a href="#blocked-insertion" class="xref">Section 7.3.1</a>.  When a stream is reset or abandoned, the indication that these header blocks will never be processed serves a similar function; see <a href="#stream-cancellation" class="xref">Section 5.3.3</a>.</p>
 <p id="rfc.section.2.3.1.p.4">For the encoder to identify which dynamic table entries can be safely used without a stream becoming blocked, the encoder tracks the absolute index of the decoder&#8217;s Largest Known Received entry.</p>
 <p id="rfc.section.2.3.1.p.5">When blocking references are permitted, the encoder uses acknowledgement of header blocks to identify the Largest Known Received index, as described in <a href="#header-acknowledgement" class="xref">Section 5.3.2</a>.</p>
 <p id="rfc.section.2.3.1.p.6">To acknowledge dynamic table entries which are not referenced by header blocks, for example because the encoder or the decoder have chosen not to risk blocked streams, the decoder sends a Table State Synchronize instruction (see <a href="#table-state-synchronize" class="xref">Section 5.3.1</a>).</p>
@@ -952,11 +952,24 @@ d = count of entries dropped
 <p id="rfc.section.7.3.p.1">An encoder MUST ensure that a header block which references a dynamic table entry is not received by the decoder after the referenced entry has already been evicted.  An encoder also respects the limit set by the decoder on the number of streams that are allowed to become blocked. Even if the decoder is willing to tolerate blocked streams, the encoder might choose to avoid them in certain cases.</p>
 <p id="rfc.section.7.3.p.2">In order to enable this, the encoder will need to track outstanding (unacknowledged) header blocks and table updates using feedback received from the decoder.</p>
 <h3 id="rfc.section.7.3.1">
-<a href="#rfc.section.7.3.1">7.3.1.</a> <a href="#blocked-eviction" id="blocked-eviction">Blocked Eviction</a>
+<a href="#rfc.section.7.3.1">7.3.1.</a> <a href="#blocked-insertion" id="blocked-insertion">Blocked Dynamic Table Insertions</a>
 </h3>
-<p id="rfc.section.7.3.1.p.1">The encoder MUST NOT permit an entry to be evicted while a reference to that entry remains unacknowledged.  If a new header to be inserted into the dynamic table would cause the eviction of such an entry, the encoder MUST NOT emit the insert instruction until the reference has been processed by the decoder and acknowledged.</p>
-<p id="rfc.section.7.3.1.p.2">The encoder can emit a literal representation for the new header in order to avoid encoding delays, and MAY insert the header into the table later if desired.</p>
-<p id="rfc.section.7.3.1.p.3">To ensure that the blocked eviction case is rare, references to the oldest entries in the dynamic table SHOULD be avoided.  When one of the oldest entries in the table is still actively used for references, the encoder SHOULD emit an Duplicate representation instead (see <a href="#duplicate" class="xref">Section 5.2.3</a>).</p>
+<p id="rfc.section.7.3.1.p.1">An encoder MUST NOT insert an entry into the dynamic table (or duplicate an existing entry) if doing so would evict an entry with unacknowledged references.  For header blocks that might rely on the newly added entry, the encoder can use a literal representation and maybe insert the entry later.</p>
+<p id="rfc.section.7.3.1.p.2">To ensure that the encoder is not prevented from adding new entries, the encoder can avoid referencing entries that will be evicted soonest.  Rather than reference such an entry, the encoder SHOULD emit a Duplicate instruction (see <a href="#duplicate" class="xref">Section 5.2.3</a>), and reference the duplicate instead.</p>
+<p id="rfc.section.7.3.1.p.3">Determining which entries are too close to eviction to reference is an encoder preference.  One heuristic is to target a fixed amount of available space in the dynamic table: either unused space or space that can be reclaimed by evicting unreferenced entries.  To achieve this, the encoder can maintain a draining index, which is the smallest absolute index in the dynamic table that it will emit a reference for.  As new entries are inserted, the encoder increases the draining index to maintain the section of the table that it will not reference.  Draining entries - entries with an absolute index lower than the draining index - will not accumulate new references.  The number of unacknowledged references to draining entries will eventually become zero, making the entry available for eviction.</p>
+<div id="rfc.figure.7"></div>
+<div id="fig-draining-index"></div>
+<pre>
+   +----------+---------------------------------+--------+
+   | Draining |          Referenceable          | Unused |
+   | Entries  |             Entries             | Space  |
+   +----------+---------------------------------+--------+
+   ^          ^                                 ^
+   |          |                                 |
+ Dropping    Draining Index               Base Index /
+  Point                                   Insertion Point
+</pre>
+<p class="figure">Figure 7: Draining Dynamic Table Entries</p>
 <h3 id="rfc.section.7.3.2">
 <a href="#rfc.section.7.3.2">7.3.2.</a> <a href="#blocked-decoding" id="blocked-decoding">Blocked Decoding</a>
 </h3>

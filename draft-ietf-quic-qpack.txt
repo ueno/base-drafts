@@ -115,8 +115,8 @@ Internet-Draft                    QPACK                   September 2018
 
 
      7.3.  Reference Tracking  . . . . . . . . . . . . . . . . . . .  21
-       7.3.1.  Blocked Eviction  . . . . . . . . . . . . . . . . . .  21
-       7.3.2.  Blocked Decoding  . . . . . . . . . . . . . . . . . .  21
+       7.3.1.  Blocked Dynamic Table Insertions  . . . . . . . . . .  21
+       7.3.2.  Blocked Decoding  . . . . . . . . . . . . . . . . . .  22
      7.4.  Speculative table updates . . . . . . . . . . . . . . . .  22
      7.5.  Sample One Pass Encoding Algorithm  . . . . . . . . . . .  22
    8.  Security Considerations . . . . . . . . . . . . . . . . . . .  24
@@ -1144,23 +1144,50 @@ Internet-Draft                    QPACK                   September 2018
    (unacknowledged) header blocks and table updates using feedback
    received from the decoder.
 
-7.3.1.  Blocked Eviction
+7.3.1.  Blocked Dynamic Table Insertions
 
-   The encoder MUST NOT permit an entry to be evicted while a reference
-   to that entry remains unacknowledged.  If a new header to be inserted
-   into the dynamic table would cause the eviction of such an entry, the
-   encoder MUST NOT emit the insert instruction until the reference has
-   been processed by the decoder and acknowledged.
+   An encoder MUST NOT insert an entry into the dynamic table (or
+   duplicate an existing entry) if doing so would evict an entry with
+   unacknowledged references.  For header blocks that might rely on the
+   newly added entry, the encoder can use a literal representation and
+   maybe insert the entry later.
 
-   The encoder can emit a literal representation for the new header in
-   order to avoid encoding delays, and MAY insert the header into the
-   table later if desired.
+   To ensure that the encoder is not prevented from adding new entries,
+   the encoder can avoid referencing entries that will be evicted
+   soonest.  Rather than reference such an entry, the encoder SHOULD
+   emit a Duplicate instruction (see Section 5.2.3), and reference the
+   duplicate instead.
 
-   To ensure that the blocked eviction case is rare, references to the
-   oldest entries in the dynamic table SHOULD be avoided.  When one of
-   the oldest entries in the table is still actively used for
-   references, the encoder SHOULD emit an Duplicate representation
-   instead (see Section 5.2.3).
+   Determining which entries are too close to eviction to reference is
+   an encoder preference.  One heuristic is to target a fixed amount of
+   available space in the dynamic table: either unused space or space
+   that can be reclaimed by evicting unreferenced entries.  To achieve
+   this, the encoder can maintain a draining index, which is the
+   smallest absolute index in the dynamic table that it will emit a
+   reference for.  As new entries are inserted, the encoder increases
+   the draining index to maintain the section of the table that it will
+   not reference.  Draining entries - entries with an absolute index
+   lower than the draining index - will not accumulate new references.
+   The number of unacknowledged references to draining entries will
+   eventually become zero, making the entry available for eviction.
+
+
+
+Krasic, et al.           Expires March 16, 2019                [Page 21]
+
+Internet-Draft                    QPACK                   September 2018
+
+
+      +----------+---------------------------------+--------+
+      | Draining |          Referenceable          | Unused |
+      | Entries  |             Entries             | Space  |
+      +----------+---------------------------------+--------+
+      ^          ^                                 ^
+      |          |                                 |
+    Dropping    Draining Index               Base Index /
+     Point                                   Insertion Point
+
+                 Figure 7: Draining Dynamic Table Entries
 
 7.3.2.  Blocked Decoding
 
@@ -1170,13 +1197,6 @@ Internet-Draft                    QPACK                   September 2018
    are processed in sequence on the control stream, an index into the
    dynamic table is sufficient to track which entries have been
    acknowledged.
-
-
-
-Krasic, et al.           Expires March 16, 2019                [Page 21]
-
-Internet-Draft                    QPACK                   September 2018
-
 
    To track blocked streams, the necessary Base Index value for each
    stream can be used.  Whenever the decoder processes a table update,
@@ -1196,26 +1216,6 @@ Internet-Draft                    QPACK                   September 2018
 
    Pseudo-code for single pass encoding, excluding handling of
    duplicates, non-blocking mode, and reference tracking.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
