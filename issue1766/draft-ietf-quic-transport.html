@@ -1178,8 +1178,8 @@ ul.toc li {
 </dl>
 <p id="rfc.section.4.6.p.5">The client and server use the Initial packet type for any packet that contains an initial cryptographic handshake message. This includes all cases where a new packet containing the initial cryptographic message needs to be created, such as the packets sent after receiving a Version Negotiation (<a href="#packet-version" class="xref">Section 4.3</a>) or Retry packet (<a href="#packet-retry" class="xref">Section 4.4</a>).</p>
 <p id="rfc.section.4.6.p.6">A server sends its first Initial packet in response to a client Initial.  A server may send multiple Initial packets.  The cryptographic key exchange could require multiple round trips or retransmissions of this data.</p>
-<p id="rfc.section.4.6.p.7">The payload of an Initial packet includes a CRYPTO frame (or frames) containing a cryptographic handshake message, ACK frames, or both.  PADDING, CONNECTION_CLOSE, and APPLICATION_CLOSE frames are also permitted.  The first CRYPTO frame sent always begins at an offset of 0 (see <a href="#handshake" class="xref">Section 6.4</a>).</p>
-<p id="rfc.section.4.6.p.8">The first packet sent by a client always includes a CRYPTO frame that contains the entirety of the first cryptographic handshake message.  This packet, and the cryptographic handshake message, MUST fit in a single UDP datagram (see <a href="#handshake" class="xref">Section 6.4</a>).</p>
+<p id="rfc.section.4.6.p.7">The payload of an Initial packet includes a CRYPTO frame (or frames) containing a cryptographic handshake message, ACK frames, or both.  PADDING and CONNECTION_CLOSE frames are also permitted.  An endpoint that receives an Initial packet containing other frames can either discard the packet as spurious or treat it as a connection error.</p>
+<p id="rfc.section.4.6.p.8">The first packet sent by a client always includes a CRYPTO frame that contains the entirety of the first cryptographic handshake message.  This packet, and the cryptographic handshake message, MUST fit in a single UDP datagram (see <a href="#handshake" class="xref">Section 6.4</a>).  The first CRYPTO frame sent always begins at an offset of 0 (see <a href="#handshake" class="xref">Section 6.4</a>).</p>
 <p id="rfc.section.4.6.p.9">Note that if the server sends a HelloRetryRequest, the client will send a second Initial packet.  This Initial packet will continue the cryptographic handshake and will contain a CRYPTO frame with an offset matching the size of the CRYPTO frame sent in the first Initial packet.  Cryptographic handshake messages subsequent to the first do not need to fit within a single UDP datagram.</p>
 <h3 id="rfc.section.4.6.1">
 <a href="#rfc.section.4.6.1">4.6.1.</a> <a href="#connection-ids" id="connection-ids">Connection IDs</a>
@@ -1227,7 +1227,7 @@ ul.toc li {
 <p id="rfc.section.4.7.p.3">The Destination Connection ID field in a Handshake packet contains a connection ID that is chosen by the recipient of the packet; the Source Connection ID includes the connection ID that the sender of the packet wishes to use (see <a href="#connection-id-encoding" class="xref">Section 4.10</a>).</p>
 <p id="rfc.section.4.7.p.4">The first Handshake packet sent by a server contains a packet number of 0.  Handshake packets are their own packet number space.  Packet numbers are incremented normally for other Handshake packets.</p>
 <p id="rfc.section.4.7.p.5">Servers MUST NOT send more than three datagrams including Initial and Handshake packets without receiving a packet from a verified source address.  Source addresses can be verified through an address validation token (delivered via a Retry packet or a NEW_TOKEN frame) or by receiving any message from the client encrypted using the Handshake keys.</p>
-<p id="rfc.section.4.7.p.6">The payload of this packet contains CRYPTO frames and could contain PADDING, or ACK frames. Handshake packets MAY contain CONNECTION_CLOSE or APPLICATION_CLOSE frames.</p>
+<p id="rfc.section.4.7.p.6">The payload of this packet contains CRYPTO frames and could contain PADDING, or ACK frames. Handshake packets MAY contain CONNECTION_CLOSE or APPLICATION_CLOSE frames.  Endpoints MUST treat receipt of Handshake packets with other frames as a connection error.</p>
 <h2 id="rfc.section.4.8">
 <a href="#rfc.section.4.8">4.8.</a> <a href="#packet-protected" id="packet-protected">Protected Packets</a>
 </h2>
@@ -1660,14 +1660,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <h3 id="rfc.section.6.6.1">
 <a href="#rfc.section.6.6.1">6.6.1.</a> <a href="#transport-parameter-definitions" id="transport-parameter-definitions">Transport Parameter Definitions</a>
 </h3>
-<p id="rfc.section.6.6.1.p.1">An endpoint MUST include the following parameters in its encoded TransportParameters:</p>
-<p></p>
-
-<dl>
-<dt>idle_timeout (0x0003):</dt>
-<dd style="margin-left: 8">The idle timeout is a value in seconds that is encoded as an unsigned 16-bit integer.  The maximum value is 600 seconds (10 minutes).</dd>
-</dl>
-<p id="rfc.section.6.6.1.p.3">An endpoint MAY use the following transport parameters:</p>
+<p id="rfc.section.6.6.1.p.1">An endpoint MAY use the following transport parameters:</p>
 <p></p>
 
 <dl>
@@ -1677,6 +1670,8 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <dd style="margin-left: 8">The initial maximum bidirectional streams parameter contains the initial maximum number of bidirectional streams the peer may initiate, encoded as an unsigned 16-bit integer.  If this parameter is absent or zero, bidirectional streams cannot be created until a MAX_STREAM_ID frame is sent.  Setting this parameter is equivalent to sending a MAX_STREAM_ID (<a href="#frame-max-stream-id" class="xref">Section 7.8</a>) immediately after completing the handshake containing the corresponding Stream ID. For example, a value of 0x05 would be equivalent to receiving a MAX_STREAM_ID containing 16 when received by a client or 17 when received by a server.</dd>
 <dt>initial_max_uni_streams (0x0008):</dt>
 <dd style="margin-left: 8">The initial maximum unidirectional streams parameter contains the initial maximum number of unidirectional streams the peer may initiate, encoded as an unsigned 16-bit integer.  If this parameter is absent or zero, unidirectional streams cannot be created until a MAX_STREAM_ID frame is sent.  Setting this parameter is equivalent to sending a MAX_STREAM_ID (<a href="#frame-max-stream-id" class="xref">Section 7.8</a>) immediately after completing the handshake containing the corresponding Stream ID. For example, a value of 0x05 would be equivalent to receiving a MAX_STREAM_ID containing 18 when received by a client or 19 when received by a server.</dd>
+<dt>idle_timeout (0x0003):</dt>
+<dd style="margin-left: 8">The idle timeout is a value in seconds that is encoded as an unsigned 16-bit integer.  If this parameter is absent or zero then the idle timeout is disabled.</dd>
 <dt>max_packet_size (0x0005):</dt>
 <dd style="margin-left: 8">The maximum packet size parameter places a limit on the size of packets that the endpoint is willing to receive, encoded as an unsigned 16-bit integer.  This indicates that packets larger than this limit will be dropped.  The default for this parameter is the maximum permitted UDP payload of 65527.  Values below 1200 are invalid.  This limit only applies to protected packets (<a href="#packet-protected" class="xref">Section 4.8</a>).</dd>
 <dt>ack_delay_exponent (0x0007):</dt>
@@ -1684,7 +1679,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <dt>disable_migration (0x0009):</dt>
 <dd style="margin-left: 8">The endpoint does not support connection migration (<a href="#migration" class="xref">Section 6.11</a>). Peers MUST NOT send any packets, including probing packets (<a href="#probing" class="xref">Section 6.11.1</a>), from a local address other than that used to perform the handshake.  This parameter is a zero-length value.</dd>
 </dl>
-<p id="rfc.section.6.6.1.p.5">Either peer MAY advertise an initial value for the flow control on each type of stream on which they might receive data.  Each of the following transport parameters is encoded as an unsigned 32-bit integer in units of octets:</p>
+<p id="rfc.section.6.6.1.p.3">Either peer MAY advertise an initial value for the flow control on each type of stream on which they might receive data.  Each of the following transport parameters is encoded as an unsigned 32-bit integer in units of octets:</p>
 <p></p>
 
 <dl>
@@ -1695,8 +1690,8 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <dt>initial_max_stream_data_uni (0x000b):</dt>
 <dd style="margin-left: 8">The initial stream maximum data for unidirectional streams parameter contains the initial flow control limit for newly created unidirectional streams opened by the endpoint that receives the transport parameter.  In client transport parameters, this applies to streams with an identifier ending in 0x3; in server transport parameters, this applies to streams ending in 0x2.</dd>
 </dl>
-<p id="rfc.section.6.6.1.p.7">If present, transport parameters that set initial stream flow control limits are equivalent to sending a MAX_STREAM_DATA frame (<a href="#frame-max-stream-data" class="xref">Section 7.7</a>) on every stream of the corresponding type immediately after opening.  If the transport parameter is absent, streams of that type start with a flow control limit of 0.</p>
-<p id="rfc.section.6.6.1.p.8">A server MAY include the following transport parameters:</p>
+<p id="rfc.section.6.6.1.p.5">If present, transport parameters that set initial stream flow control limits are equivalent to sending a MAX_STREAM_DATA frame (<a href="#frame-max-stream-data" class="xref">Section 7.7</a>) on every stream of the corresponding type immediately after opening.  If the transport parameter is absent, streams of that type start with a flow control limit of 0.</p>
+<p id="rfc.section.6.6.1.p.6">A server MAY include the following transport parameters:</p>
 <p></p>
 
 <dl>
@@ -1705,7 +1700,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <dt>preferred_address (0x0004):</dt>
 <dd style="margin-left: 8">The server&#8217;s Preferred Address is used to effect a change in server address at the end of the handshake, as described in <a href="#preferred-address" class="xref">Section 6.12</a>.</dd>
 </dl>
-<p id="rfc.section.6.6.1.p.10">A client MUST NOT include a stateless reset token or a preferred address.  A server MUST treat receipt of either transport parameter as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
+<p id="rfc.section.6.6.1.p.8">A client MUST NOT include a stateless reset token or a preferred address.  A server MUST treat receipt of either transport parameter as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
 <h3 id="rfc.section.6.6.2">
 <a href="#rfc.section.6.6.2">6.6.2.</a> <a href="#zerortt-parameters" id="zerortt-parameters">Values of Transport Parameters for 0-RTT</a>
 </h3>
@@ -1944,7 +1939,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <h3 id="rfc.section.6.13.2">
 <a href="#rfc.section.6.13.2">6.13.2.</a> <a href="#idle-timeout" id="idle-timeout">Idle Timeout</a>
 </h3>
-<p id="rfc.section.6.13.2.p.1">A connection that remains idle for longer than the advertised idle timeout (see <a href="#transport-parameter-definitions" class="xref">Section 6.6.1</a>) is closed.  A connection enters the draining state when the idle timeout expires.</p>
+<p id="rfc.section.6.13.2.p.1">If the idle timeout is enabled, a connection that remains idle for longer than the advertised idle timeout (see <a href="#transport-parameter-definitions" class="xref">Section 6.6.1</a>) is closed.  A connection enters the draining state when the idle timeout expires.</p>
 <p id="rfc.section.6.13.2.p.2">Each endpoint advertises their own idle timeout to their peer. The idle timeout starts from the last packet received.  In order to ensure that initiating new activity postpones an idle timeout, an endpoint restarts this timer when sending a packet.  An endpoint does not postpone the idle timeout if another packet has been sent containing frames other than ACK or PADDING, and that other packet has not been acknowledged or declared lost.  Packets that contain only ACK or PADDING frames are not acknowledged until an endpoint has other frames to send, so they could prevent the timeout from being refreshed.</p>
 <p id="rfc.section.6.13.2.p.3">The value for an idle timeout can be asymmetric.  The value advertised by an endpoint is only used to determine whether the connection is live at that endpoint.  An endpoint that sends packets near the end of the idle timeout period of a peer risks having those packets discarded if its peer enters the draining state before the packets arrive.  If a peer could timeout within an RTO (see Section 4.3.3 of <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), it is advisable to test for liveness before sending any data that cannot be retried safely.</p>
 <h3 id="rfc.section.6.13.3">
@@ -2654,7 +2649,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p></p>
 
 <ul>
-<li>Data sent in CRYPTO frames are retransmitted according to the rules in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>, until either all data has been acknowledged or the crypto state machine implicitly knows that the peer received the data.</li>
+<li>Data sent in CRYPTO frames is retransmitted according to the rules in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>, until either all data has been acknowledged or the crypto state machine implicitly knows that the peer received the data.</li>
 <li>Application data sent in STREAM frames is retransmitted in new STREAM frames unless the endpoint has sent a RST_STREAM for that stream.  Once an endpoint sends a RST_STREAM frame, no further STREAM frames are needed.</li>
 <li>The most recent set of acknowledgments are sent in ACK frames.  An ACK frame SHOULD contain all unacknowledged acknowledgments, as described in <a href="#sending-ack-frames" class="xref">Section 7.15.2</a>.</li>
 <li>Cancellation of stream transmission, as carried in a RST_STREAM frame, is sent until acknowledged or until all stream data is acknowledged by the peer (that is, either the &#8220;Reset Recvd&#8221; or &#8220;Data Recvd&#8221; state is reached on the send stream). The content of a RST_STREAM frame MUST NOT change when it is sent again.</li>

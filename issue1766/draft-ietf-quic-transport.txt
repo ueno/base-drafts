@@ -956,14 +956,15 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
    The payload of an Initial packet includes a CRYPTO frame (or frames)
    containing a cryptographic handshake message, ACK frames, or both.
-   PADDING, CONNECTION_CLOSE, and APPLICATION_CLOSE frames are also
-   permitted.  The first CRYPTO frame sent always begins at an offset of
-   0 (see Section 6.4).
+   PADDING and CONNECTION_CLOSE frames are also permitted.  An endpoint
+   that receives an Initial packet containing other frames can either
+   discard the packet as spurious or treat it as a connection error.
 
    The first packet sent by a client always includes a CRYPTO frame that
    contains the entirety of the first cryptographic handshake message.
    This packet, and the cryptographic handshake message, MUST fit in a
-   single UDP datagram (see Section 6.4).
+   single UDP datagram (see Section 6.4).  The first CRYPTO frame sent
+   always begins at an offset of 0 (see Section 6.4).
 
    Note that if the server sends a HelloRetryRequest, the client will
    send a second Initial packet.  This Initial packet will continue the
@@ -998,7 +999,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    Destination Connection ID for subsequent packets.  Once a client has
    received an Initial packet from the server, it MUST discard any
    packet it receives with a different Source Connection ID.
-
 
 
 
@@ -1159,7 +1159,8 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
    The payload of this packet contains CRYPTO frames and could contain
    PADDING, or ACK frames.  Handshake packets MAY contain
-   CONNECTION_CLOSE or APPLICATION_CLOSE frames.
+   CONNECTION_CLOSE or APPLICATION_CLOSE frames.  Endpoints MUST treat
+   receipt of Handshake packets with other frames as a connection error.
 
 4.8.  Protected Packets
 
@@ -1168,8 +1169,7 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    headers; all packets protected with 1-RTT keys are sent with short
    headers.  The different packet types explicitly indicate the
    encryption level and therefore the keys that are used to remove
-   packet protection.  0-RTT and 1-RTT protected packets share a single
-   packet number space.
+
 
 
 
@@ -1177,6 +1177,9 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 21]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   packet protection.  0-RTT and 1-RTT protected packets share a single
+   packet number space.
 
    Packets protected with handshake keys only use packet protection to
    ensure that the sender of the packet is on the network path.  This
@@ -1224,9 +1227,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    during the handshake.  Receivers MUST be able to process coalesced
    packets.
 
-   Coalescing packets in order of increasing encryption levels (Initial,
-   0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be
-
 
 
 Iyengar & Thomson        Expires March 23, 2019                [Page 22]
@@ -1234,6 +1234,8 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 22]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
+   Coalescing packets in order of increasing encryption levels (Initial,
+   0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be
    able to process all the packets in a single pass.  A packet with a
    short header does not include a length, so it will always be the last
    packet included in a UDP datagram.
@@ -1280,8 +1282,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    the long header, and thus be given multiple opportunities to update
    the Destination Connection ID it sends.  A client MUST only change
    the value it sends in the Destination Connection ID in response to
-   the first packet of each type it receives from the server (Retry or
-   Initial); a server MUST set its value based on the Initial packet.
 
 
 
@@ -1290,6 +1290,8 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 23]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
+   the first packet of each type it receives from the server (Retry or
+   Initial); a server MUST set its value based on the Initial packet.
    Any additional changes are not permitted; if subsequent packets of
    those types include a different Source Connection ID, they MUST be
    discarded.  This avoids problems that might arise from stateless
@@ -1335,8 +1337,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    o  Handshake space: All Handshake packets Section 4.7 are in this
       space.
 
-   o  Application data space: All 0-RTT and 1-RTT encrypted packets
-      Section 4.8 are in this space.
 
 
 
@@ -1345,6 +1345,9 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 24]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   o  Application data space: All 0-RTT and 1-RTT encrypted packets
+      Section 4.8 are in this space.
 
    As described in [QUIC-TLS], each packet type uses different
    protection keys.
@@ -1390,9 +1393,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
             Table 2: Packet Number Encodings for Packet Headers
 
-   Note that these encodings are similar to those in Section 7.1, but
-   use different values.
-
 
 
 
@@ -1401,6 +1401,9 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 25]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   Note that these encodings are similar to those in Section 7.1, but
+   use different values.
 
    The encoded packet number is protected as described in Section 5.3
    [QUIC-TLS].  Protection of the packet number is removed prior to
@@ -1446,9 +1449,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    Section 9.3 of [QUIC-TLS].  An efficient algorithm for duplicate
    suppression can be found in Section 3.4.3 of [RFC2406].
 
-   A Version Negotiation packet (Section 4.3) does not include a packet
-   number.  The Retry packet (Section 4.4) has special rules for
-   populating the packet number field.
 
 
 
@@ -1457,6 +1457,10 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 26]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   A Version Negotiation packet (Section 4.3) does not include a packet
+   number.  The Retry packet (Section 4.4) has special rules for
+   populating the packet number field.
 
 5.  Frames and Frame Types
 
@@ -1500,10 +1504,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    flags.  For all other frames, the Frame Type field simply identifies
    the frame.  These frames are explained in more detail as they are
    referenced later in the document.
-
-
-
-
 
 
 
@@ -2146,13 +2146,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
 6.6.1.  Transport Parameter Definitions
 
-   An endpoint MUST include the following parameters in its encoded
-   TransportParameters:
-
-   idle_timeout (0x0003):  The idle timeout is a value in seconds that
-      is encoded as an unsigned 16-bit integer.  The maximum value is
-      600 seconds (10 minutes).
-
    An endpoint MAY use the following transport parameters:
 
    initial_max_data (0x0001):  The initial maximum data parameter
@@ -2178,6 +2171,13 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    initial_max_uni_streams (0x0008):  The initial maximum unidirectional
       streams parameter contains the initial maximum number of
       unidirectional streams the peer may initiate, encoded as an
+      unsigned 16-bit integer.  If this parameter is absent or zero,
+      unidirectional streams cannot be created until a MAX_STREAM_ID
+      frame is sent.  Setting this parameter is equivalent to sending a
+      MAX_STREAM_ID (Section 7.8) immediately after completing the
+      handshake containing the corresponding Stream ID.  For example, a
+      value of 0x05 would be equivalent to receiving a MAX_STREAM_ID
+
 
 
 
@@ -2186,14 +2186,12 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 39]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
-      unsigned 16-bit integer.  If this parameter is absent or zero,
-      unidirectional streams cannot be created until a MAX_STREAM_ID
-      frame is sent.  Setting this parameter is equivalent to sending a
-      MAX_STREAM_ID (Section 7.8) immediately after completing the
-      handshake containing the corresponding Stream ID.  For example, a
-      value of 0x05 would be equivalent to receiving a MAX_STREAM_ID
       containing 18 when received by a client or 19 when received by a
       server.
+
+   idle_timeout (0x0003):  The idle timeout is a value in seconds that
+      is encoded as an unsigned 16-bit integer.  If this parameter is
+      absent or zero then the idle timeout is disabled.
 
    max_packet_size (0x0005):  The maximum packet size parameter places a
       limit on the size of packets that the endpoint is willing to
@@ -2234,6 +2232,8 @@ Internet-Draft           QUIC Transport Protocol          September 2018
       contains the initial flow control limit for newly created
       bidirectional streams opened by the endpoint that receives the
       transport parameter.  In client transport parameters, this applies
+      to streams with an identifier ending in 0x1; in server transport
+      parameters, this applies to streams ending in 0x0.
 
 
 
@@ -2241,9 +2241,6 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 40]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
-
-      to streams with an identifier ending in 0x1; in server transport
-      parameters, this applies to streams ending in 0x0.
 
    initial_max_stream_data_uni (0x000b):  The initial stream maximum
       data for unidirectional streams parameter contains the initial
@@ -2290,6 +2287,9 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
    A server MAY accept 0-RTT and subsequently provide different values
    for transport parameters for use in the new connection.  If 0-RTT
+   data is accepted by the server, the server MUST NOT reduce any limits
+   or alter any values that might be violated by the client with its
+   0-RTT data.  In particular, a server that accepts 0-RTT data MUST NOT
 
 
 
@@ -2298,9 +2298,6 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 41]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
-   data is accepted by the server, the server MUST NOT reduce any limits
-   or alter any values that might be violated by the client with its
-   0-RTT data.  In particular, a server that accepts 0-RTT data MUST NOT
    set values for initial_max_data, initial_max_stream_data_bidi_local,
    initial_max_stream_data_bidi_remote, and initial_max_stream_data_uni
    that are smaller than the remembered value of those parameters.
@@ -2347,6 +2344,9 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    Section 6.6).  As a result, attacks on version negotiation by an
    attacker can be detected.
 
+   The client includes the initial_version field in its transport
+   parameters.  The initial_version is the version that the client
+
 
 
 Iyengar & Thomson        Expires March 23, 2019                [Page 42]
@@ -2354,8 +2354,6 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 42]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
-   The client includes the initial_version field in its transport
-   parameters.  The initial_version is the version that the client
    initially attempted to use.  If the server did not send a Version
    Negotiation packet Section 4.3, this will be identical to the
    negotiated_version field in the server transport parameters.
@@ -2402,6 +2400,8 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    code if version negotiation occurred but it would have selected a
    different version based on the value of the supported_versions list.
 
+   When an endpoint accepts multiple QUIC versions, it can potentially
+   interpret transport parameters as they are defined by any of the QUIC
 
 
 
@@ -2410,8 +2410,6 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 43]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
-   When an endpoint accepts multiple QUIC versions, it can potentially
-   interpret transport parameters as they are defined by any of the QUIC
    versions it supports.  The version field in the QUIC packet header is
    authenticated using transport parameters.  The position and the
    format of the version fields in transport parameters MUST either be
@@ -2458,6 +2456,8 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    To verify both that a path supports ECN and the peer can provide ECN
    feedback, an endpoint MUST set the ECT(0) codepoint in the IP header
    of all outgoing packets [RFC8311].
+
+
 
 
 
@@ -3280,9 +3280,10 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
 6.13.2.  Idle Timeout
 
-   A connection that remains idle for longer than the advertised idle
-   timeout (see Section 6.6.1) is closed.  A connection enters the
-   draining state when the idle timeout expires.
+   If the idle timeout is enabled, a connection that remains idle for
+   longer than the advertised idle timeout (see Section 6.6.1) is
+   closed.  A connection enters the draining state when the idle timeout
+   expires.
 
    Each endpoint advertises their own idle timeout to their peer.  The
    idle timeout starts from the last packet received.  In order to
@@ -3297,7 +3298,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
    The value for an idle timeout can be asymmetric.  The value
    advertised by an endpoint is only used to determine whether the
-   connection is live at that endpoint.  An endpoint that sends packets
 
 
 
@@ -3306,6 +3306,7 @@ Iyengar & Thomson        Expires March 23, 2019                [Page 59]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
+   connection is live at that endpoint.  An endpoint that sends packets
    near the end of the idle timeout period of a peer risks having those
    packets discarded if its peer enters the draining state before the
    packets arrive.  If a peer could timeout within an RTO (see
@@ -3353,7 +3354,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    requests that the connection be closed.  The application protocol can
    use an APPLICATION_CLOSE message with an appropriate error code to
    signal closure.
-
 
 
 
@@ -4748,10 +4748,10 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    and sending ceases when a packet containing that information is
    acknowledged.
 
-   o  Data sent in CRYPTO frames are retransmitted according to the
-      rules in [QUIC-RECOVERY], until either all data has been
-      acknowledged or the crypto state machine implicitly knows that the
-      peer received the data.
+   o  Data sent in CRYPTO frames is retransmitted according to the rules
+      in [QUIC-RECOVERY], until either all data has been acknowledged or
+      the crypto state machine implicitly knows that the peer received
+      the data.
 
 
 
