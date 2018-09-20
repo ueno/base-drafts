@@ -956,13 +956,15 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
    The payload of an Initial packet includes a CRYPTO frame (or frames)
    containing a cryptographic handshake message, ACK frames, or both.
-   PADDING and CONNECTION_CLOSE frames are also permitted.  The first
-   CRYPTO frame sent always begins at an offset of 0 (see Section 6.4).
+   PADDING and CONNECTION_CLOSE frames are also permitted.  An endpoint
+   that receives an Initial packet containing other frames can either
+   discard the packet as spurious or treat it as a connection error.
 
    The first packet sent by a client always includes a CRYPTO frame that
    contains the entirety of the first cryptographic handshake message.
    This packet, and the cryptographic handshake message, MUST fit in a
-   single UDP datagram (see Section 6.4).
+   single UDP datagram (see Section 6.4).  The first CRYPTO frame sent
+   always begins at an offset of 0 (see Section 6.4).
 
    Note that if the server sends a HelloRetryRequest, the client will
    send a second Initial packet.  This Initial packet will continue the
@@ -997,8 +999,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    Destination Connection ID for subsequent packets.  Once a client has
    received an Initial packet from the server, it MUST discard any
    packet it receives with a different Source Connection ID.
-
-
 
 
 
@@ -1159,7 +1159,8 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
    The payload of this packet contains CRYPTO frames and could contain
    PADDING, or ACK frames.  Handshake packets MAY contain
-   CONNECTION_CLOSE or APPLICATION_CLOSE frames.
+   CONNECTION_CLOSE or APPLICATION_CLOSE frames.  Endpoints MUST treat
+   receipt of Handshake packets with other frames as a connection error.
 
 4.8.  Protected Packets
 
@@ -1168,8 +1169,7 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    headers; all packets protected with 1-RTT keys are sent with short
    headers.  The different packet types explicitly indicate the
    encryption level and therefore the keys that are used to remove
-   packet protection.  0-RTT and 1-RTT protected packets share a single
-   packet number space.
+
 
 
 
@@ -1177,6 +1177,9 @@ Iyengar & Thomson        Expires March 24, 2019                [Page 21]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   packet protection.  0-RTT and 1-RTT protected packets share a single
+   packet number space.
 
    Packets protected with handshake keys only use packet protection to
    ensure that the sender of the packet is on the network path.  This
@@ -1224,9 +1227,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    during the handshake.  Receivers MUST be able to process coalesced
    packets.
 
-   Coalescing packets in order of increasing encryption levels (Initial,
-   0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be
-
 
 
 Iyengar & Thomson        Expires March 24, 2019                [Page 22]
@@ -1234,6 +1234,8 @@ Iyengar & Thomson        Expires March 24, 2019                [Page 22]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
+   Coalescing packets in order of increasing encryption levels (Initial,
+   0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be
    able to process all the packets in a single pass.  A packet with a
    short header does not include a length, so it will always be the last
    packet included in a UDP datagram.
@@ -1280,8 +1282,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    the long header, and thus be given multiple opportunities to update
    the Destination Connection ID it sends.  A client MUST only change
    the value it sends in the Destination Connection ID in response to
-   the first packet of each type it receives from the server (Retry or
-   Initial); a server MUST set its value based on the Initial packet.
 
 
 
@@ -1290,6 +1290,8 @@ Iyengar & Thomson        Expires March 24, 2019                [Page 23]
 Internet-Draft           QUIC Transport Protocol          September 2018
 
 
+   the first packet of each type it receives from the server (Retry or
+   Initial); a server MUST set its value based on the Initial packet.
    Any additional changes are not permitted; if subsequent packets of
    those types include a different Source Connection ID, they MUST be
    discarded.  This avoids problems that might arise from stateless
@@ -1335,8 +1337,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    o  Handshake space: All Handshake packets Section 4.7 are in this
       space.
 
-   o  Application data space: All 0-RTT and 1-RTT encrypted packets
-      Section 4.8 are in this space.
 
 
 
@@ -1345,6 +1345,9 @@ Iyengar & Thomson        Expires March 24, 2019                [Page 24]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   o  Application data space: All 0-RTT and 1-RTT encrypted packets
+      Section 4.8 are in this space.
 
    As described in [QUIC-TLS], each packet type uses different
    protection keys.
@@ -1390,9 +1393,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
 
             Table 2: Packet Number Encodings for Packet Headers
 
-   Note that these encodings are similar to those in Section 7.1, but
-   use different values.
-
 
 
 
@@ -1401,6 +1401,9 @@ Iyengar & Thomson        Expires March 24, 2019                [Page 25]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   Note that these encodings are similar to those in Section 7.1, but
+   use different values.
 
    The encoded packet number is protected as described in Section 5.3
    [QUIC-TLS].  Protection of the packet number is removed prior to
@@ -1446,9 +1449,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    Section 9.3 of [QUIC-TLS].  An efficient algorithm for duplicate
    suppression can be found in Section 3.4.3 of [RFC2406].
 
-   A Version Negotiation packet (Section 4.3) does not include a packet
-   number.  The Retry packet (Section 4.4) has special rules for
-   populating the packet number field.
 
 
 
@@ -1457,6 +1457,10 @@ Iyengar & Thomson        Expires March 24, 2019                [Page 26]
 
 Internet-Draft           QUIC Transport Protocol          September 2018
 
+
+   A Version Negotiation packet (Section 4.3) does not include a packet
+   number.  The Retry packet (Section 4.4) has special rules for
+   populating the packet number field.
 
 5.  Frames and Frame Types
 
@@ -1500,10 +1504,6 @@ Internet-Draft           QUIC Transport Protocol          September 2018
    flags.  For all other frames, the Frame Type field simply identifies
    the frame.  These frames are explained in more detail as they are
    referenced later in the document.
-
-
-
-
 
 
 
