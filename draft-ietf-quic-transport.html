@@ -1140,7 +1140,9 @@ ul.toc li {
 <p id="rfc.section.4.4.p.9">The client responds to a Retry packet with an Initial packet that includes the provided Retry Token to continue connection establishment.</p>
 <p id="rfc.section.4.4.p.10">A client sets the Destination Connection ID field of this Initial packet to the value from the Source Connection ID in the Retry packet. Changing Destination Connection ID also results in a change to the keys used to protect the Initial packet. It also sets the Token field to the token provided in the Retry. The client MUST NOT change the Source Connection ID because the server could include the connection ID as part of its token validation logic (see <a href="#tokens" class="xref">Section 4.6.2</a>).</p>
 <p id="rfc.section.4.4.p.11">A client MAY attempt 0-RTT after receiving a Retry packet by sending 0-RTT packets to the connection ID provided by the server.  A client that sends additional 0-RTT packets MUST NOT reset the packet number to 0 after a Retry packet, see <a href="#retry-0rtt-pn" class="xref">Section 4.6.4</a>.</p>
-<p id="rfc.section.4.4.p.12">A Retry packet does not include a packet number and cannot be explicitly acknowledged by a client.</p>
+<p id="rfc.section.4.4.p.12">A server acknowledges the use of a Retry packet for a connection using the original_connection_id transport parameter (see <a href="#transport-parameter-definitions" class="xref">Section 6.6.1</a>).  If the server sends a Retry packet, it MUST include the value of the Original Destination Connection ID field of the Retry packet (that is, the Destination Connection ID field from the client&#8217;s first Initial packet) in the transport parameter.</p>
+<p id="rfc.section.4.4.p.13">If the client received and processed a Retry packet, it validates that the original_connection_id transport parameter is present and correct; otherwise, it validates that the transport parameter is absent.  A client MUST treat a failed validation as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
+<p id="rfc.section.4.4.p.14">A Retry packet does not include a packet number and cannot be explicitly acknowledged by a client.</p>
 <h2 id="rfc.section.4.5">
 <a href="#rfc.section.4.5">4.5.</a> <a href="#handshake-packets" id="handshake-packets">Cryptographic Handshake Packets</a>
 </h2>
@@ -1650,6 +1652,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
       initial_max_stream_data_bidi_remote(10),
       initial_max_stream_data_uni(11),
       max_ack_delay(12),
+      original_connection_id(13),
       (65535)
    } TransportParameterId;
 
@@ -1718,7 +1721,14 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <dd style="margin-left: 8">The initial stream maximum data for unidirectional streams parameter contains the initial flow control limit for newly created unidirectional streams opened by the endpoint that receives the transport parameter.  In client transport parameters, this applies to streams with an identifier ending in 0x3; in server transport parameters, this applies to streams ending in 0x2.</dd>
 </dl>
 <p id="rfc.section.6.6.1.p.5">If present, transport parameters that set initial stream flow control limits are equivalent to sending a MAX_STREAM_DATA frame (<a href="#frame-max-stream-data" class="xref">Section 7.7</a>) on every stream of the corresponding type immediately after opening.  If the transport parameter is absent, streams of that type start with a flow control limit of 0.</p>
-<p id="rfc.section.6.6.1.p.6">A server MAY include the following transport parameters:</p>
+<p id="rfc.section.6.6.1.p.6">A server MUST include the original_connection_id transport parameter if it sent a Retry packet:</p>
+<p></p>
+
+<dl>
+<dt>original_connection_id (0x000d):</dt>
+<dd style="margin-left: 8">The value of the Destination Connection ID field from the first Initial packet sent by the client.  This transport parameter is only sent by the server.</dd>
+</dl>
+<p id="rfc.section.6.6.1.p.8">A server MAY include the following transport parameters:</p>
 <p></p>
 
 <dl>
@@ -1727,7 +1737,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <dt>preferred_address (0x0004):</dt>
 <dd style="margin-left: 8">The server&#8217;s Preferred Address is used to effect a change in server address at the end of the handshake, as described in <a href="#preferred-address" class="xref">Section 6.12</a>.</dd>
 </dl>
-<p id="rfc.section.6.6.1.p.8">A client MUST NOT include a stateless reset token or a preferred address.  A server MUST treat receipt of either transport parameter as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
+<p id="rfc.section.6.6.1.p.10">A client MUST NOT include a stateless reset token or a preferred address.  A server MUST treat receipt of either transport parameter as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
 <h3 id="rfc.section.6.6.2">
 <a href="#rfc.section.6.6.2">6.6.2.</a> <a href="#zerortt-parameters" id="zerortt-parameters">Values of Transport Parameters for 0-RTT</a>
 </h3>
