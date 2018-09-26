@@ -313,6 +313,7 @@ ul.toc li {
 <link href="#rfc.section.8" rel="Chapter" title="8 QUIC-Specific Additions to the TLS Handshake">
 <link href="#rfc.section.8.1" rel="Chapter" title="8.1 Protocol and Version Negotiation">
 <link href="#rfc.section.8.2" rel="Chapter" title="8.2 QUIC Transport Parameters Extension">
+<link href="#rfc.section.8.3" rel="Chapter" title="8.3 Removing the EndOfEarlyData Message">
 <link href="#rfc.section.9" rel="Chapter" title="9 Security Considerations">
 <link href="#rfc.section.9.1" rel="Chapter" title="9.1 Packet Reflection Attack Mitigation">
 <link href="#rfc.section.9.2" rel="Chapter" title="9.2 Peer Denial of Service">
@@ -346,7 +347,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Thomson, M., Ed. and S. Turner, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-tls-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2018-09-20" />
+  <meta name="dct.issued" scheme="ISO8601" content="2018-09-26" />
   <meta name="dct.abstract" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
   <meta name="description" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
 
@@ -370,12 +371,12 @@ ul.toc li {
 <td class="right">S. Turner, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: March 24, 2019</td>
+<td class="left">Expires: March 30, 2019</td>
 <td class="right">sn3rd</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">September 20, 2018</td>
+<td class="right">September 26, 2018</td>
 </tr>
 
     	
@@ -394,7 +395,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on March 24, 2019.</p>
+<p>This Internet-Draft will expire on March 30, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2018 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -467,6 +468,8 @@ ul.toc li {
 <ul><li>8.1.   <a href="#rfc.section.8.1">Protocol and Version Negotiation</a>
 </li>
 <li>8.2.   <a href="#rfc.section.8.2">QUIC Transport Parameters Extension</a>
+</li>
+<li>8.3.   <a href="#rfc.section.8.3">Removing the EndOfEarlyData Message</a>
 </li>
 </ul><li>9.   <a href="#rfc.section.9">Security Considerations</a>
 </li>
@@ -562,7 +565,7 @@ ul.toc li {
 <li>A full 1-RTT handshake in which the client is able to send application data after one round trip and the server immediately responds after receiving the first handshake message from the client.</li>
 <li>A 0-RTT handshake in which the client uses information it has previously learned about the server to send application data immediately.  This application data can be replayed by an attacker so it MUST NOT carry a self-contained trigger for any non-idempotent action.</li>
 </ul>
-<p id="rfc.section.2.1.p.9">A simplified TLS 1.3 handshake with 0-RTT application data is shown in <a href="#tls-full" class="xref">Figure 1</a>, see <a href="#TLS13" class="xref">[TLS13]</a> for more options and details.</p>
+<p id="rfc.section.2.1.p.9">A simplified TLS 1.3 handshake with 0-RTT application data is shown in <a href="#tls-full" class="xref">Figure 1</a>.  Note that this omits the EndOfEarlyData message, which is not used in QUIC (see <a href="#remove-eoed" class="xref">Section 8.3</a>).</p>
 <div id="rfc.figure.1"></div>
 <div id="tls-full"></div>
 <pre>
@@ -574,7 +577,6 @@ ul.toc li {
                                          {EncryptedExtensions}
                                                     {Finished}
                              &lt;--------      [Application Data]
-   (EndOfEarlyData)
    {Finished}                --------&gt;
 
    [Application Data]        &lt;-------&gt;      [Application Data]
@@ -656,7 +658,7 @@ ul.toc li {
 <p></p>
 
 <ul>
-<li>CRYPTO frames MAY appear in packets of any encryption level.</li>
+<li>CRYPTO frames MAY appear in packets of any encryption level except 0-RTT.</li>
 <li>CONNECTION_CLOSE and APPLICATION_CLOSE MAY appear in packets of any encryption level other than 0-RTT.</li>
 <li>PADDING and PING frames MAY appear in packets of any encryption level.</li>
 <li>ACK frames MAY appear in packets of any encryption level other than 0-RTT, but can only acknowledge packets which appeared in that packet number space.</li>
@@ -747,7 +749,7 @@ ul.toc li {
 <p id="rfc.section.4.1.2.p.1">As keys for new encryption levels become available, TLS provides QUIC with those keys.  Separately, as TLS starts using keys at a given encryption level, TLS indicates to QUIC that it is now reading or writing with keys at that encryption level.  These events are not asynchronous; they always occur immediately after TLS is provided with new handshake octets, or after TLS produces handshake octets.</p>
 <p id="rfc.section.4.1.2.p.2">If 0-RTT is possible, it is ready after the client sends a TLS ClientHello message or the server receives that message.  After providing a QUIC client with the first handshake octets, the TLS stack might signal the change to 0-RTT keys. On the server, after receiving handshake octets that contain a ClientHello message, a TLS server might signal that 0-RTT keys are available.</p>
 <p id="rfc.section.4.1.2.p.3">Although TLS only uses one encryption level at a time, QUIC may use more than one level. For instance, after sending its Finished message (using a CRYPTO frame at the Handshake encryption level) an endpoint can send STREAM data (in 1-RTT encryption). If the Finished message is lost, the endpoint uses the Handshake encryption level to retransmit the lost message.  Reordering or loss of packets can mean that QUIC will need to handle packets at multiple encryption levels.  During the handshake, this means potentially handling packets at higher and lower encryption levels than the current encryption level used by TLS.</p>
-<p id="rfc.section.4.1.2.p.4">In particular, server implementations need to be able to read packets at the Handshake encryption level before the final TLS handshake message at the 0-RTT encryption level (EndOfEarlyData) is available.  Though the content of CRYPTO frames at the Handshake encryption level cannot be forwarded to TLS before EndOfEarlyData is processed, the client could send ACK frames that the server needs to process in order to detect lost Handshake packets.</p>
+<p id="rfc.section.4.1.2.p.4">In particular, server implementations need to be able to read packets at the Handshake encryption level at the same time as the 0-RTT encryption level.  A client could interleave ACK frames that are protected with Handshake keys with 0-RTT data and the server needs to process those acknowledgments in order to detect lost Handshake packets.</p>
 <h3 id="rfc.section.4.1.3">
 <a href="#rfc.section.4.1.3">4.1.3.</a> <a href="#tls-interface-summary" id="tls-interface-summary">TLS Interface Summary</a>
 </h3>
@@ -836,7 +838,7 @@ Handshake Received
 <p id="rfc.section.4.9.p.1">After QUIC moves to a new encryption level, packet protection keys for previous encryption levels can be discarded.  This occurs several times during the handshake, as well as when keys are updated (see <a href="#key-update" class="xref">Section 6</a>).</p>
 <p id="rfc.section.4.9.p.2">Packet protection keys are not discarded immediately when new keys are available.  If packets from a lower encryption level contain CRYPTO frames, frames that retransmit that data MUST be sent at the same encryption level.  Similarly, an endpoint generates acknowledgements for packets at the same encryption level as the packet being acknowledged.  Thus, it is possible that keys for a lower encryption level are needed for a short time after keys for a newer encryption level are available.</p>
 <p id="rfc.section.4.9.p.3">An endpoint cannot discard keys for a given encryption level unless it has both received and acknowledged all CRYPTO frames for that encryption level and when all CRYPTO frames for that encryption level have been acknowledged by its peer.  However, this does not guarantee that no further packets will need to be received or sent at that encryption level because a peer might not have received all the acknowledgements necessary to reach the same state.</p>
-<p id="rfc.section.4.9.p.4">After all CRYPTO frames for a given encryption level have been sent and all expected CRYPTO frames received, and all the corresponding acknowledgments have been received or sent, an endpoint starts a timer.  To limit the effect of packet loss around a change in keys, endpoints MUST retain packet protection keys for that encryption level for at least three times the current Retransmission Timeout (RTO) interval as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.  Retaining keys for this interval allows packets containing CRYPTO or ACK frames at that encryption level to be sent if packets are determined to be lost or new packets require acknowledgment.</p>
+<p id="rfc.section.4.9.p.4">After all CRYPTO frames for a given encryption level have been sent and all expected CRYPTO frames received, and all the corresponding acknowledgments have been received or sent, an endpoint starts a timer.  For 0-RTT keys, which do not carry CRYPTO frames, this timer starts when the first packets protected with 1-RTT are sent or received.  To limit the effect of packet loss around a change in keys, endpoints MUST retain packet protection keys for that encryption level for at least three times the current Retransmission Timeout (RTO) interval as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.  Retaining keys for this interval allows packets containing CRYPTO or ACK frames at that encryption level to be sent if packets are determined to be lost or new packets require acknowledgment.</p>
 <p id="rfc.section.4.9.p.5">Though an endpoint might retain older keys, new data MUST be sent at the highest currently-available encryption level.  Only ACK frames and retransmissions of data in CRYPTO frames are sent at a previous encryption level.  These packets MAY also include PADDING frames.</p>
 <p id="rfc.section.4.9.p.6">Once this timer expires, an endpoint MUST NOT either accept or generate new packets using those packet protection keys.  An endpoint can discard packet protection keys for that encryption level.</p>
 <p id="rfc.section.4.9.p.7">Key updates (see <a href="#key-update" class="xref">Section 6</a>) can be used to update 1-RTT keys before keys from other encryption levels are discarded.  In that case, packets protected with the newest packet protection keys and packets sent two updates prior will appear to use the same keys.  After the handshake is complete, endpoints only need to maintain the two latest sets of packet protection keys and MAY discard older keys.  Updating keys multiple times rapidly can cause packets to be effectively lost if packets are significantly delayed.  Because key updates can only be performed once per round trip time, only packets that are delayed by more than a round trip will be lost as a result of changing keys; such packets will be marked as lost before this, as they leave a gap in the sequence of packet numbers.</p>
@@ -869,7 +871,7 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
                                           Hash.length)
 </pre>
 <p id="rfc.section.5.2.p.2">The hash function for HKDF when deriving initial secrets and keys is SHA-256 <a href="#SHA" class="xref">[SHA]</a>.</p>
-<p id="rfc.section.5.2.p.3">The connection ID used with HKDF-Expand-Label is the Destination Connection ID in the Initial packet sent by the client.  This will be a randomly-selected value unless the client creates the Initial packet after reciving a Retry packet, where the Destination Connection ID is selected by the server.</p>
+<p id="rfc.section.5.2.p.3">The connection ID used with HKDF-Expand-Label is the Destination Connection ID in the Initial packet sent by the client.  This will be a randomly-selected value unless the client creates the Initial packet after receiving a Retry packet, where the Destination Connection ID is selected by the server.</p>
 <p id="rfc.section.5.2.p.4">The value of initial_salt is a 20 octet sequence shown in the figure in hexadecimal notation. Future versions of QUIC SHOULD generate a new salt value, thus ensuring that the keys are different for each version of QUIC. This prevents a middlebox that only recognizes one version of QUIC from seeing or modifying the contents of handshake packets from future versions.</p>
 <p></p>
 
@@ -1015,6 +1017,13 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
 <p id="rfc.section.8.2.p.3">The <samp>extension_data</samp> field of the quic_transport_parameters extension contains a value that is defined by the version of QUIC that is in use.  The quic_transport_parameters extension carries a TransportParameters when the version of QUIC defined in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a> is used.</p>
 <p id="rfc.section.8.2.p.4">The quic_transport_parameters extension is carried in the ClientHello and the EncryptedExtensions messages during the handshake.</p>
 <p id="rfc.section.8.2.p.5">While the transport parameters are technically available prior to the completion of the handshake, they cannot be fully trusted until the handshake completes, and reliance on them should be minimized.  However, any tampering with the parameters will cause the handshake to fail.</p>
+<p id="rfc.section.8.2.p.6">Endpoints MUST NOT send this extension in a TLS connection that does not use QUIC (such as the use of TLS with TCP defined in <a href="#TLS13" class="xref">[TLS13]</a>).  A fatal unsupported_extension alert MUST be sent if this extension is received when the transport is not QUIC.</p>
+<h2 id="rfc.section.8.3">
+<a href="#rfc.section.8.3">8.3.</a> <a href="#remove-eoed" id="remove-eoed">Removing the EndOfEarlyData Message</a>
+</h2>
+<p id="rfc.section.8.3.p.1">The TLS EndOfEarlyData message is not used with QUIC.  QUIC does not rely on this message to mark the end of 0-RTT data or to signal the change to Handshake keys.</p>
+<p id="rfc.section.8.3.p.2">Clients MUST NOT send the EndOfEarlyData message.  A server MUST treat receipt of a CRYPTO frame in a 0-RTT packet as a connection error of type PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.8.3.p.3">As a result, EndOfEarlyData does not appear in the TLS handshake transcript.</p>
 <h1 id="rfc.section.9">
 <a href="#rfc.section.9">9.</a> <a href="#security-considerations" id="security-considerations">Security Considerations</a>
 </h1>
