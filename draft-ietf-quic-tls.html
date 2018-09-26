@@ -555,17 +555,18 @@ ul.toc li {
 +--------------------------------------------+
 </pre>
 <p id="rfc.section.2.1.p.3">Each upper layer (handshake, alerts, and application data) is carried as a series of typed TLS records. Records are individually cryptographically protected and then transmitted over a reliable transport (typically TCP) which provides sequencing and guaranteed delivery.</p>
-<p id="rfc.section.2.1.p.4">The TLS authenticated key exchange occurs between two entities: client and server.  The client initiates the exchange and the server responds.  If the key exchange completes successfully, both client and server will agree on a secret.  TLS supports both pre-shared key (PSK) and Diffie-Hellman (DH) key exchanges.  PSK is the basis for 0-RTT; the latter provides perfect forward secrecy (PFS) when the DH keys are destroyed.</p>
-<p id="rfc.section.2.1.p.5">After completing the TLS handshake, the client will have learned and authenticated an identity for the server and the server is optionally able to learn and authenticate an identity for the client.  TLS supports X.509 <a href="#RFC5280" class="xref">[RFC5280]</a> certificate-based authentication for both server and client.</p>
-<p id="rfc.section.2.1.p.6">The TLS key exchange is resistant to tampering by attackers and it produces shared secrets that cannot be controlled by either participating peer.</p>
-<p id="rfc.section.2.1.p.7">TLS 1.3 provides two basic handshake modes of interest to QUIC:</p>
+<p id="rfc.section.2.1.p.4">Change Cipher Spec records cannot be sent in QUIC.</p>
+<p id="rfc.section.2.1.p.5">The TLS authenticated key exchange occurs between two entities: client and server.  The client initiates the exchange and the server responds.  If the key exchange completes successfully, both client and server will agree on a secret.  TLS supports both pre-shared key (PSK) and Diffie-Hellman (DH) key exchanges.  PSK is the basis for 0-RTT; the latter provides perfect forward secrecy (PFS) when the DH keys are destroyed.</p>
+<p id="rfc.section.2.1.p.6">After completing the TLS handshake, the client will have learned and authenticated an identity for the server and the server is optionally able to learn and authenticate an identity for the client.  TLS supports X.509 <a href="#RFC5280" class="xref">[RFC5280]</a> certificate-based authentication for both server and client.</p>
+<p id="rfc.section.2.1.p.7">The TLS key exchange is resistant to tampering by attackers and it produces shared secrets that cannot be controlled by either participating peer.</p>
+<p id="rfc.section.2.1.p.8">TLS 1.3 provides two basic handshake modes of interest to QUIC:</p>
 <p></p>
 
 <ul>
 <li>A full 1-RTT handshake in which the client is able to send application data after one round trip and the server immediately responds after receiving the first handshake message from the client.</li>
 <li>A 0-RTT handshake in which the client uses information it has previously learned about the server to send application data immediately.  This application data can be replayed by an attacker so it MUST NOT carry a self-contained trigger for any non-idempotent action.</li>
 </ul>
-<p id="rfc.section.2.1.p.9">A simplified TLS 1.3 handshake with 0-RTT application data is shown in <a href="#tls-full" class="xref">Figure 1</a>.  Note that this omits the EndOfEarlyData message, which is not used in QUIC (see <a href="#remove-eoed" class="xref">Section 8.3</a>).</p>
+<p id="rfc.section.2.1.p.10">A simplified TLS 1.3 handshake with 0-RTT application data is shown in <a href="#tls-full" class="xref">Figure 1</a>.  Note that this omits the EndOfEarlyData message, which is not used in QUIC (see <a href="#remove-eoed" class="xref">Section 8.3</a>).</p>
 <div id="rfc.figure.1"></div>
 <div id="tls-full"></div>
 <pre>
@@ -587,7 +588,7 @@ ul.toc li {
        (1-RTT) keys
 </pre>
 <p class="figure">Figure 1: TLS Handshake with 0-RTT</p>
-<p id="rfc.section.2.1.p.10">Data is protected using a number of encryption levels:</p>
+<p id="rfc.section.2.1.p.11">Data is protected using a number of encryption levels:</p>
 <p></p>
 
 <ul>
@@ -596,8 +597,8 @@ ul.toc li {
 <li>Handshake Keys</li>
 <li>Application Data (1-RTT) Keys</li>
 </ul>
-<p id="rfc.section.2.1.p.12">Application data may appear only in the early data and application data levels. Handshake and Alert messages may appear in any level.</p>
-<p id="rfc.section.2.1.p.13">The 0-RTT handshake is only possible if the client and server have previously communicated.  In the 1-RTT handshake, the client is unable to send protected application data until it has received all of the handshake messages sent by the server.</p>
+<p id="rfc.section.2.1.p.13">Application data may appear only in the early data and application data levels. Handshake and Alert messages may appear in any level.</p>
+<p id="rfc.section.2.1.p.14">The 0-RTT handshake is only possible if the client and server have previously communicated.  In the 1-RTT handshake, the client is unable to send protected application data until it has received all of the handshake messages sent by the server.</p>
 <h1 id="rfc.section.3">
 <a href="#rfc.section.3">3.</a> <a href="#protocol-overview" id="protocol-overview">Protocol Overview</a>
 </h1>
@@ -619,7 +620,7 @@ ul.toc li {
 +---------------------------------------------+
 </pre>
 <p id="rfc.section.3.p.2">QUIC also relies on TLS 1.3 for authentication and negotiation of parameters that are critical to security and performance.</p>
-<p id="rfc.section.3.p.3">Rather than a strict layering, these two protocols are co-dependent: QUIC uses the TLS handshake; TLS uses the reliability and ordered delivery provided by QUIC streams.</p>
+<p id="rfc.section.3.p.3">Rather than a strict layering, these two protocols are co-dependent: QUIC uses the TLS handshake; TLS uses the reliability, ordered delivery, and record layer provided by QUIC.</p>
 <p id="rfc.section.3.p.4">At a high level, there are two main interactions between the TLS and QUIC components:</p>
 <p></p>
 
@@ -654,13 +655,14 @@ ul.toc li {
 </h1>
 <p id="rfc.section.4.p.1">QUIC carries TLS handshake data in CRYPTO frames, each of which consists of a contiguous block of handshake data identified by an offset and length. Those frames are packaged into QUIC packets and encrypted under the current TLS encryption level.  As with TLS over TCP, once TLS handshake data has been delivered to QUIC, it is QUIC&#8217;s responsibility to deliver it reliably. Each chunk of data that is produced by TLS is associated with the set of keys that TLS is currently using.  If QUIC needs to retransmit that data, it MUST use the same keys even if TLS has already updated to newer keys.</p>
 <p id="rfc.section.4.p.2">One important difference between TLS 1.3 records (used with TCP) and QUIC CRYPTO frames is that in QUIC multiple frames may appear in the same QUIC packet as long as they are associated with the same encryption level. For instance, an implementation might bundle a Handshake message and an ACK for some Handshake data into the same packet.</p>
-<p id="rfc.section.4.p.3">Each encryption level has a specific list of frames which may appear in it. The rules here generalize those of TLS, in that frames associated with establishing the connection can usually appear at any encryption level, whereas those associated with transferring data can only appear in the 0-RTT and 1-RTT encryption levels</p>
+<p id="rfc.section.4.p.3">Each encryption level has a specific list of frames which may appear in it. The rules here generalize those of TLS, in that frames associated with establishing the connection can usually appear at any encryption level, whereas those associated with transferring data can only appear in the 0-RTT and 1-RTT encryption levels:</p>
 <p></p>
 
 <ul>
 <li>CRYPTO frames MAY appear in packets of any encryption level except 0-RTT.</li>
-<li>CONNECTION_CLOSE and APPLICATION_CLOSE MAY appear in packets of any encryption level other than 0-RTT.</li>
-<li>PADDING and PING frames MAY appear in packets of any encryption level.</li>
+<li>CONNECTION_CLOSE MAY appear in packets of any encryption level other than 0-RTT.</li>
+<li>APPLICATION_CLOSE MAY appear in packets of any encryption level other than Initial and 0-RTT.</li>
+<li>PADDING frames MAY appear in packets of any encryption level.</li>
 <li>ACK frames MAY appear in packets of any encryption level other than 0-RTT, but can only acknowledge packets which appeared in that packet number space.</li>
 <li>STREAM frames MUST ONLY appear in the 0-RTT and 1-RTT levels.</li>
 <li>All other frame types MUST only appear at the 1-RTT levels.</li>
@@ -723,7 +725,8 @@ ul.toc li {
 <p id="rfc.section.4.1.1.p.2">Before starting the handshake QUIC provides TLS with the transport parameters (see <a href="#quic_parameters" class="xref">Section 8.2</a>) that it wishes to carry.</p>
 <p id="rfc.section.4.1.1.p.3">A QUIC client starts TLS by requesting TLS handshake octets from TLS.  The client acquires handshake octets before sending its first packet.  A QUIC server starts the process by providing TLS with the client&#8217;s handshake octets.</p>
 <p id="rfc.section.4.1.1.p.4">At any given time, the TLS stack at an endpoint will have a current sending encryption level and receiving encryption level. Each encryption level is associated with a different flow of bytes, which is reliably transmitted to the peer in CRYPTO frames. When TLS provides handshake octets to be sent, they are appended to the current flow and any packet that includes the CRYPTO frame is protected using keys from the corresponding encryption level.</p>
-<p id="rfc.section.4.1.1.p.5">When an endpoint receives a QUIC packet containing a CRYPTO frame from the network, it proceeds as follows:</p>
+<p id="rfc.section.4.1.1.p.5">QUIC takes the unprotected content of TLS handshake records as the content of CRYPTO frames. TLS record protection is not used by QUIC. QUIC assembles CRYPTO frames into QUIC packets, which are protected using QUIC packet protection.</p>
+<p id="rfc.section.4.1.1.p.6">When an endpoint receives a QUIC packet containing a CRYPTO frame from the network, it proceeds as follows:</p>
 <p></p>
 
 <ul>
@@ -731,10 +734,10 @@ ul.toc li {
 <li>If the packet is from a previously installed encryption level, it MUST not contain data which extends past the end of previously received data in that flow. Implementations MUST treat any violations of this requirement as a connection error of type PROTOCOL_VIOLATION.</li>
 <li>If the packet is from a new encryption level, it is saved for later processing by TLS.  Once TLS moves to receiving from this encryption level, saved data can be provided.  When providing data from any new encryption level to TLS, if there is data from a previous encryption level that TLS has not consumed, this MUST be treated as a connection error of type PROTOCOL_VIOLATION.</li>
 </ul>
-<p id="rfc.section.4.1.1.p.7">Each time that TLS is provided with new data, new handshake octets are requested from TLS.  TLS might not provide any octets if the handshake messages it has received are incomplete or it has no data to send.</p>
-<p id="rfc.section.4.1.1.p.8">Once the TLS handshake is complete, this is indicated to QUIC along with any final handshake octets that TLS needs to send.  TLS also provides QUIC with the transport parameters that the peer advertised during the handshake.</p>
-<p id="rfc.section.4.1.1.p.9">Once the handshake is complete, TLS becomes passive.  TLS can still receive data from its peer and respond in kind, but it will not need to send more data unless specifically requested - either by an application or QUIC.  One reason to send data is that the server might wish to provide additional or updated session tickets to a client.</p>
-<p id="rfc.section.4.1.1.p.10">When the handshake is complete, QUIC only needs to provide TLS with any data that arrives in CRYPTO streams.  In the same way that is done during the handshake, new data is requested from TLS after providing received data.</p>
+<p id="rfc.section.4.1.1.p.8">Each time that TLS is provided with new data, new handshake octets are requested from TLS.  TLS might not provide any octets if the handshake messages it has received are incomplete or it has no data to send.</p>
+<p id="rfc.section.4.1.1.p.9">Once the TLS handshake is complete, this is indicated to QUIC along with any final handshake octets that TLS needs to send.  TLS also provides QUIC with the transport parameters that the peer advertised during the handshake.</p>
+<p id="rfc.section.4.1.1.p.10">Once the handshake is complete, TLS becomes passive.  TLS can still receive data from its peer and respond in kind, but it will not need to send more data unless specifically requested - either by an application or QUIC.  One reason to send data is that the server might wish to provide additional or updated session tickets to a client.</p>
+<p id="rfc.section.4.1.1.p.11">When the handshake is complete, QUIC only needs to provide TLS with any data that arrives in CRYPTO streams.  In the same way that is done during the handshake, new data is requested from TLS after providing received data.</p>
 <p></p>
 
 <dl>

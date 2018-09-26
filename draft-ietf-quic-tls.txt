@@ -198,6 +198,8 @@ Internet-Draft                QUIC over TLS               September 2018
    transport (typically TCP) which provides sequencing and guaranteed
    delivery.
 
+   Change Cipher Spec records cannot be sent in QUIC.
+
    The TLS authenticated key exchange occurs between two entities:
    client and server.  The client initiates the exchange and the server
    responds.  If the key exchange completes successfully, both client
@@ -216,8 +218,6 @@ Internet-Draft                QUIC over TLS               September 2018
    produces shared secrets that cannot be controlled by either
    participating peer.
 
-   TLS 1.3 provides two basic handshake modes of interest to QUIC:
-
 
 
 
@@ -225,6 +225,8 @@ Thomson & Turner         Expires March 30, 2019                 [Page 4]
 
 Internet-Draft                QUIC over TLS               September 2018
 
+
+   TLS 1.3 provides two basic handshake modes of interest to QUIC:
 
    o  A full 1-RTT handshake in which the client is able to send
       application data after one round trip and the server immediately
@@ -275,8 +277,6 @@ Internet-Draft                QUIC over TLS               September 2018
 
 
 
-
-
 Thomson & Turner         Expires March 30, 2019                 [Page 5]
 
 Internet-Draft                QUIC over TLS               September 2018
@@ -315,8 +315,8 @@ Internet-Draft                QUIC over TLS               September 2018
    parameters that are critical to security and performance.
 
    Rather than a strict layering, these two protocols are co-dependent:
-   QUIC uses the TLS handshake; TLS uses the reliability and ordered
-   delivery provided by QUIC streams.
+   QUIC uses the TLS handshake; TLS uses the reliability, ordered
+   delivery, and record layer provided by QUIC.
 
    At a high level, there are two main interactions between the TLS and
    QUIC components:
@@ -395,16 +395,18 @@ Internet-Draft                QUIC over TLS               September 2018
 
 
    encryption level, whereas those associated with transferring data can
-   only appear in the 0-RTT and 1-RTT encryption levels
+   only appear in the 0-RTT and 1-RTT encryption levels:
 
    o  CRYPTO frames MAY appear in packets of any encryption level except
       0-RTT.
 
-   o  CONNECTION_CLOSE and APPLICATION_CLOSE MAY appear in packets of
-      any encryption level other than 0-RTT.
+   o  CONNECTION_CLOSE MAY appear in packets of any encryption level
+      other than 0-RTT.
 
-   o  PADDING and PING frames MAY appear in packets of any encryption
-      level.
+   o  APPLICATION_CLOSE MAY appear in packets of any encryption level
+      other than Initial and 0-RTT.
+
+   o  PADDING frames MAY appear in packets of any encryption level.
 
    o  ACK frames MAY appear in packets of any encryption level other
       than 0-RTT, but can only acknowledge packets which appeared in
@@ -438,8 +440,6 @@ Internet-Draft                QUIC over TLS               September 2018
 
    Section 6.5 of [QUIC-TRANSPORT] shows how packets at the various
    encryption levels fit into the handshake process.
-
-
 
 
 
@@ -486,18 +486,18 @@ Internet-Draft                QUIC over TLS               September 2018
    current flow and any packet that includes the CRYPTO frame is
    protected using keys from the corresponding encryption level.
 
+   QUIC takes the unprotected content of TLS handshake records as the
+   content of CRYPTO frames.  TLS record protection is not used by QUIC.
+   QUIC assembles CRYPTO frames into QUIC packets, which are protected
+   using QUIC packet protection.
+
    When an endpoint receives a QUIC packet containing a CRYPTO frame
    from the network, it proceeds as follows:
 
    o  If the packet was in the TLS receiving encryption level, sequence
       the data into the input flow as usual.  As with STREAM frames, the
       offset is used to find the proper location in the data sequence.
-      If the result of this process is that new data is available, then
-      it is delivered to TLS in order.
 
-   o  If the packet is from a previously installed encryption level, it
-      MUST not contain data which extends past the end of previously
-      received data in that flow.  Implementations MUST treat any
 
 
 
@@ -506,6 +506,12 @@ Thomson & Turner         Expires March 30, 2019                 [Page 9]
 Internet-Draft                QUIC over TLS               September 2018
 
 
+      If the result of this process is that new data is available, then
+      it is delivered to TLS in order.
+
+   o  If the packet is from a previously installed encryption level, it
+      MUST not contain data which extends past the end of previously
+      received data in that flow.  Implementations MUST treat any
       violations of this requirement as a connection error of type
       PROTOCOL_VIOLATION.
 
@@ -548,12 +554,6 @@ Internet-Draft                QUIC over TLS               September 2018
       The requirement for the server to wait for the client Finished
       message creates a dependency on that message being delivered.  A
       client can avoid the potential for head-of-line blocking that this
-      implies by sending a copy of the CRYPTO frame that carries the
-      Finished message in multiple packets.  This enables immediate
-      server processing for those packets.
-
-
-
 
 
 
@@ -561,6 +561,10 @@ Thomson & Turner         Expires March 30, 2019                [Page 10]
 
 Internet-Draft                QUIC over TLS               September 2018
 
+
+      implies by sending a copy of the CRYPTO frame that carries the
+      Finished message in multiple packets.  This enables immediate
+      server processing for those packets.
 
 4.1.2.  Encryption Level Changes
 
@@ -601,10 +605,6 @@ Internet-Draft                QUIC over TLS               September 2018
    Figure 3 summarizes the exchange between QUIC and TLS for both client
    and server.  Each arrow is tagged with the encryption level used for
    that transmission.
-
-
-
-
 
 
 
