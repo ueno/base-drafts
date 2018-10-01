@@ -956,32 +956,25 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 <p id="rfc.section.4.2.6.p.2">SETTINGS parameters are not negotiated; they describe characteristics of the sending peer, which can be used by the receiving peer. However, a negotiation can be implied by the use of SETTINGS &#8211; a peer uses SETTINGS to advertise a set of supported values. The recipient can then choose which entries from this list are also acceptable and proceed with the value it has chosen. (This choice could be announced in a field of an extension frame, or in its own value in SETTINGS.)</p>
 <p id="rfc.section.4.2.6.p.3">Different values for the same parameter can be advertised by each peer. For example, a client might be willing to consume a very large response header, while servers are more cautious about request size.</p>
 <p id="rfc.section.4.2.6.p.4">Parameters MUST NOT occur more than once.  A receiver MAY treat the presence of the same parameter more than once as a connection error of type HTTP_MALFORMED_FRAME.</p>
-<p id="rfc.section.4.2.6.p.5">The payload of a SETTINGS frame consists of zero or more parameters, each consisting of an unsigned 16-bit setting identifier and a length-prefixed binary value.</p>
+<p id="rfc.section.4.2.6.p.5">The payload of a SETTINGS frame consists of zero or more parameters, each consisting of an unsigned 16-bit setting identifier and a value which uses the QUIC variable-length integer encoding.</p>
 <div id="rfc.figure.9"></div>
 <div id="fig-ext-settings"></div>
 <pre>
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|         Identifier (16)       |            Length (i)       ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          Contents (?)                       ...
+|         Identifier (16)       |           Value (i)         ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 9: SETTINGS value format</p>
-<p id="rfc.section.4.2.6.p.6">A zero-length content indicates that the setting value is a Boolean and true.  False is indicated by the absence of the setting.</p>
-<p id="rfc.section.4.2.6.p.7">Non-zero-length values MUST be compared against the remaining length of the SETTINGS frame.  Any value which purports to cross the end of the frame MUST cause the SETTINGS frame to be considered malformed and trigger a connection error of type HTTP_MALFORMED_FRAME.</p>
-<p id="rfc.section.4.2.6.p.8">An implementation MUST ignore the contents for any SETTINGS identifier it does not understand.</p>
-<p id="rfc.section.4.2.6.p.9">SETTINGS frames always apply to a connection, never a single stream.  A SETTINGS frame MUST be sent as the first frame of either control stream (see <a href="#stream-mapping" class="xref">Section 3</a>) by each peer, and MUST NOT be sent subsequently or on any other stream. If an endpoint receives a SETTINGS frame on a different stream, the endpoint MUST respond with a connection error of type HTTP_WRONG_STREAM.  If an endpoint receives a second SETTINGS frame, the endpoint MUST respond with a connection error of type HTTP_MALFORMED_FRAME.</p>
-<p id="rfc.section.4.2.6.p.10">The SETTINGS frame affects connection state. A badly formed or incomplete SETTINGS frame MUST be treated as a connection error (<a href="#errors" class="xref">Section 6</a>) of type HTTP_MALFORMED_FRAME.</p>
+<p id="rfc.section.4.2.6.p.6">Each value MUST be compared against the remaining length of the SETTINGS frame.  Any value which purports to cross the end of the frame MUST cause the SETTINGS frame to be considered malformed and trigger a connection error of type HTTP_MALFORMED_FRAME.</p>
+<p id="rfc.section.4.2.6.p.7">An implementation MUST ignore the contents for any SETTINGS identifier it does not understand.</p>
+<p id="rfc.section.4.2.6.p.8">SETTINGS frames always apply to a connection, never a single stream.  A SETTINGS frame MUST be sent as the first frame of either control stream (see <a href="#stream-mapping" class="xref">Section 3</a>) by each peer, and MUST NOT be sent subsequently or on any other stream. If an endpoint receives a SETTINGS frame on a different stream, the endpoint MUST respond with a connection error of type HTTP_WRONG_STREAM.  If an endpoint receives a second SETTINGS frame, the endpoint MUST respond with a connection error of type HTTP_MALFORMED_FRAME.</p>
+<p id="rfc.section.4.2.6.p.9">The SETTINGS frame affects connection state. A badly formed or incomplete SETTINGS frame MUST be treated as a connection error (<a href="#errors" class="xref">Section 6</a>) of type HTTP_MALFORMED_FRAME.</p>
 <h4 id="rfc.section.4.2.6.1">
-<a href="#rfc.section.4.2.6.1">4.2.6.1.</a> <a href="#integer-encoding" id="integer-encoding">Integer encoding</a>
+<a href="#rfc.section.4.2.6.1">4.2.6.1.</a> <a href="#settings-parameters" id="settings-parameters">Defined SETTINGS Parameters</a>
 </h4>
-<p id="rfc.section.4.2.6.1.p.1">Settings which are integers use the QUIC variable-length integer encoding.</p>
-<h4 id="rfc.section.4.2.6.2">
-<a href="#rfc.section.4.2.6.2">4.2.6.2.</a> <a href="#settings-parameters" id="settings-parameters">Defined SETTINGS Parameters</a>
-</h4>
-<p id="rfc.section.4.2.6.2.p.1">The following settings are defined in HTTP/QUIC:</p>
+<p id="rfc.section.4.2.6.1.p.1">The following settings are defined in HTTP/QUIC:</p>
 <p></p>
 
 <dl>
@@ -990,16 +983,16 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 <dt>SETTINGS_MAX_HEADER_LIST_SIZE (0x6):</dt>
 <dd style="margin-left: 8">An integer with a maximum value of 2^30 - 1.  The default value is unlimited.</dd>
 </dl>
-<p id="rfc.section.4.2.6.2.p.3">Settings values of the format <samp>0x?a?a</samp> are reserved to exercise the requirement that unknown parameters be ignored.  Such settings have no defined meaning.  Endpoints SHOULD include at least one such setting in their SETTINGS frame.  Endpoints MUST NOT consider such settings to have any meaning upon receipt.</p>
-<p id="rfc.section.4.2.6.2.p.4">Because the setting has no defined meaning, the value of the setting can be any value the implementation selects.</p>
-<p id="rfc.section.4.2.6.2.p.5">Additional settings MAY be defined by extensions to HTTP/QUIC.</p>
-<h4 id="rfc.section.4.2.6.3">
-<a href="#rfc.section.4.2.6.3">4.2.6.3.</a> <a href="#initial-settings-values" id="initial-settings-values">Initial SETTINGS Values</a>
+<p id="rfc.section.4.2.6.1.p.3">Settings values of the format <samp>0x?a?a</samp> are reserved to exercise the requirement that unknown parameters be ignored.  Such settings have no defined meaning.  Endpoints SHOULD include at least one such setting in their SETTINGS frame.  Endpoints MUST NOT consider such settings to have any meaning upon receipt.</p>
+<p id="rfc.section.4.2.6.1.p.4">Because the setting has no defined meaning, the value of the setting can be any value the implementation selects.</p>
+<p id="rfc.section.4.2.6.1.p.5">Additional settings MAY be defined by extensions to HTTP/QUIC.</p>
+<h4 id="rfc.section.4.2.6.2">
+<a href="#rfc.section.4.2.6.2">4.2.6.2.</a> <a href="#initial-settings-values" id="initial-settings-values">Initial SETTINGS Values</a>
 </h4>
-<p id="rfc.section.4.2.6.3.p.1">When a 0-RTT QUIC connection is being used, the client&#8217;s initial requests will be sent before the arrival of the server&#8217;s SETTINGS frame.  Clients MUST store the settings the server provided in the session being resumed and MUST comply with stored settings until the server&#8217;s current settings are received.  Remembered settings apply to the new connection until the server&#8217;s SETTINGS frame is received.</p>
-<p id="rfc.section.4.2.6.3.p.2">A server can remember the settings that it advertised, or store an integrity-protected copy of the values in the ticket and recover the information when accepting 0-RTT data. A server uses the HTTP/QUIC settings values in determining whether to accept 0-RTT data.</p>
-<p id="rfc.section.4.2.6.3.p.3">A server MAY accept 0-RTT and subsequently provide different settings in its SETTINGS frame. If 0-RTT data is accepted by the server, its SETTINGS frame MUST NOT reduce any limits or alter any values that might be violated by the client with its 0-RTT data.</p>
-<p id="rfc.section.4.2.6.3.p.4">When a 1-RTT QUIC connection is being used, the client MUST NOT send requests prior to receiving and processing the server&#8217;s SETTINGS frame.</p>
+<p id="rfc.section.4.2.6.2.p.1">When a 0-RTT QUIC connection is being used, the client&#8217;s initial requests will be sent before the arrival of the server&#8217;s SETTINGS frame.  Clients MUST store the settings the server provided in the session being resumed and MUST comply with stored settings until the server&#8217;s current settings are received.  Remembered settings apply to the new connection until the server&#8217;s SETTINGS frame is received.</p>
+<p id="rfc.section.4.2.6.2.p.2">A server can remember the settings that it advertised, or store an integrity-protected copy of the values in the ticket and recover the information when accepting 0-RTT data. A server uses the HTTP/QUIC settings values in determining whether to accept 0-RTT data.</p>
+<p id="rfc.section.4.2.6.2.p.3">A server MAY accept 0-RTT and subsequently provide different settings in its SETTINGS frame. If 0-RTT data is accepted by the server, its SETTINGS frame MUST NOT reduce any limits or alter any values that might be violated by the client with its 0-RTT data.</p>
+<p id="rfc.section.4.2.6.2.p.4">When a 1-RTT QUIC connection is being used, the client MUST NOT send requests prior to receiving and processing the server&#8217;s SETTINGS frame.</p>
 <h3 id="rfc.section.4.2.7">
 <a href="#rfc.section.4.2.7">4.2.7.</a> <a href="#frame-push-promise" id="frame-push-promise">PUSH_PROMISE</a>
 </h3>
@@ -1156,10 +1149,10 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 </h1>
 <p id="rfc.section.7.p.1">HTTP/QUIC permits extension of the protocol.  Within the limitations described in this section, protocol extensions can be used to provide additional services or alter any aspect of the protocol.  Extensions are effective only within the scope of a single HTTP/QUIC connection.</p>
 <p id="rfc.section.7.p.2">This applies to the protocol elements defined in this document.  This does not affect the existing options for extending HTTP, such as defining new methods, status codes, or header fields.</p>
-<p id="rfc.section.7.p.3">Extensions are permitted to use new frame types (<a href="#frames" class="xref">Section 4.2</a>), new settings (<a href="#settings-parameters" class="xref">Section 4.2.6.2</a>), new error codes (<a href="#errors" class="xref">Section 6</a>), or new unidirectional stream types (<a href="#unidirectional-streams" class="xref">Section 3.3</a>).  Registries are established for managing these extension points: frame types (<a href="#iana-frames" class="xref">Section 10.3</a>), settings (<a href="#iana-settings" class="xref">Section 10.4</a>), error codes (<a href="#iana-error-codes" class="xref">Section 10.5</a>), and stream types (<a href="#iana-stream-types" class="xref">Section 10.6</a>).</p>
+<p id="rfc.section.7.p.3">Extensions are permitted to use new frame types (<a href="#frames" class="xref">Section 4.2</a>), new settings (<a href="#settings-parameters" class="xref">Section 4.2.6.1</a>), new error codes (<a href="#errors" class="xref">Section 6</a>), or new unidirectional stream types (<a href="#unidirectional-streams" class="xref">Section 3.3</a>).  Registries are established for managing these extension points: frame types (<a href="#iana-frames" class="xref">Section 10.3</a>), settings (<a href="#iana-settings" class="xref">Section 10.4</a>), error codes (<a href="#iana-error-codes" class="xref">Section 10.5</a>), and stream types (<a href="#iana-stream-types" class="xref">Section 10.6</a>).</p>
 <p id="rfc.section.7.p.4">Implementations MUST ignore unknown or unsupported values in all extensible protocol elements.  Implementations MUST discard frames and unidirectional streams that have unknown or unsupported types.  This means that any of these extension points can be safely used by extensions without prior arrangement or negotiation.</p>
 <p id="rfc.section.7.p.5">Extensions that could change the semantics of existing protocol components MUST be negotiated before being used.  For example, an extension that changes the layout of the HEADERS frame cannot be used until the peer has given a positive signal that this is acceptable. In this case, it could also be necessary to coordinate when the revised layout comes into effect.</p>
-<p id="rfc.section.7.p.6">This document doesn&#8217;t mandate a specific method for negotiating the use of an extension but notes that a setting (<a href="#settings-parameters" class="xref">Section 4.2.6.2</a>) could be used for that purpose.  If both peers set a value that indicates willingness to use the extension, then the extension can be used.  If a setting is used for extension negotiation, the default value MUST be defined in such a fashion that the extension is disabled if the setting is omitted.</p>
+<p id="rfc.section.7.p.6">This document doesn&#8217;t mandate a specific method for negotiating the use of an extension but notes that a setting (<a href="#settings-parameters" class="xref">Section 4.2.6.1</a>) could be used for that purpose.  If both peers set a value that indicates willingness to use the extension, then the extension can be used.  If a setting is used for extension negotiation, the default value MUST be defined in such a fashion that the extension is disabled if the setting is omitted.</p>
 <h1 id="rfc.section.8">
 <a href="#rfc.section.8">8.</a> <a href="#considerations-for-transitioning-from-http2" id="considerations-for-transitioning-from-http2">Considerations for Transitioning from HTTP/2</a>
 </h1>
@@ -1217,7 +1210,7 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 
 <dl>
 <dt>SETTINGS_HEADER_TABLE_SIZE:</dt>
-<dd style="margin-left: 8">See <a href="#settings-parameters" class="xref">Section 4.2.6.2</a>.</dd>
+<dd style="margin-left: 8">See <a href="#settings-parameters" class="xref">Section 4.2.6.1</a>.</dd>
 <dt>SETTINGS_ENABLE_PUSH:</dt>
 <dd style="margin-left: 8">This is removed in favor of the MAX_PUSH_ID which provides a more granular control over server push.</dd>
 <dt>SETTINGS_MAX_CONCURRENT_STREAMS:</dt>
@@ -1227,9 +1220,10 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 <dt>SETTINGS_MAX_FRAME_SIZE:</dt>
 <dd style="margin-left: 8">This setting has no equivalent in HTTP/QUIC.  Specifying it in the SETTINGS frame is an error.</dd>
 <dt>SETTINGS_MAX_HEADER_LIST_SIZE:</dt>
-<dd style="margin-left: 8">See <a href="#settings-parameters" class="xref">Section 4.2.6.2</a>.</dd>
+<dd style="margin-left: 8">See <a href="#settings-parameters" class="xref">Section 4.2.6.1</a>.</dd>
 </dl>
-<p id="rfc.section.8.3.p.5">Settings need to be defined separately for HTTP/2 and HTTP/QUIC.  The IDs of settings defined in <a href="#RFC7540" class="xref">[RFC7540]</a> have been reserved for simplicity.  See <a href="#iana-settings" class="xref">Section 10.4</a>.</p>
+<p id="rfc.section.8.3.p.5">In HTTP/QUIC, setting values are variable-length integers (6, 14, 30, or 62 bits long) rather than fixed-length 32-bit fields as in HTTP/2.  This will often produce a shorter encoding, but can produce a longer encoding for settings which use the full 32-bit space.  Settings ported from HTTP/2 might choose to redefine the format of their settings to avoid using the 62-bit encoding.</p>
+<p id="rfc.section.8.3.p.6">Settings need to be defined separately for HTTP/2 and HTTP/QUIC.  The IDs of settings defined in <a href="#RFC7540" class="xref">[RFC7540]</a> have been reserved for simplicity.  See <a href="#iana-settings" class="xref">Section 10.4</a>.</p>
 <h2 id="rfc.section.8.4">
 <a href="#rfc.section.8.4">8.4.</a> <a href="#http2-error-codes" id="http2-error-codes">HTTP/2 Error Codes</a>
 </h2>
@@ -1427,7 +1421,7 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 <tr>
 <td class="left">NUM_PLACEHOLDERS</td>
 <td class="center">0x3</td>
-<td class="left"><a href="#settings-parameters" class="xref">Section 4.2.6.2</a></td>
+<td class="left"><a href="#settings-parameters" class="xref">Section 4.2.6.1</a></td>
 </tr>
 <tr>
 <td class="left">Reserved</td>
@@ -1442,7 +1436,7 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 <tr>
 <td class="left">MAX_HEADER_LIST_SIZE</td>
 <td class="center">0x6</td>
-<td class="left"><a href="#settings-parameters" class="xref">Section 4.2.6.2</a></td>
+<td class="left"><a href="#settings-parameters" class="xref">Section 4.2.6.1</a></td>
 </tr>
 </tbody>
 </table>
@@ -1453,7 +1447,7 @@ Alt-Svc: hq=":49288";quic="1,1abadaba,51303334,0"
 <dt>Name:</dt>
 <dd style="margin-left: 8">Reserved - GREASE</dd>
 <dt>Specification:</dt>
-<dd style="margin-left: 8"><a href="#settings-parameters" class="xref">Section 4.2.6.2</a></dd>
+<dd style="margin-left: 8"><a href="#settings-parameters" class="xref">Section 4.2.6.1</a></dd>
 </dl>
 <h2 id="rfc.section.10.5">
 <a href="#rfc.section.10.5">10.5.</a> <a href="#iana-error-codes" id="iana-error-codes">Error Codes</a>
