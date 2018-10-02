@@ -285,8 +285,11 @@ ul.toc li {
 <link href="#rfc.section.2" rel="Chapter" title="2 Header Tables">
 <link href="#rfc.section.2.1" rel="Chapter" title="2.1 Static Table">
 <link href="#rfc.section.2.2" rel="Chapter" title="2.2 Dynamic Table">
-<link href="#rfc.section.2.2.1" rel="Chapter" title="2.2.1 Absolute and Relative Indexing">
-<link href="#rfc.section.2.2.2" rel="Chapter" title="2.2.2 Post-Base Indexing">
+<link href="#rfc.section.2.2.1" rel="Chapter" title="2.2.1 Maximum Table Size">
+<link href="#rfc.section.2.2.2" rel="Chapter" title="2.2.2 Calculating Table Size">
+<link href="#rfc.section.2.2.3" rel="Chapter" title="2.2.3 Absolute Indexing">
+<link href="#rfc.section.2.2.4" rel="Chapter" title="2.2.4 Relative Indexing">
+<link href="#rfc.section.2.2.5" rel="Chapter" title="2.2.5 Post-Base Indexing">
 <link href="#rfc.section.2.3" rel="Chapter" title="2.3 Avoiding Head-of-Line Blocking in HTTP/QUIC">
 <link href="#rfc.section.2.3.1" rel="Chapter" title="2.3.1 State Synchronization">
 <link href="#rfc.section.3" rel="Chapter" title="3 Conventions and Definitions">
@@ -413,9 +416,15 @@ ul.toc li {
 </li>
 <li>2.2.   <a href="#rfc.section.2.2">Dynamic Table</a>
 </li>
-<ul><li>2.2.1.   <a href="#rfc.section.2.2.1">Absolute and Relative Indexing</a>
+<ul><li>2.2.1.   <a href="#rfc.section.2.2.1">Maximum Table Size</a>
 </li>
-<li>2.2.2.   <a href="#rfc.section.2.2.2">Post-Base Indexing</a>
+<li>2.2.2.   <a href="#rfc.section.2.2.2">Calculating Table Size</a>
+</li>
+<li>2.2.3.   <a href="#rfc.section.2.2.3">Absolute Indexing</a>
+</li>
+<li>2.2.4.   <a href="#rfc.section.2.2.4">Relative Indexing</a>
+</li>
+<li>2.2.5.   <a href="#rfc.section.2.2.5">Post-Base Indexing</a>
 </li>
 </ul><li>2.3.   <a href="#rfc.section.2.3">Avoiding Head-of-Line Blocking in HTTP/QUIC</a>
 </li>
@@ -533,20 +542,37 @@ ul.toc li {
 </h2>
 <p id="rfc.section.2.2.p.1">The dynamic table consists of a list of header fields maintained in first-in, first-out order.  The dynamic table is initially empty.  Entries are added by instructions on the encoder stream (see <a href="#encoder-stream" class="xref">Section 5.2</a>).</p>
 <p id="rfc.section.2.2.p.2">The maximum size of the dynamic table can be modified by the encoder, subject to a decoder-controlled limit (see <a href="#configuration" class="xref">Section 4</a> and <a href="#size-update" class="xref">Section 5.2.4</a>).  The initial maximum size is determined by the corresponding setting when HTTP requests or responses are first permitted to be sent. For clients using 0-RTT data in HTTP/QUIC, the table size is the remembered value of the setting, even if the server later specifies a larger maximum in its SETTINGS frame.  For HTTP/QUIC servers and HTTP/QUIC clients when 0-RTT is not attempted or is rejected, the initial maximum table size is the value of the setting in the peer&#8217;s SETTINGS frame.</p>
-<p id="rfc.section.2.2.p.3">Before a new entry is added to the dynamic table, entries are evicted from the end of the dynamic table until the size of the dynamic table is less than or equal to (maximum size - new entry size) or until the table is empty.</p>
+<p id="rfc.section.2.2.p.3">Before a new entry is added to the dynamic table, entries are evicted from the end of the dynamic table until the size of the dynamic table is less than or equal to (maximum size - new entry size) or until the table is empty. The encoder MUST NOT evict a dynamic table entry unless it has first been acknowledged by the decoder.</p>
 <p id="rfc.section.2.2.p.4">If the size of the new entry is less than or equal to the maximum size, that entry is added to the table.  It is an error to attempt to add an entry that is larger than the maximum size; this MUST be treated as a connection error of type <samp>HTTP_QPACK_ENCODER_STREAM_ERROR</samp>.</p>
 <p id="rfc.section.2.2.p.5">A new entry can reference an entry in the dynamic table that will be evicted when adding this new entry into the dynamic table.  Implementations are cautioned to avoid deleting the referenced name if the referenced entry is evicted from the dynamic table prior to inserting the new entry.</p>
 <p id="rfc.section.2.2.p.6">The dynamic table can contain duplicate entries (i.e., entries with the same name and same value).  Therefore, duplicate entries MUST NOT be treated as an error by a decoder.</p>
-<p id="rfc.section.2.2.p.7">The encoder decides how to update the dynamic table and as such can control how much memory is used by the dynamic table.  To limit the memory requirements of the decoder, the dynamic table size is strictly bounded.</p>
-<p id="rfc.section.2.2.p.8">The decoder determines the maximum size that the encoder is permitted to use for the dynamic table.  In HTTP/QUIC, this value is determined by the SETTINGS_HEADER_TABLE_SIZE setting (see <a href="#configuration" class="xref">Section 4</a>).</p>
-<p id="rfc.section.2.2.p.9">An encoder can choose to use less capacity than this maximum size (see <a href="#size-update" class="xref">Section 5.2.4</a>), but the chosen size MUST stay lower than or equal to the maximum set by the decoder.  Whenever the maximum size for the dynamic table is reduced, entries are evicted from the end of the dynamic table until the size of the dynamic table is less than or equal to the maximum size.</p>
-<p id="rfc.section.2.2.p.10">This mechanism can be used to completely clear entries from the dynamic table by setting a maximum size of 0, which can subsequently be restored.</p>
 <h3 id="rfc.section.2.2.1">
-<a href="#rfc.section.2.2.1">2.2.1.</a> <a href="#indexing" id="indexing">Absolute and Relative Indexing</a>
+<a href="#rfc.section.2.2.1">2.2.1.</a> <a href="#maximum-table-size" id="maximum-table-size">Maximum Table Size</a>
 </h3>
-<p id="rfc.section.2.2.1.p.1">Each entry possesses both an absolute index which is fixed for the lifetime of that entry and a relative index which changes over time based on the context of the reference. The first entry inserted has an absolute index of &#8220;1&#8221;; indices increase sequentially with each insertion.</p>
-<p id="rfc.section.2.2.1.p.2">The relative index begins at zero and increases in the opposite direction from the absolute index.  Determining which entry has a relative index of &#8220;0&#8221; depends on the context of the reference.</p>
-<p id="rfc.section.2.2.1.p.3">On the encoder stream, a relative index of &#8220;0&#8221; always refers to the most recently inserted value in the dynamic table.  Note that this means the entry referenced by a given relative index will change while interpreting instructions on the encoder stream.</p>
+<p id="rfc.section.2.2.1.p.1">The encoder decides how to update the dynamic table and as such can control how much memory is used by the dynamic table.  To limit the memory requirements of the decoder, the dynamic table size is strictly bounded.</p>
+<p id="rfc.section.2.2.1.p.2">The decoder determines the maximum size that the encoder is permitted to use for the dynamic table.  In HTTP/QUIC, this value is determined by the SETTINGS_HEADER_TABLE_SIZE setting (see <a href="#configuration" class="xref">Section 4</a>).</p>
+<p id="rfc.section.2.2.1.p.3">An encoder can choose to use less capacity than this maximum size (see <a href="#size-update" class="xref">Section 5.2.4</a>), but the chosen size MUST stay lower than or equal to the maximum set by the decoder.  Whenever the maximum size for the dynamic table is reduced, entries are evicted from the end of the dynamic table until the size of the dynamic table is less than or equal to the maximum size.</p>
+<p id="rfc.section.2.2.1.p.4">This mechanism can be used to completely clear entries from the dynamic table by setting a maximum size of 0, which can subsequently be restored.</p>
+<h3 id="rfc.section.2.2.2">
+<a href="#rfc.section.2.2.2">2.2.2.</a> <a href="#calculating-table-size" id="calculating-table-size">Calculating Table Size</a>
+</h3>
+<p id="rfc.section.2.2.2.p.1">The size of the dynamic table is the sum of the size of its entries.</p>
+<p id="rfc.section.2.2.2.p.2">The size of an entry is the sum of its name&#8217;s length in octets (as defined in <a href="#string-literals" class="xref">Section 5.1.2</a>), its value&#8217;s length in octets, and 32.</p>
+<p id="rfc.section.2.2.2.p.3">The size of an entry is calculated using the length of its name and value without any Huffman encoding applied.</p>
+<p><samp>MaxEntries</samp> is the maximum number of entries that the dynamic table can have.  The smallest entry has empty name and value strings and has the size of 32.  The MaxEntries is calculated as</p>
+<pre>
+   MaxEntries = floor( MaxTableSize / 32 )
+</pre>
+<p id="rfc.section.2.2.2.p.5">MaxTableSize is the maximum size of the dynamic table as specified by the decoder (see <a href="#maximum-table-size" class="xref">Section 2.2.1</a>).</p>
+<h3 id="rfc.section.2.2.3">
+<a href="#rfc.section.2.2.3">2.2.3.</a> <a href="#indexing" id="indexing">Absolute Indexing</a>
+</h3>
+<p id="rfc.section.2.2.3.p.1">Each entry possesses both an absolute index which is fixed for the lifetime of that entry and a relative index which changes over time based on the context of the reference. The first entry inserted has an absolute index of &#8220;1&#8221;; indices increase sequentially with each insertion.</p>
+<h3 id="rfc.section.2.2.4">
+<a href="#rfc.section.2.2.4">2.2.4.</a> <a href="#relative-indexing" id="relative-indexing">Relative Indexing</a>
+</h3>
+<p id="rfc.section.2.2.4.p.1">The relative index begins at zero and increases in the opposite direction from the absolute index.  Determining which entry has a relative index of &#8220;0&#8221; depends on the context of the reference.</p>
+<p id="rfc.section.2.2.4.p.2">On the encoder stream, a relative index of &#8220;0&#8221; always refers to the most recently inserted value in the dynamic table.  Note that this means the entry referenced by a given relative index will change while interpreting instructions on the encoder stream.</p>
 <pre>
     +---+---------------+-----------+
     | n |      ...      |   d + 1   |  Absolute Index
@@ -561,7 +587,7 @@ n = count of entries inserted
 d = count of entries dropped
 </pre>
 <p class="figure">Example Dynamic Table Indexing - Control Stream</p>
-<p id="rfc.section.2.2.1.p.4">Because frames from request streams can be delivered out of order with instructions on the encoder stream, relative indices are relative to the Base Index at the beginning of the header block (see <a href="#absolute-index" class="xref">Section 5.4.1</a>). The Base Index is an absolute index. When interpreting the rest of the frame, the entry identified by Base Index has a relative index of zero.  The relative indices of entries do not change while interpreting headers on a request or push stream.</p>
+<p id="rfc.section.2.2.4.p.3">Because frames from request streams can be delivered out of order with instructions on the encoder stream, relative indices are relative to the Base Index at the beginning of the header block (see <a href="#absolute-index" class="xref">Section 5.4.1</a>). The Base Index is an absolute index. When interpreting the rest of the frame, the entry identified by Base Index has a relative index of zero.  The relative indices of entries do not change while interpreting headers on a request or push stream.</p>
 <pre>
              Base Index
                  |
@@ -576,10 +602,10 @@ n = count of entries inserted
 d = count of entries dropped
 </pre>
 <p class="figure">Example Dynamic Table Indexing - Relative Index on Request Stream</p>
-<h3 id="rfc.section.2.2.2">
-<a href="#rfc.section.2.2.2">2.2.2.</a> <a href="#post-base-indexing" id="post-base-indexing">Post-Base Indexing</a>
+<h3 id="rfc.section.2.2.5">
+<a href="#rfc.section.2.2.5">2.2.5.</a> <a href="#post-base-indexing" id="post-base-indexing">Post-Base Indexing</a>
 </h3>
-<p id="rfc.section.2.2.2.p.1">A header block on the request stream can reference entries added after the entry identified by the Base Index. This allows an encoder to process a header block in a single pass and include references to entries added while processing this (or other) header blocks. Newly added entries are referenced using Post-Base instructions. Indices for Post-Base instructions increase in the same direction as absolute indices, but the zero value is one higher than the Base Index.</p>
+<p id="rfc.section.2.2.5.p.1">A header block on the request stream can reference entries added after the entry identified by the Base Index. This allows an encoder to process a header block in a single pass and include references to entries added while processing this (or other) header blocks. Newly added entries are referenced using Post-Base instructions. Indices for Post-Base instructions increase in the same direction as absolute indices, but the zero value is one higher than the Base Index.</p>
 <pre>
              Base Index
                  |
@@ -594,8 +620,8 @@ n = count of entries inserted
 d = count of entries dropped
 </pre>
 <p class="figure">Example Dynamic Table Indexing - Post-Base Index on Request Stream</p>
-<p id="rfc.section.2.2.2.p.2">If the decoder encounters a reference on a request or push stream to a dynamic table entry which has already been dropped or which has an absolute index greater than the declared Largest Reference (see <a href="#absolute-index" class="xref">Section 5.4.1</a>), it MUST treat this as a stream error of type <samp>HTTP_QPACK_DECOMPRESSION_FAILED</samp>.</p>
-<p id="rfc.section.2.2.2.p.3">If the decoder encounters a reference on the encoder stream to a dynamic table entry which has already been dropped, it MUST treat this as a connection error of type <samp>HTTP_QPACK_ENCODER_STREAM_ERROR</samp>.</p>
+<p id="rfc.section.2.2.5.p.2">If the decoder encounters a reference on a request or push stream to a dynamic table entry which has already been dropped or which has an absolute index greater than the declared Largest Reference (see <a href="#absolute-index" class="xref">Section 5.4.1</a>), it MUST treat this as a stream error of type <samp>HTTP_QPACK_DECOMPRESSION_FAILED</samp>.</p>
+<p id="rfc.section.2.2.5.p.3">If the decoder encounters a reference on the encoder stream to a dynamic table entry which has already been dropped, it MUST treat this as a connection error of type <samp>HTTP_QPACK_ENCODER_STREAM_ERROR</samp>.</p>
 <h2 id="rfc.section.2.3">
 <a href="#rfc.section.2.3">2.3.</a> <a href="#overview-hol-avoidance" id="overview-hol-avoidance">Avoiding Head-of-Line Blocking in HTTP/QUIC</a>
 </h2>
@@ -833,18 +859,38 @@ d = count of entries dropped
 +-------------------------------+
 </pre>
 <p class="figure">Figure 6: Frame Payload</p>
-<p><samp>Largest Reference</samp> identifies the largest absolute dynamic index referenced in the block.  Blocking decoders use the Largest Reference to determine when it is safe to process the rest of the block.</p>
-<p><samp>Base Index</samp> is used to resolve references in the dynamic table as described in <a href="#indexing" class="xref">Section 2.2.1</a>.</p>
-<p id="rfc.section.5.4.1.p.4">To save space, Base Index is encoded relative to Largest Reference using a one-bit sign and the <samp>Delta Base Index</samp> value.  A sign bit of 0 indicates that the Base Index has an absolute index that is greater than or equal to the Largest Reference; the value of Delta Base Index is added to the Largest Reference to determine the absolute value of the Base Index.  A sign bit of 1 indicates that the Base Index is less than the Largest Reference.  That is:</p>
+<p><samp>Largest Reference</samp> identifies the largest absolute dynamic index referenced in the block.  Blocking decoders use the Largest Reference to determine when it is safe to process the rest of the block.  If Largest Reference is greater than zero, the encoder transforms it as follows before encoding:</p>
+<pre>
+   LargestReference = LargestReference mod 2*MaxEntries + 1
+</pre>
+<p id="rfc.section.5.4.1.p.3">The decoder reconstructs the Largest Reference using the following algorithm:</p>
+<pre>
+   if LargestReference &gt; 0:
+      LargestReference -= 1
+      CurrentWrapped = TableLargestAbsoluteIndex mod 2*MaxEntries
+
+      if CurrentWrapped &gt;= LargestReference + MaxEntries:
+         # Largest Reference wrapped around 1 extra time
+         LargestReference += 2*MaxEntries
+      else if CurrentWrapped + MaxEntries &lt; LargestReference
+         # Decoder wrapped around 1 extra time
+         CurrentWrapped += 2*MaxEntries
+
+      LargestReference +=
+         (TableLargestAbsoluteIndex - CurrentWrapped)
+</pre>
+<p id="rfc.section.5.4.1.p.4">TableLargestAbsoluteIndex is the Absolute Index of the most recently inserted item in the decoder&#8217;s dynamic table.  This encoding limits the length of the prefix on long-lived connections.</p>
+<p><samp>Base Index</samp> is used to resolve references in the dynamic table as described in <a href="#relative-indexing" class="xref">Section 2.2.4</a>.</p>
+<p id="rfc.section.5.4.1.p.6">To save space, Base Index is encoded relative to Largest Reference using a one-bit sign and the <samp>Delta Base Index</samp> value.  A sign bit of 0 indicates that the Base Index has an absolute index that is greater than or equal to the Largest Reference; the value of Delta Base Index is added to the Largest Reference to determine the absolute value of the Base Index.  A sign bit of 1 indicates that the Base Index is less than the Largest Reference.  That is:</p>
 <pre>
    if sign == 0:
       baseIndex = largestReference + deltaBaseIndex
    else:
       baseIndex = largestReference - deltaBaseIndex
 </pre>
-<p id="rfc.section.5.4.1.p.5">A single-pass encoder is expected to determine the absolute value of Base Index before encoding a header block.  If the encoder inserted entries in the dynamic table while encoding the header block, Largest Reference will be greater than Base Index, so the encoded difference is negative and the sign bit is set to 1.  If the header block did not reference the most recent entry in the table and did not insert any new entries, Base Index will be greater than the Largest Reference, so the delta will be positive and the sign bit is set to 0.</p>
-<p id="rfc.section.5.4.1.p.6">An encoder that produces table updates before encoding a header block might set Largest Reference and Base Index to the same value.  When Largest Reference and Base Index are equal, the Delta Base Index is encoded with a zero sign bit.  A sign bit set to 1 when the Delta Base Index is 0 MUST be treated as a decoder error.</p>
-<p id="rfc.section.5.4.1.p.7">A header block that does not reference the dynamic table can use any value for Base Index; setting both Largest Reference and Base Index to zero is the most efficient encoding.</p>
+<p id="rfc.section.5.4.1.p.7">A single-pass encoder is expected to determine the absolute value of Base Index before encoding a header block.  If the encoder inserted entries in the dynamic table while encoding the header block, Largest Reference will be greater than Base Index, so the encoded difference is negative and the sign bit is set to 1.  If the header block did not reference the most recent entry in the table and did not insert any new entries, Base Index will be greater than the Largest Reference, so the delta will be positive and the sign bit is set to 0.</p>
+<p id="rfc.section.5.4.1.p.8">An encoder that produces table updates before encoding a header block might set Largest Reference and Base Index to the same value.  When Largest Reference and Base Index are equal, the Delta Base Index is encoded with a zero sign bit.  A sign bit set to 1 when the Delta Base Index is 0 MUST be treated as a decoder error.</p>
+<p id="rfc.section.5.4.1.p.9">A header block that does not reference the dynamic table can use any value for Base Index; setting both Largest Reference and Base Index to zero is the most efficient encoding.</p>
 <h3 id="rfc.section.5.4.2">
 <a href="#rfc.section.5.4.2">5.4.2.</a> <a href="#instructions" id="instructions">Instructions</a>
 </h3>
@@ -863,7 +909,7 @@ d = count of entries dropped
 <h4 id="rfc.section.5.4.2.2">
 <a href="#rfc.section.5.4.2.2">5.4.2.2.</a> <a href="#indexed-header-field-with-post-base-index" id="indexed-header-field-with-post-base-index">Indexed Header Field With Post-Base Index</a>
 </h4>
-<p id="rfc.section.5.4.2.2.p.1">If the entry is in the dynamic table with an absolute index greater than Base Index, the representation starts with the &#8216;0001&#8217; 4-bit pattern, followed by the post-base index (see <a href="#post-base-indexing" class="xref">Section 2.2.2</a>) of the matching header field, represented as an integer with a 4-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>).</p>
+<p id="rfc.section.5.4.2.2.p.1">If the entry is in the dynamic table with an absolute index greater than Base Index, the representation starts with the &#8216;0001&#8217; 4-bit pattern, followed by the post-base index (see <a href="#post-base-indexing" class="xref">Section 2.2.5</a>) of the matching header field, represented as an integer with a 4-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>).</p>
 <pre>
   0   1   2   3   4   5   6   7
 +---+---+---+---+---+---+---+---+
@@ -892,7 +938,7 @@ d = count of entries dropped
 <h4 id="rfc.section.5.4.2.4">
 <a href="#rfc.section.5.4.2.4">5.4.2.4.</a> <a href="#literal-header-field-with-post-base-name-reference" id="literal-header-field-with-post-base-name-reference">Literal Header Field With Post-Base Name Reference</a>
 </h4>
-<p id="rfc.section.5.4.2.4.p.1">For entries in the dynamic table with an absolute index greater than Base Index, the header field name is represented using the post-base index of that entry (see <a href="#post-base-indexing" class="xref">Section 2.2.2</a>) encoded as an integer with a 3-bit prefix.</p>
+<p id="rfc.section.5.4.2.4.p.1">For entries in the dynamic table with an absolute index greater than Base Index, the header field name is represented using the post-base index of that entry (see <a href="#post-base-indexing" class="xref">Section 2.2.5</a>) encoded as an integer with a 3-bit prefix.</p>
 <pre>
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
