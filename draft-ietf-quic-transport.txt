@@ -96,7 +96,7 @@ Table of Contents
      4.9.  Coalescing Packets  . . . . . . . . . . . . . . . . . . .  22
      4.10. Connection ID Encoding  . . . . . . . . . . . . . . . . .  23
      4.11. Packet Numbers  . . . . . . . . . . . . . . . . . . . . .  24
-   5.  Frames and Frame Types  . . . . . . . . . . . . . . . . . . .  26
+   5.  Frames and Frame Types  . . . . . . . . . . . . . . . . . . .  27
      5.1.  Extension Frames  . . . . . . . . . . . . . . . . . . . .  29
    6.  Life of a Connection  . . . . . . . . . . . . . . . . . . . .  29
      6.1.  Connection ID . . . . . . . . . . . . . . . . . . . . . .  30
@@ -1143,12 +1143,19 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    of 0.  Handshake packets are their own packet number space.  Packet
    numbers are incremented normally for other Handshake packets.
 
-   Servers MUST NOT send more than three datagrams including Initial and
-   Handshake packets without receiving a packet from a verified source
-   address.  Source addresses can be verified through an address
-   validation token (delivered via a Retry packet or a NEW_TOKEN frame)
-   or by receiving any message from the client encrypted using the
-   Handshake keys.
+   Servers MUST NOT send more than three times as many bytes as the
+   number of bytes received prior to verifying the client's address.
+   Source addresses can be verified through an address validation token
+   (delivered via a Retry packet or a NEW_TOKEN frame) or by processing
+   any message from the client encrypted using the Handshake keys.  This
+   limit exists to mitigate amplification attacks.
+
+   In order to prevent this limit causing a handshake deadlock, the
+   client SHOULD always send a packet upon a handshake timeout, as
+   described in [QUIC-RECOVERY].  If the client has no data to
+   retransmit and does not have Handshake keys, it SHOULD send an
+   Initial packet in a UDP datagram of at least 1200 octets.  If the
+   client has Handshake keys, it SHOULD send a Handshake packet.
 
    The payload of this packet contains CRYPTO frames and could contain
    PADDING, or ACK frames.  Handshake packets MAY contain
@@ -1162,13 +1169,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    headers; all packets protected with 1-RTT keys are sent with short
    headers.  The different packet types explicitly indicate the
    encryption level and therefore the keys that are used to remove
-   packet protection.  0-RTT and 1-RTT protected packets share a single
-   packet number space.
-
-   Packets protected with handshake keys only use packet protection to
-   ensure that the sender of the packet is on the network path.  This
-   packet protection is not effective confidentiality protection; any
-   entity that receives the Initial packet from a client can recover the
 
 
 
@@ -1178,6 +1178,13 @@ Iyengar & Thomson         Expires April 5, 2019                [Page 21]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   packet protection.  0-RTT and 1-RTT protected packets share a single
+   packet number space.
+
+   Packets protected with handshake keys only use packet protection to
+   ensure that the sender of the packet is on the network path.  This
+   packet protection is not effective confidentiality protection; any
+   entity that receives the Initial packet from a client can recover the
    keys necessary to remove packet protection or to generate packets
    that will be successfully authenticated.
 
@@ -1220,19 +1227,17 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    short header does not include a length, so it will always be the last
    packet included in a UDP datagram.
 
-   Senders MUST NOT coalesce QUIC packets with different Destination
-   Connection IDs into a single UDP datagram.  Receivers SHOULD ignore
-   any subsequent packets with a different Destination Connection ID
-   than the first packet in the datagram.
-
-
-
 
 
 Iyengar & Thomson         Expires April 5, 2019                [Page 22]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   Senders MUST NOT coalesce QUIC packets with different Destination
+   Connection IDs into a single UDP datagram.  Receivers SHOULD ignore
+   any subsequent packets with a different Destination Connection ID
+   than the first packet in the datagram.
 
    Every QUIC packet that is coalesced into a single UDP datagram is
    separate and complete.  Though the values of some fields in the
@@ -1276,12 +1281,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Any additional changes are not permitted; if subsequent packets of
    those types include a different Source Connection ID, they MUST be
    discarded.  This avoids problems that might arise from stateless
-   processing of multiple Initial packets producing different connection
-   IDs.
 
-   Short headers only include the Destination Connection ID and omit the
-   explicit length.  The length of the Destination Connection ID field
-   is expected to be known to endpoints.
 
 
 
@@ -1289,6 +1289,13 @@ Iyengar & Thomson         Expires April 5, 2019                [Page 23]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   processing of multiple Initial packets producing different connection
+   IDs.
+
+   Short headers only include the Destination Connection ID and omit the
+   explicit length.  The length of the Destination Connection ID field
+   is expected to be known to endpoints.
 
    Endpoints using a connection-ID based load balancer could agree with
    the load balancer on a fixed or minimum length and on an encoding for
@@ -1331,13 +1338,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    As described in [QUIC-TLS], each packet type uses different
    protection keys.
 
-   Conceptually, a packet number space is the context in which a packet
-   can be processed and acknowledged.  Initial packets can only be sent
-   with Initial packet protection keys and acknowledged in packets which
-   are also Initial packets.  Similarly, Handshake packets are sent at
-   the Handshake encryption level and can only be acknowledged in
-   Handshake packets.
-
 
 
 
@@ -1345,6 +1345,13 @@ Iyengar & Thomson         Expires April 5, 2019                [Page 24]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   Conceptually, a packet number space is the context in which a packet
+   can be processed and acknowledged.  Initial packets can only be sent
+   with Initial packet protection keys and acknowledged in packets which
+   are also Initial packets.  Similarly, Handshake packets are sent at
+   the Handshake encryption level and can only be acknowledged in
+   Handshake packets.
 
    This enforces cryptographic separation between the data sent in the
    different packet sequence number spaces.  Each packet number space
@@ -1387,13 +1394,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    [QUIC-TLS].  Protection of the packet number is removed prior to
    recovering the full packet number.  The full packet number is
    reconstructed at the receiver based on the number of significant bits
-   present, the value of those bits, and the largest packet number
-   received on a successfully authenticated packet.  Recovering the full
-   packet number is necessary to successfully remove packet protection.
-
-   Once packet number protection is removed, the packet number is
-   decoded by finding the packet number value that is closest to the
-   next expected packet.  The next expected packet is the highest
 
 
 
@@ -1402,6 +1402,13 @@ Iyengar & Thomson         Expires April 5, 2019                [Page 25]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   present, the value of those bits, and the largest packet number
+   received on a successfully authenticated packet.  Recovering the full
+   packet number is necessary to successfully remove packet protection.
+
+   Once packet number protection is removed, the packet number is
+   decoded by finding the packet number value that is closest to the
+   next expected packet.  The next expected packet is the highest
    received packet number plus one.  For example, if the highest
    successfully authenticated packet had a packet number of 0xaa82f30e,
    then a packet containing a 14-bit value of 0x9b3 will be decoded as
@@ -1439,13 +1446,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    number.  The Retry packet (Section 4.4) has special rules for
    populating the packet number field.
 
-5.  Frames and Frame Types
-
-   The payload of all packets, after removing packet protection,
-   consists of a sequence of frames, as shown in Figure 6.  Version
-   Negotiation and Stateless Reset do not contain frames.
-
-
 
 
 
@@ -1457,6 +1457,12 @@ Iyengar & Thomson         Expires April 5, 2019                [Page 26]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+5.  Frames and Frame Types
+
+   The payload of all packets, after removing packet protection,
+   consists of a sequence of frames, as shown in Figure 6.  Version
+   Negotiation and Stateless Reset do not contain frames.
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1494,12 +1500,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    flags.  For all other frames, the Frame Type field simply identifies
    the frame.  These frames are explained in more detail as they are
    referenced later in the document.
-
-
-
-
-
-
 
 
 
