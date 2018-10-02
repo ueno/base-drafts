@@ -95,7 +95,7 @@ Table of Contents
      4.5.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  13
        4.5.1.  Constants of interest . . . . . . . . . . . . . . . .  13
        4.5.2.  Variables of interest . . . . . . . . . . . . . . . .  14
-       4.5.3.  Initialization  . . . . . . . . . . . . . . . . . . .  15
+       4.5.3.  Initialization  . . . . . . . . . . . . . . . . . . .  16
        4.5.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  16
        4.5.5.  On Receiving an Acknowledgment  . . . . . . . . . . .  17
        4.5.6.  On Packet Acknowledgment  . . . . . . . . . . . . . .  19
@@ -607,8 +607,8 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    When an acknowledgment is received for a packet sent on an RTO event,
    any unacknowledged packets with lower packet numbers than those
-   acknowledged MUST be marked as lost.
-
+   acknowledged MUST be marked as lost.  If an acknowledgement for a
+   packet sent on an RTO is received at the same time packets sent prior
 
 
 
@@ -617,6 +617,9 @@ Iyengar & Swett           Expires April 5, 2019                [Page 11]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
+
+   to the first RTO are acknowledged, the RTO is considered spurious and
+   standard loss detection rules apply.
 
    A packet sent when an RTO timer expires MAY carry new data if
    available or unacknowledged data to potentially reduce recovery time.
@@ -662,9 +665,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
    In order to quickly complete the handshake and avoid spurious
    retransmissions due to handshake timeouts, handshake packets SHOULD
    use a very short ack delay, such as 1ms.  ACK frames MAY be sent
-   immediately when the crypto stack indicates all data for that
-   encryption level has been received.
-
 
 
 
@@ -673,6 +673,9 @@ Iyengar & Swett           Expires April 5, 2019                [Page 12]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
+
+   immediately when the crypto stack indicates all data for that
+   encryption level has been received.
 
 4.4.2.  ACK Ranges
 
@@ -718,9 +721,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
    kMaxTLPs:  Maximum number of tail loss probes before an RTO expires.
       The RECOMMENDED value is 2.
 
-   kReorderingThreshold:  Maximum reordering in packet number space
-      before FACK style loss detection considers a packet lost.  The
-      RECOMMENDED value is 3.
 
 
 
@@ -729,6 +729,10 @@ Iyengar & Swett           Expires April 5, 2019                [Page 13]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
+
+   kReorderingThreshold:  Maximum reordering in packet number space
+      before FACK style loss detection considers a packet lost.  The
+      RECOMMENDED value is 3.
 
    kTimeReorderingFraction:  Maximum reordering in time space before
       time based loss detection considers a packet lost.  In fraction of
@@ -775,16 +779,15 @@ Internet-Draft             QUIC Loss Detection              October 2018
    time_of_last_sent_retransmittable_packet:  The time the most recent
       retransmittable packet was sent.
 
-   time_of_last_sent_handshake_packet:  The time the most recent packet
-      containing a CRYPTO frame was sent.
-
-
 
 
 Iyengar & Swett           Expires April 5, 2019                [Page 14]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
+
+   time_of_last_sent_handshake_packet:  The time the most recent packet
+      containing a CRYPTO frame was sent.
 
    largest_sent_packet:  The packet number of the most recently sent
       packet.
@@ -828,10 +831,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
       lost.  A sent_packets data structure is maintained per packet
       number space, and ACK processing only applies to a single space.
 
-4.5.3.  Initialization
 
-   At the beginning of the connection, initialize the loss detection
-   variables as follows:
 
 
 
@@ -841,6 +841,11 @@ Iyengar & Swett           Expires April 5, 2019                [Page 15]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
+
+4.5.3.  Initialization
+
+   At the beginning of the connection, initialize the loss detection
+   variables as follows:
 
       loss_detection_timer.reset()
       handshake_count = 0
@@ -885,11 +890,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
    o  sent_bytes: The number of bytes sent in the packet, not including
       UDP or IP overhead, but including QUIC framing overhead.
 
-   Pseudocode for OnPacketSent follows:
-
-
-
-
 
 
 
@@ -897,6 +897,8 @@ Iyengar & Swett           Expires April 5, 2019                [Page 16]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
+
+   Pseudocode for OnPacketSent follows:
 
     OnPacketSent(packet_number, ack_only, in_flight,
                  is_handshake_packet, sent_bytes):
@@ -919,8 +921,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
    packets.
 
    Pseudocode for OnAckReceived and UpdateRtt follow:
-
-
 
 
 
