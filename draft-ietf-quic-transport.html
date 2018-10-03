@@ -1490,23 +1490,23 @@ ul.toc li {
 <h2 id="rfc.section.6.1">
 <a href="#rfc.section.6.1">6.1.</a> <a href="#connection-id" id="connection-id">Connection ID</a>
 </h2>
-<p id="rfc.section.6.1.p.1">Each connection possesses a set of identifiers, any of which could be used to distinguish it from other connections.  Connection IDs are selected independently in each direction.</p>
+<p id="rfc.section.6.1.p.1">Each connection possesses a set of identifiers, any of which could be used to distinguish it from other connections.  Connection IDs are selected independently in each direction.  Each Connection ID has an associated sequence number to assist in deduplicating messages.</p>
 <p id="rfc.section.6.1.p.2">The primary function of a connection ID is to ensure that changes in addressing at lower protocol layers (UDP, IP, and below) don&#8217;t cause packets for a QUIC connection to be delivered to the wrong endpoint.  Each endpoint selects connection IDs using an implementation-specific (and perhaps deployment-specific) method which will allow packets with that connection ID to be routed back to the endpoint and identified by the endpoint upon receipt.</p>
-<p id="rfc.section.6.1.p.3">Connection IDs MUST NOT contain any information that can be used to correlate them with other connection IDs for the same connection.</p>
+<p id="rfc.section.6.1.p.3">Connection IDs MUST NOT contain any information that can be used to correlate them with other connection IDs for the same connection.  As a trivial example, this means the same connection ID MUST NOT be issued more than once on the same connection.</p>
 <p id="rfc.section.6.1.p.4">A zero-length connection ID MAY be used when the connection ID is not needed for routing and the address/port tuple of packets is sufficient to identify a connection. An endpoint whose peer has selected a zero-length connection ID MUST continue to use a zero-length connection ID for the lifetime of the connection and MUST NOT send packets from any other local address.</p>
 <p id="rfc.section.6.1.p.5">When an endpoint has requested a non-zero-length connection ID, it needs to ensure that the peer has a supply of connection IDs from which to choose for packets sent to the endpoint.  These connection IDs are supplied by the endpoint using the NEW_CONNECTION_ID frame (<a href="#frame-new-connection-id" class="xref">Section 7.13</a>).</p>
 <h3 id="rfc.section.6.1.1">
 <a href="#rfc.section.6.1.1">6.1.1.</a> <a href="#issuing-connection-ids" id="issuing-connection-ids">Issuing Connection IDs</a>
 </h3>
-<p id="rfc.section.6.1.1.p.1">The initial connection ID issued by an endpoint is the Source Connection ID during the handshake.  Subsequent connection IDs are communicated to the peer using NEW_CONNECTION_ID frames (<a href="#frame-new-connection-id" class="xref">Section 7.13</a>).</p>
+<p id="rfc.section.6.1.1.p.1">The initial connection ID issued by an endpoint is the Source Connection ID during the handshake.  The sequence number of the initial connection ID is 0. If the preferred_address transport parameter is sent, the sequence number of the supplied connection ID is 1. Subsequent connection IDs are communicated to the peer using NEW_CONNECTION_ID frames (<a href="#frame-new-connection-id" class="xref">Section 7.13</a>), and the sequence number on each newly-issued connection ID MUST increase by 1. The connection ID randomly selected by the client in the Initial packet and any connection ID provided by a Reset packet are not assigned sequence numbers unless a server opts to retain them as its initial connection ID.</p>
 <p id="rfc.section.6.1.1.p.2">When an endpoint issues a connection ID, it MUST accept packets that carry this connection ID for the duration of the connection or until its peer invalidates the connection ID via a RETIRE_CONNECTION_ID frame (<a href="#frame-retire-connection-id" class="xref">Section 7.14</a>).</p>
 <p id="rfc.section.6.1.1.p.3">An endpoint SHOULD ensure that its peer has a sufficient number of available and unused connection IDs.  While each endpoint independently chooses how many connection IDs to issue, endpoints SHOULD provide and maintain at least eight connection IDs.  The endpoint can do this by always supplying a new connection ID when a connection ID is retired by its peer or when the endpoint receives a packet with a previously unused connection ID.  Endpoints that initiate migration and require non-zero-length connection IDs SHOULD provide their peers with new connection IDs before migration, or risk the peer closing the connection.</p>
 <h3 id="rfc.section.6.1.2">
-<a href="#rfc.section.6.1.2">6.1.2.</a> <a href="#consuming-and-retiring-connection-ids" id="consuming-and-retiring-connection-ids">Consuming and Retiring Connection IDs</a>
+<a href="#rfc.section.6.1.2">6.1.2.</a> <a href="#retiring-cids" id="retiring-cids">Consuming and Retiring Connection IDs</a>
 </h3>
 <p id="rfc.section.6.1.2.p.1">An endpoint can change the connection ID it uses for a peer to another available one at any time during the connection.  An endpoint consumes connection IDs in response to a migrating peer, see <a href="#migration-linkability" class="xref">Section 6.11.5</a> for more.</p>
 <p id="rfc.section.6.1.2.p.2">An endpoint maintains a set of connection IDs received from its peer, any of which it can use when sending packets.  When the endpoint wishes to remove a connection ID from use, it sends a RETIRE_CONNECTION_ID frame to its peer, indicating that the peer might bring a new connection ID into circulation using the NEW_CONNECTION_ID frame.</p>
-<p id="rfc.section.6.1.2.p.3">An endpoint that retires a connection ID should retain knowledge of that connection ID for a period of time after sending the RETIRE_CONNECTION_ID frame, or until that frame is acknowledged.  A recommended time is three times the current retransmission timeout (RTO) interval as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.  This prevents a retransmission of a NEW_CONNECTION_ID frame from incorrectly renewing a previously retired connection ID.</p>
+<p id="rfc.section.6.1.2.p.3">An endpoint that retires a connection ID can retain knowledge of that connection ID for a period of time after sending the RETIRE_CONNECTION_ID frame, or until that frame is acknowledged.</p>
 <p id="rfc.section.6.1.2.p.4">As discussed in <a href="#migration-linkability" class="xref">Section 6.11.5</a>, each connection ID MUST be used on packets sent from only one local address.  An endpoint that migrates away from a local address SHOULD retire all connection IDs used on that address once it no longer plans to use that address.</p>
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#packet-handling" id="packet-handling">Matching Packets to Connections</a>
@@ -2346,7 +2346,9 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Length (8)  |          Connection ID (32..144)            ...
+|   Length (8)  |            Sequence Number (i)              ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    Connection ID (32..144)                  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                                                               +
@@ -2363,14 +2365,16 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <dl>
 <dt>Length:</dt>
 <dd style="margin-left: 8">An 8-bit unsigned integer containing the length of the connection ID.  Values less than 4 and greater than 18 are invalid and MUST be treated as a connection error of type PROTOCOL_VIOLATION.</dd>
+<dt>Sequence Number:</dt>
+<dd style="margin-left: 8">The sequence number assigned to the connection ID by the sender.  See <a href="#issuing-connection-ids" class="xref">Section 6.1.1</a>.</dd>
 <dt>Connection ID:</dt>
 <dd style="margin-left: 8">A connection ID of the specified length.</dd>
 <dt>Stateless Reset Token:</dt>
 <dd style="margin-left: 8">A 128-bit value that will be used for a stateless reset when the associated connection ID is used (see <a href="#stateless-reset" class="xref">Section 6.13.4</a>).</dd>
 </dl>
 <p id="rfc.section.7.13.p.5">An endpoint MUST NOT send this frame if it currently requires that its peer send packets with a zero-length Destination Connection ID.  Changing the length of a connection ID to or from zero-length makes it difficult to identify when the value of the connection ID changed.  An endpoint that is sending packets with a zero-length Destination Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a connection error of type PROTOCOL_VIOLATION.</p>
-<p id="rfc.section.7.13.p.6">Transmission errors, timeouts and retransmissions might cause the same NEW_CONNECTION_ID frame to be received multiple times. Receipt of the same frame multiple times MUST NOT be treated as a connection error.</p>
-<p id="rfc.section.7.13.p.7">If an endpoint receives a NEW_CONNECTION_ID frame that repeats the same connection ID as a previous NEW_CONNECTION_ID frame but with a different Stateless Reset Token or a different Sequence, the endpoint MAY treat that receipt as a connection error of type PROTOCOL_VIOLATION.  Similarly, if an endpoint receives a NEW_CONNECTION_ID frame that repeats the Source Connection ID used by the peer during the initial handshake, it MUST treat that receipt as a connection error of type PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.7.13.p.6">Transmission errors, timeouts and retransmissions might cause the same NEW_CONNECTION_ID frame to be received multiple times.  Receipt of the same frame multiple times MUST NOT be treated as a connection error.  A receiver can use the sequence number supplied in the NEW_CONNECTION_ID frame to identify new connection IDs from old ones.</p>
+<p id="rfc.section.7.13.p.7">If an endpoint receives a NEW_CONNECTION_ID frame that repeats a previously issued connection ID with a different Stateless Reset Token or a different sequence number, the endpoint MAY treat that receipt as a connection error of type PROTOCOL_VIOLATION.</p>
 <h2 id="rfc.section.7.14">
 <a href="#rfc.section.7.14">7.14.</a> <a href="#frame-retire-connection-id" id="frame-retire-connection-id">RETIRE_CONNECTION_ID Frame</a>
 </h2>
@@ -2381,19 +2385,17 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|   Length (8)  |          Connection ID (32..144)            ...
+|                      Sequence Number (i)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p id="rfc.section.7.14.p.4">The fields are:</p>
 <p></p>
 
 <dl>
-<dt>Length:</dt>
-<dd style="margin-left: 8">An 8-bit unsigned integer containing the length of the connection ID.</dd>
-<dt>Connection ID:</dt>
-<dd style="margin-left: 8">A connection ID of the specified length.</dd>
+<dt>Sequence Number:</dt>
+<dd style="margin-left: 8">The sequence number of the connection ID being retired.  See <a href="#retiring-cids" class="xref">Section 6.1.2</a>.</dd>
 </dl>
-<p id="rfc.section.7.14.p.6">Receipt of a RETIRE_CONNECTION_ID frame containing a connection ID that was not previously sent to the peer MAY be treated as a connection error of type PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.7.14.p.6">Receipt of a RETIRE_CONNECTION_ID frame containing a sequence number greater than any previously sent to the peer MAY be treated as a connection error of type PROTOCOL_VIOLATION.</p>
 <p id="rfc.section.7.14.p.7">An endpoint cannot send this frame if it was provided with a zero-length connection ID by its peer.  An endpoint that provides a zero-length connection ID MUST treat receipt of a RETIRE_CONNECTION_ID frame as a connection error of type PROTOCOL_VIOLATION.</p>
 <h2 id="rfc.section.7.15">
 <a href="#rfc.section.7.15">7.15.</a> <a href="#frame-stop-sending" id="frame-stop-sending">STOP_SENDING Frame</a>
@@ -2712,7 +2714,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <li>Blocked signals are carried in BLOCKED, STREAM_BLOCKED, and STREAM_ID_BLOCKED frames. BLOCKED streams have connection scope, STREAM_BLOCKED frames have stream scope, and STREAM_ID_BLOCKED frames are scoped to a specific stream type. New frames are sent if packets containing the most recent frame for a scope is lost, but only while the endpoint is blocked on the corresponding limit. These frames always include the limit that is causing blocking at the time that they are transmitted.</li>
 <li>A liveness or path validation check using PATH_CHALLENGE frames is sent periodically until a matching PATH_RESPONSE frame is received or until there is no remaining need for liveness or path validation checking. PATH_CHALLENGE frames include a different payload each time they are sent.</li>
 <li>Responses to path validation using PATH_RESPONSE frames are sent just once.  A new PATH_CHALLENGE frame will be sent if another PATH_RESPONSE frame is needed.</li>
-<li>New connection IDs are sent in NEW_CONNECTION_ID frames and retransmitted if the packet containing them is lost.  Likewise, retired connection IDs are sent in RETIRE_CONNECTION_ID frames and retransmitted if the packet containing them is lost.</li>
+<li>New connection IDs are sent in NEW_CONNECTION_ID frames and retransmitted if the packet containing them is lost.  Retransmissions of this frame carry the same sequence number value.  Likewise, retired connection IDs are sent in RETIRE_CONNECTION_ID frames and retransmitted if the packet containing them is lost.</li>
 <li>PADDING frames contain no information, so lost PADDING frames do not require repair.</li>
 </ul>
 <p id="rfc.section.8.2.p.4">Upon detecting losses, a sender MUST take appropriate congestion control action.  The details of loss detection and congestion control are described in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.</p>
