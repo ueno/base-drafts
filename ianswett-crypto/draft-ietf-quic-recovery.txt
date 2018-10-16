@@ -473,12 +473,10 @@ Internet-Draft             QUIC Loss Detection              October 2018
    At the beginning, there are no prior RTT samples within a connection.
    Resumed connections over the same network SHOULD use the previous
    connection's final smoothed RTT value as the resumed connection's
-   initial RTT.  When an acknowledgement is received, a new RTT is
-   computed and the timer SHOULD be set for twice the newly computed
-   smoothed RTT.
-
-   If no previous RTT is available, or if the network changes, the
-   initial RTT SHOULD be set to 100ms.
+   initial RTT.  If no previous RTT is available, or if the network
+   changes, the initial RTT SHOULD be set to 100ms.  When an
+   acknowledgement is received, a new RTT is computed and the timer
+   SHOULD be set for twice the newly computed smoothed RTT.
 
    When CRYPTO frames are sent in Initial or Handshake packets, the
    sender SHOULD set a timer for the crypto timeout period.  Upon
@@ -496,7 +494,9 @@ Internet-Draft             QUIC Loss Detection              October 2018
    A Retry or Version Negotiation packet causes a client to send another
    Initial packet, effectively restarting the connection process.
 
-
+   Either packet indicates that the Initial was received but not
+   processed.  Neither packet can be treated as an acknowledgment for
+   the Initial, but they MAY be used to improve the RTT estimate.
 
 
 
@@ -505,10 +505,6 @@ Iyengar & Swett          Expires April 19, 2019                 [Page 9]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
-
-   Either packet indicates that the Initial was received but not
-   processed.  Neither packet can be treated as an acknowledgment for
-   the Initial, but they MAY be used to improve the RTT estimate.
 
 4.3.2.  Tail Loss Probe
 
@@ -555,16 +551,16 @@ Internet-Draft             QUIC Loss Detection              October 2018
    network prior to establishing any packet loss, prior unacknowledged
    packets SHOULD NOT be marked as lost when a TLP timer expires.
 
+   A sender may not know that a packet being sent is a tail packet.
+   Consequently, a sender may have to arm or adjust the TLP timer on
+   every sent retransmittable packet.
+
 
 
 Iyengar & Swett          Expires April 19, 2019                [Page 10]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
-
-   A sender may not know that a packet being sent is a tail packet.
-   Consequently, a sender may have to arm or adjust the TLP timer on
-   every sent retransmittable packet.
 
 4.3.3.  Retransmission Timeout
 
@@ -609,7 +605,11 @@ Internet-Draft             QUIC Loss Detection              October 2018
    any unacknowledged packets with lower packet numbers than those
    acknowledged MUST be marked as lost.  If an acknowledgement for a
    packet sent on an RTO is received at the same time packets sent prior
+   to the first RTO are acknowledged, the RTO is considered spurious and
+   standard loss detection rules apply.
 
+   A packet sent when an RTO timer expires MAY carry new data if
+   available or unacknowledged data to potentially reduce recovery time.
 
 
 
@@ -618,11 +618,6 @@ Iyengar & Swett          Expires April 19, 2019                [Page 11]
 Internet-Draft             QUIC Loss Detection              October 2018
 
 
-   to the first RTO are acknowledged, the RTO is considered spurious and
-   standard loss detection rules apply.
-
-   A packet sent when an RTO timer expires MAY carry new data if
-   available or unacknowledged data to potentially reduce recovery time.
    Since this packet is sent as a probe into the network prior to
    establishing any packet loss, prior unacknowledged packets SHOULD NOT
    be marked as lost.
@@ -665,6 +660,11 @@ Internet-Draft             QUIC Loss Detection              October 2018
    In order to quickly complete the handshake and avoid spurious
    retransmissions due to handshake timeouts, handshake packets SHOULD
    use a very short ack delay, such as 1ms.  ACK frames MAY be sent
+   immediately when the crypto stack indicates all data for that
+   encryption level has been received.
+
+
+
 
 
 
@@ -673,9 +673,6 @@ Iyengar & Swett          Expires April 19, 2019                [Page 12]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
-
-   immediately when the crypto stack indicates all data for that
-   encryption level has been received.
 
 4.4.2.  ACK Ranges
 
@@ -721,6 +718,9 @@ Internet-Draft             QUIC Loss Detection              October 2018
    kMaxTLPs:  Maximum number of tail loss probes before an RTO expires.
       The RECOMMENDED value is 2.
 
+   kReorderingThreshold:  Maximum reordering in packet number space
+      before FACK style loss detection considers a packet lost.  The
+      RECOMMENDED value is 3.
 
 
 
@@ -729,10 +729,6 @@ Iyengar & Swett          Expires April 19, 2019                [Page 13]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
-
-   kReorderingThreshold:  Maximum reordering in packet number space
-      before FACK style loss detection considers a packet lost.  The
-      RECOMMENDED value is 3.
 
    kTimeReorderingFraction:  Maximum reordering in time space before
       time based loss detection considers a packet lost.  In fraction of
@@ -779,15 +775,16 @@ Internet-Draft             QUIC Loss Detection              October 2018
    time_of_last_sent_crypto_packet:  The time the most recent packet
       containing a CRYPTO frame was sent.
 
+   largest_sent_packet:  The packet number of the most recently sent
+      packet.
+
+
 
 
 Iyengar & Swett          Expires April 19, 2019                [Page 14]
 
 Internet-Draft             QUIC Loss Detection              October 2018
 
-
-   largest_sent_packet:  The packet number of the most recently sent
-      packet.
 
    largest_acked_packet:  The largest packet number acknowledged in an
       ACK frame.
@@ -832,6 +829,9 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    At the beginning of the connection, initialize the loss detection
    variables as follows:
+
+
+
 
 
 
