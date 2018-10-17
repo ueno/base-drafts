@@ -85,7 +85,7 @@ Table of Contents
        4.2.1.  Fast Retransmit . . . . . . . . . . . . . . . . . . .   7
        4.2.2.  Early Retransmit  . . . . . . . . . . . . . . . . . .   8
      4.3.  Timer-based Detection . . . . . . . . . . . . . . . . . .   9
-       4.3.1.  Crypto Handshake Timeout  . . . . . . . . . . . . . .   9
+       4.3.1.  Crypto Retransmission Timeout . . . . . . . . . . . .   9
        4.3.2.  Tail Loss Probe . . . . . . . . . . . . . . . . . . .  10
        4.3.3.  Retransmission Timeout  . . . . . . . . . . . . . . .  11
      4.4.  Generating Acknowledgements . . . . . . . . . . . . . . .  12
@@ -461,10 +461,10 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    Timer-based loss detection recovers from losses that cannot be
    handled by ack-based loss detection.  It uses a single timer which
-   switches between a crypto handshake retransmission timer, a Tail Loss
-   Probe timer and Retransmission Timeout mechanisms.
+   switches between a crypto retransmission timer, a Tail Loss Probe
+   timer and Retransmission Timeout mechanisms.
 
-4.3.1.  Crypto Handshake Timeout
+4.3.1.  Crypto Retransmission Timeout
 
    Data in CRYPTO frames is critical to QUIC transport and crypto
    negotiation, so a more aggressive timeout is used to retransmit it.
@@ -484,8 +484,8 @@ Internet-Draft             QUIC Loss Detection              October 2018
    crypto timeout period.  Upon timeout, the sender MUST retransmit all
    unacknowledged CRYPTO data if possible.
 
-   Until the server has confirmed the path, it must not send more than 3
-   times the number of received bytes, as specified in the
+   Until the server has validated the client's address on the path, the
+   number of bytes it can send is limited, as specified in the
    [QUIC-TRANSPORT].  If not all unacknowledged CRYPTO data can be sent,
    then all CRYPTO data in Initial encryption should be retransmitted.
    If no bytes may be sent, then no alarm should be armed until bytes
@@ -493,7 +493,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    On each consecutive expiration of the crypto timer without receiving
    an acknowledgement for a new packet, the sender SHOULD double the
-   crypto handshake timeout and set a timer for this period.
+   crypto retransmission timeout and set a timer for this period.
 
    When crypto packets are outstanding, the TLP and RTO timers are not
    active.
@@ -677,7 +677,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
 4.4.1.  Crypto Handshake Data
 
    In order to quickly complete the handshake and avoid spurious
-   retransmissions due to crypto handshake timeouts, crypto packets
+   retransmissions due to crypto retransmission timeouts, crypto packets
    SHOULD use a very short ack delay, such as 1ms.  ACK frames MAY be
    sent immediately when the crypto stack indicates all data for that
    encryption level has been received.
@@ -764,8 +764,8 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    loss_detection_timer:  Multi-modal timer used for loss detection.
 
-   handshake_count:  The number of times all unacknowledged handshake
-      data has been retransmitted without receiving an ack.
+   crypto_count:  The number of times all unacknowledged CRYPTO data has
+      been retransmitted without receiving an ack.
 
    tlp_count:  The number of times a tail loss probe has been sent
       without receiving an ack.
@@ -848,7 +848,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
    variables as follows:
 
       loss_detection_timer.reset()
-      handshake_count = 0
+      crypto_count = 0
       tlp_count = 0
       rto_count = 0
       if (kUsingTimeLossDetection)
@@ -976,7 +976,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
          if (rto_count > 0 &&
                smallest_newly_acked > largest_sent_before_rto):
            OnRetransmissionTimeoutVerified(smallest_newly_acked)
-         handshake_count = 0
+         crypto_count = 0
          tlp_count = 0
          rto_count = 0
 
@@ -1124,7 +1124,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
       OnLossDetectionTimeout():
         if (crypto packets are outstanding):
-          // Crypto handshake timeout.
+          // Crypto retransmission timeout.
           RetransmitUnackedCryptoData()
           crypto_count++
         else if (loss_time != 0):
