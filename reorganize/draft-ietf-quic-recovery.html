@@ -605,6 +605,8 @@ ul.toc li {
 <dd style="margin-left: 8">All frames besides ACK or PADDING are considered retransmittable.</dd>
 <dt>Retransmittable Packets:</dt>
 <dd style="margin-left: 8">Packets that contain retransmittable frames elicit an ACK from the receiver and are called retransmittable packets.</dd>
+<dt>Crypto Packets:</dt>
+<dd style="margin-left: 8">Packets containing CRYPTO data sent in Initial or Handshake packets.</dd>
 </dl>
 <h1 id="rfc.section.3">
 <a href="#rfc.section.3">3.</a> <a href="#design-of-the-quic-transmission-machinery" id="design-of-the-quic-transmission-machinery">Design of the QUIC Transmission Machinery</a>
@@ -683,17 +685,15 @@ ul.toc li {
 <h2 id="rfc.section.4.3">
 <a href="#rfc.section.4.3">4.3.</a> <a href="#timer-based-detection" id="timer-based-detection">Timer-based Detection</a>
 </h2>
-<p id="rfc.section.4.3.p.1">Timer-based loss detection recovers from losses that cannot be handled by ack-based loss detection.  It uses a single timer which switches between a handshake retransmission timer, a Tail Loss Probe timer and Retransmission Timeout mechanisms.</p>
+<p id="rfc.section.4.3.p.1">Timer-based loss detection recovers from losses that cannot be handled by ack-based loss detection.  It uses a single timer which switches between a crypto handshake retransmission timer, a Tail Loss Probe timer and Retransmission Timeout mechanisms.</p>
 <h3 id="rfc.section.4.3.1">
 <a href="#rfc.section.4.3.1">4.3.1.</a> <a href="#crypto-handshake-timeout" id="crypto-handshake-timeout">Crypto Handshake Timeout</a>
 </h3>
-<p id="rfc.section.4.3.1.p.1">Data in CRYPTO frames is critical to QUIC transport and crypto negotiation, so a more aggressive timeout is used to retransmit it.  Below, the term &#8220;handshake packet&#8221; is used to refer to packets containing CRYPTO frames, not packets with the specific long header packet type Handshake.</p>
-<p id="rfc.section.4.3.1.p.2">The initial handshake timeout SHOULD be set to twice the initial RTT.</p>
-<p id="rfc.section.4.3.1.p.3">At the beginning, there are no prior RTT samples within a connection.  Resumed connections over the same network SHOULD use the previous connection&#8217;s final smoothed RTT value as the resumed connection&#8217;s initial RTT.</p>
-<p id="rfc.section.4.3.1.p.4">If no previous RTT is available, or if the network changes, the initial RTT SHOULD be set to 100ms.</p>
-<p id="rfc.section.4.3.1.p.5">When CRYPTO frames are sent, the sender SHOULD set a timer for the handshake timeout period.  Upon timeout, the sender MUST retransmit all unacknowledged CRYPTO data by calling RetransmitAllUnackedHandshakeData(). On each consecutive expiration of the handshake timer without receiving an acknowledgement for a new packet, the sender SHOULD double the handshake timeout and set a timer for this period.</p>
-<p id="rfc.section.4.3.1.p.6">When CRYPTO frames are outstanding, the TLP and RTO timers are not active unless the CRYPTO frames were sent at 1-RTT encryption.</p>
-<p id="rfc.section.4.3.1.p.7">When an acknowledgement is received for a handshake packet, the new RTT is computed and the timer SHOULD be set for twice the newly computed smoothed RTT.</p>
+<p id="rfc.section.4.3.1.p.1">Data in CRYPTO frames is critical to QUIC transport and crypto negotiation, so a more aggressive timeout is used to retransmit it.</p>
+<p id="rfc.section.4.3.1.p.2">The initial crypto retransmission timeout SHOULD be set to twice the initial RTT.</p>
+<p id="rfc.section.4.3.1.p.3">At the beginning, there are no prior RTT samples within a connection.  Resumed connections over the same network SHOULD use the previous connection&#8217;s final smoothed RTT value as the resumed connection&#8217;s initial RTT.  If no previous RTT is available, or if the network changes, the initial RTT SHOULD be set to 100ms.  When an acknowledgement is received, a new RTT is computed and the timer SHOULD be set for twice the newly computed smoothed RTT.</p>
+<p id="rfc.section.4.3.1.p.4">When crypto packets are sent, the sender SHOULD set a timer for the crypto timeout period.  Upon timeout, the sender MUST retransmit all unacknowledged CRYPTO data by calling RetransmitAllUnackedCryptoData(). On each consecutive expiration of the crypto timer without receiving an acknowledgement for a new packet, the sender SHOULD double the crypto handshake timeout and set a timer for this period.</p>
+<p id="rfc.section.4.3.1.p.5">When crypto packets are outstanding, the TLP and RTO timers are not active.</p>
 <h4 id="rfc.section.4.3.1.1">
 <a href="#rfc.section.4.3.1.1">4.3.1.1.</a> <a href="#retry-and-version-negotiation" id="retry-and-version-negotiation">Retry and Version Negotiation</a>
 </h4>
@@ -745,7 +745,7 @@ ul.toc li {
 <h3 id="rfc.section.4.4.1">
 <a href="#rfc.section.4.4.1">4.4.1.</a> <a href="#crypto-handshake-data" id="crypto-handshake-data">Crypto Handshake Data</a>
 </h3>
-<p id="rfc.section.4.4.1.p.1">In order to quickly complete the handshake and avoid spurious retransmissions due to handshake timeouts, handshake packets SHOULD use a very short ack delay, such as 1ms.  ACK frames MAY be sent immediately when the crypto stack indicates all data for that encryption level has been received.</p>
+<p id="rfc.section.4.4.1.p.1">In order to quickly complete the handshake and avoid spurious retransmissions due to crypto handshake timeouts, crypto packets SHOULD use a very short ack delay, such as 1ms.  ACK frames MAY be sent immediately when the crypto stack indicates all data for that encryption level has been received.</p>
 <h3 id="rfc.section.4.4.2">
 <a href="#rfc.section.4.4.2">4.4.2.</a> <a href="#ack-ranges" id="ack-ranges">ACK Ranges</a>
 </h3>
@@ -803,8 +803,8 @@ ul.toc li {
 <dd style="margin-left: 8">The last packet number sent prior to the first retransmission timeout.</dd>
 <dt>time_of_last_sent_retransmittable_packet:</dt>
 <dd style="margin-left: 8">The time the most recent retransmittable packet was sent.</dd>
-<dt>time_of_last_sent_handshake_packet:</dt>
-<dd style="margin-left: 8">The time the most recent packet containing a CRYPTO frame was sent.</dd>
+<dt>time_of_last_sent_crypto_packet:</dt>
+<dd style="margin-left: 8">The time the most recent crypto packet was sent.</dd>
 <dt>largest_sent_packet:</dt>
 <dd style="margin-left: 8">The packet number of the most recently sent packet.</dd>
 <dt>largest_acked_packet:</dt>
@@ -851,7 +851,7 @@ ul.toc li {
    min_rtt = infinite
    largest_sent_before_rto = 0
    time_of_last_sent_retransmittable_packet = 0
-   time_of_last_sent_handshake_packet = 0
+   time_of_last_sent_crypto_packet = 0
    largest_sent_packet = 0
 </pre>
 <h3 id="rfc.section.4.5.4">
@@ -864,21 +864,21 @@ ul.toc li {
 <li>packet_number: The packet number of the sent packet.</li>
 <li>ack_only: A boolean that indicates whether a packet contains only ACK or PADDING frame(s).  If true, it is still expected an ack will be received for this packet, but it is not retransmittable.</li>
 <li>in_flight: A boolean that indicates whether the packet counts towards bytes in flight.</li>
-<li>is_handshake_packet: A boolean that indicates whether the packet contains cryptographic handshake messages critical to the completion of the QUIC handshake. In this version of QUIC, this includes any packet with the long header that includes a CRYPTO frame.</li>
+<li>is_crypto_packet: A boolean that indicates whether the packet contains cryptographic handshake messages critical to the completion of the QUIC handshake. In this version of QUIC, this includes any packet with the long header that includes a CRYPTO frame.</li>
 <li>sent_bytes: The number of bytes sent in the packet, not including UDP or IP overhead, but including QUIC framing overhead.</li>
 </ul>
 <p id="rfc.section.4.5.4.p.3">Pseudocode for OnPacketSent follows:</p>
 <pre>
  OnPacketSent(packet_number, ack_only, in_flight,
-              is_handshake_packet, sent_bytes):
+              is_crypto_packet, sent_bytes):
    largest_sent_packet = packet_number
    sent_packets[packet_number].packet_number = packet_number
    sent_packets[packet_number].time = now
    sent_packets[packet_number].ack_only = ack_only
    sent_packets[packet_number].in_flight = in_flight
    if !ack_only:
-     if is_handshake_packet:
-       time_of_last_sent_handshake_packet = now
+     if is_crypto_packet:
+       time_of_last_sent_crypto_packet = now
      time_of_last_sent_retransmittable_packet = now
      OnPacketSentCC(sent_bytes)
      sent_packets[packet_number].bytes = sent_bytes
@@ -957,16 +957,16 @@ ul.toc li {
 </h3>
 <p id="rfc.section.4.5.7.p.1">QUIC loss detection uses a single timer for all timer-based loss detection.  The duration of the timer is based on the timer&#8217;s mode, which is set in the packet and timer events further below.  The function SetLossDetectionTimer defined below shows how the single timer is set.</p>
 <h4 id="rfc.section.4.5.7.1">
-<a href="#rfc.section.4.5.7.1">4.5.7.1.</a> <a href="#handshake-timer" id="handshake-timer">Handshake Timer</a>
+<a href="#rfc.section.4.5.7.1">4.5.7.1.</a> <a href="#crypto-handshake-timer" id="crypto-handshake-timer">Crypto Handshake Timer</a>
 </h4>
-<p id="rfc.section.4.5.7.1.p.1">When a connection has unacknowledged handshake data, the handshake timer is set and when it expires, all unacknowledgedd handshake data is retransmitted.</p>
+<p id="rfc.section.4.5.7.1.p.1">When a connection has unacknowledged crypto packets, the crypto handshake timer is set and when it expires, all unacknowledged CRYPTO data is retransmitted.</p>
 <p id="rfc.section.4.5.7.1.p.2">When stateless rejects are in use, the connection is considered immediately closed once a reject is sent, so no timer is set to retransmit the reject.</p>
 <p id="rfc.section.4.5.7.1.p.3">Version negotiation packets are always stateless, and MUST be sent once per handshake packet that uses an unsupported QUIC version, and MAY be sent in response to 0-RTT packets.</p>
 <h4 id="rfc.section.4.5.7.2">
 <a href="#rfc.section.4.5.7.2">4.5.7.2.</a> <a href="#tail-loss-probe-and-retransmission-timer" id="tail-loss-probe-and-retransmission-timer">Tail Loss Probe and Retransmission Timer</a>
 </h4>
 <p id="rfc.section.4.5.7.2.p.1">Tail loss probes <a href="#TLP" class="xref">[TLP]</a> and retransmission timeouts <a href="#RFC6298" class="xref">[RFC6298]</a> are timer based mechanisms to recover from cases when there are outstanding retransmittable packets, but an acknowledgement has not been received in a timely manner.</p>
-<p id="rfc.section.4.5.7.2.p.2">The TLP and RTO timers are armed when there is no unacknowledged handshake data.  The TLP timer is set until the max number of TLP packets have been sent, and then the RTO timer is set.</p>
+<p id="rfc.section.4.5.7.2.p.2">The TLP and RTO timers are armed when there are no unacknowledged crypto packets.  The TLP timer is set until the max number of TLP packets have been sent, and then the RTO timer is set.</p>
 <h4 id="rfc.section.4.5.7.3">
 <a href="#rfc.section.4.5.7.3">4.5.7.3.</a> <a href="#early-retransmit-timer" id="early-retransmit-timer">Early Retransmit Timer</a>
 </h4>
@@ -983,18 +983,18 @@ ul.toc li {
       loss_detection_timer.cancel()
       return
 
-    if (handshake packets are outstanding):
-      // Handshake retransmission timer.
+    if (crypto packets are outstanding):
+      // Crypto retransmission timer.
       if (smoothed_rtt == 0):
         timeout = 2 * kInitialRtt
       else:
         timeout = 2 * smoothed_rtt
       timeout = max(timeout, kMinTLPTimeout)
-      timeout = timeout * (2 ^ handshake_count)
+      timeout = timeout * (2 ^ crypto_count)
       loss_detection_timer.set(
-        time_of_last_sent_handshake_packet + timeout)
-      return;
-    else if (loss_time != 0):
+        time_of_last_sent_crypto_packet + timeout)
+      return
+    if (loss_time != 0):
       // Early retransmit timer or time loss detection.
       timeout = loss_time -
         time_of_last_sent_retransmittable_packet
@@ -1021,10 +1021,10 @@ ul.toc li {
 <p id="rfc.section.4.5.8.p.2">Pseudocode for OnLossDetectionTimeout follows:</p>
 <pre>
    OnLossDetectionTimeout():
-     if (handshake packets are outstanding):
-       // Handshake timeout.
-       RetransmitAllUnackedHandshakeData()
-       handshake_count++
+     if (crypto packets are outstanding):
+       // Crypto handshake timeout.
+       RetransmitAllUnackedCryptoData()
+       crypto_count++
      else if (loss_time != 0):
        // Early retransmit or Time Loss Detection
        DetectLostPackets(largest_acked_packet)
@@ -1253,7 +1253,7 @@ DetectLostPackets(largest_acked):
      // Declare all packets prior to packet_number lost.
      for (sent_packet: sent_packets):
        if (sent_packet.packet_number &lt; packet_number):
-         bytes_in_flight -= lost_packet.bytes
+         bytes_in_flight -= sent_packet.bytes
          sent_packets.remove(sent_packet.packet_number)
 </pre>
 <h1 id="rfc.section.6">
