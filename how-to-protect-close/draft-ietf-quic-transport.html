@@ -452,7 +452,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and M. Thomson, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-transport-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2018-10-19" />
+  <meta name="dct.issued" scheme="ISO8601" content="2018-10-21" />
   <meta name="dct.abstract" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
   <meta name="description" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
 
@@ -476,12 +476,12 @@ ul.toc li {
 <td class="right">M. Thomson, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: April 22, 2019</td>
+<td class="left">Expires: April 24, 2019</td>
 <td class="right">Mozilla</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">October 19, 2018</td>
+<td class="right">October 21, 2018</td>
 </tr>
 
     	
@@ -500,7 +500,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on April 22, 2019.</p>
+<p>This Internet-Draft will expire on April 24, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2018 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -1258,7 +1258,8 @@ ul.toc li {
 <p id="rfc.section.4.1.p.1">There are some edge cases which must be considered when dealing with stream and connection level flow control.  Given enough time, both endpoints must agree on flow control state.  If one end believes it can send more than the other end is willing to receive, the connection will be torn down when too much data arrives.  Conversely if a sender believes it is blocked, while endpoint B expects more data can be received, then the connection can be in a deadlock, with the sender waiting for a MAX_STREAM_DATA or MAX_DATA frame which will never come.</p>
 <p id="rfc.section.4.1.p.2">On receipt of a RST_STREAM frame, an endpoint will tear down state for the matching stream and ignore further data arriving on that stream.  This could result in the endpoints getting out of sync, since the RST_STREAM frame may have arrived out of order and there may be further bytes in flight.  The data sender would have counted the data against its connection level flow control budget, but a receiver that has not received these bytes would not know to include them as well.  The receiver must learn the number of bytes that were sent on the stream to make the same adjustment in its connection flow controller.</p>
 <p id="rfc.section.4.1.p.3">To ensure that endpoints maintain a consistent connection-level flow control state, the RST_STREAM frame (<a href="#frame-rst-stream" class="xref">Section 21.2</a>) includes the largest offset of data sent on the stream.  On receiving a RST_STREAM frame, a receiver definitively knows how many bytes were sent on that stream before the RST_STREAM frame, and the receiver MUST use the final offset to account for all bytes sent on the stream in its connection level flow controller.</p>
-<p id="rfc.section.4.1.p.4">RST_STREAM terminates one direction of a stream abruptly.  Whether any action or response can or should be taken on the data already received is an application-specific issue, but it will often be the case that upon receipt of a RST_STREAM an endpoint will choose to stop sending data in its own direction. If the sender of a RST_STREAM wishes to explicitly state that no future data will be processed, that endpoint MAY send a STOP_SENDING frame at the same time.</p>
+<p id="rfc.section.4.1.p.4">RST_STREAM terminates one direction of a stream abruptly.  Whether any action or response can or should be taken on the data already received is application specific.</p>
+<p id="rfc.section.4.1.p.5">For a bidirectional stream, RST_STREAM has no effect on data flow in the opposite direction. The RST_STREAM sender can send a STOP_SENDING frame to encourage prompt termination. Both endpoints MUST maintain state for the stream in the unterminated direction until that direction enters a terminal state, or either side sends CONNECTION_CLOSE or APPLICATION_CLOSE.</p>
 <h2 id="rfc.section.4.2">
 <a href="#rfc.section.4.2">4.2.</a> <a href="#fc-credit" id="fc-credit">Data Limit Increments</a>
 </h2>
@@ -1727,7 +1728,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 </dl>
 <p id="rfc.section.12.1.2.p.4">After receiving a closing frame, endpoints enter the draining state.  An endpoint that receives a closing frame MAY send a single packet containing a closing frame before entering the draining state, using a CONNECTION_CLOSE frame and a NO_ERROR code if appropriate.  An endpoint MUST NOT send further packets, which could result in a constant exchange of closing frames until the closing period on either peer ended.</p>
 <p id="rfc.section.12.1.2.p.5">An immediate close can be used after an application protocol has arranged to close a connection.  This might be after the application protocols negotiates a graceful shutdown.  The application protocol exchanges whatever messages that are needed to cause both endpoints to agree to close the connection, after which the application requests that the connection be closed.  The application protocol can use an APPLICATION_CLOSE message with an appropriate error code to signal closure.</p>
-<p id="rfc.section.12.1.2.p.6">If the endpoint believes that a connection has been successfully established, it MUST send any closing frames in a 1-RTT packet.  Prior to connection establishment, endpoints SHOULD send closing frames in a Handshake packet.  An endpoint MAY send closing frames in an Initial packet.  Closing frames might be replicated into packets at different encryption levels, which can then be coalesced (see <a href="#packet-coalesce" class="xref">Section 14.2</a> to facilitate retransmission.</p>
+<p id="rfc.section.12.1.2.p.6">If the connection has been successfully established, endpoints MUST send any closing frames in a 1-RTT packet.  Prior to connection establishment, endpoints SHOULD send closing frames in a Handshake packet.  An endpoint MAY send closing frames in an Initial packet.  Closing frames might be replicated into packets at different encryption levels, which can then be coalesced (see <a href="#packet-coalesce" class="xref">Section 14.2</a> to facilitate retransmission.</p>
 <h3 id="rfc.section.12.1.3">
 <a href="#rfc.section.12.1.3">12.1.3.</a> <a href="#stateless-reset" id="stateless-reset">Stateless Reset</a>
 </h3>
@@ -1831,7 +1832,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p id="rfc.section.14.2.p.1">A sender can coalesce multiple QUIC packets into one UDP datagram.  This can reduce the number of UDP datagrams needed to complete the cryptographic handshake and starting sending data.  Receivers MUST be able to process coalesced packets.</p>
 <p id="rfc.section.14.2.p.2">Coalescing packets in order of increasing encryption levels (Initial, 0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be able to process all the packets in a single pass.  A packet with a short header does not include a length, so it will always be the last packet included in a UDP datagram.</p>
 <p id="rfc.section.14.2.p.3">Senders MUST NOT coalesce QUIC packets for different connections into a single UDP datagram. Receivers SHOULD ignore any subsequent packets with a different Destination Connection ID than the first packet in the datagram.</p>
-<p id="rfc.section.14.2.p.4">Every QUIC packet that is coalesced into a single UDP datagram is separate and complete.  Though the values of some fields in the packet header might be redundant, no fields are omitted.  The receiver of coalesced QUIC packets MUST individually process each QUIC packet and separately acknowledge them, as if they were received as the payload of different UDP datagrams.  If one or more packets in a datagram cannot be processed yet (because the keys are not yet available) or processing fails (decryption failure, unknown type, etc.), the receiver MUST still attempt to process the remaining packets.  The skipped packets MAY either be discarded or buffered for later processing, just as if the packets were received out-of-order in separate datagrams.</p>
+<p id="rfc.section.14.2.p.4">Every QUIC packet that is coalesced into a single UDP datagram is separate and complete.  Though the values of some fields in the packet header might be redundant, no fields are omitted.  The receiver of coalesced QUIC packets MUST individually process each QUIC packet and separately acknowledge them, as if they were received as the payload of different UDP datagrams.  For example, if decryption fails (because the keys are not available or any other reason) or the packet is of an unknown type, the receiver MAY either discard or buffer the packet for later processing and MUST attempt to process the remaining packets.</p>
 <p id="rfc.section.14.2.p.5">Retry packets (<a href="#packet-retry" class="xref">Section 19.7</a>), Version Negotiation packets (<a href="#packet-version" class="xref">Section 19.4</a>), and packets with a short header cannot be followed by other packets in the same UDP datagram.</p>
 <h2 id="rfc.section.14.3">
 <a href="#rfc.section.14.3">14.3.</a> <a href="#packet-numbers" id="packet-numbers">Packet Numbers</a>
@@ -2039,7 +2040,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p></p>
 
 <ul>
-<li>Data sent in CRYPTO frames is retransmitted according to the rules in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>, until either all data has been acknowledged or the crypto state machine implicitly knows that the peer received the data.</li>
+<li>Data sent in CRYPTO frames is retransmitted according to the rules in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>, until all data has been acknowledged.</li>
 <li>Application data sent in STREAM frames is retransmitted in new STREAM frames unless the endpoint has sent a RST_STREAM for that stream.  Once an endpoint sends a RST_STREAM frame, no further STREAM frames are needed.</li>
 <li>The most recent set of acknowledgments are sent in ACK frames.  An ACK frame SHOULD contain all unacknowledged acknowledgments, as described in <a href="#sending-ack-frames" class="xref">Section 15.1.1</a>.</li>
 <li>Cancellation of stream transmission, as carried in a RST_STREAM frame, is sent until acknowledged or until all stream data is acknowledged by the peer (that is, either the &#8220;Reset Recvd&#8221; or &#8220;Data Recvd&#8221; state is reached on the send stream). The content of a RST_STREAM frame MUST NOT change when it is sent again.</li>
