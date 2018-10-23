@@ -131,9 +131,9 @@ Internet-Draft           QUIC Transport Protocol            October 2018
      8.2.  Path Validation . . . . . . . . . . . . . . . . . . . . .  41
      8.3.  Initiating Path Validation  . . . . . . . . . . . . . . .  42
      8.4.  Path Validation Responses . . . . . . . . . . . . . . . .  42
-     8.5.  Successful Path Validation  . . . . . . . . . . . . . . .  43
+     8.5.  Successful Path Validation  . . . . . . . . . . . . . . .  42
      8.6.  Failed Path Validation  . . . . . . . . . . . . . . . . .  43
-   9.  Connection Migration  . . . . . . . . . . . . . . . . . . . .  44
+   9.  Connection Migration  . . . . . . . . . . . . . . . . . . . .  43
      9.1.  Probing a New Path  . . . . . . . . . . . . . . . . . . .  44
      9.2.  Initiating Connection Migration . . . . . . . . . . . . .  45
      9.3.  Responding to Connection Migration  . . . . . . . . . . .  45
@@ -2104,16 +2104,11 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    client has Handshake keys, it SHOULD send a Handshake packet.
 
    A server might wish to validate the client address before starting
-   the handshake.  To send additional data prior to completing the
-   cryptographic handshake, the server then needs to validate that the
-   client owns the address that it claims.  QUIC therefore provides
-   mechanisms for source address validation during connection
-   establishment.
-
-   Source addresses can be verified through an address validation token.
-   This token is delivered during connection establishment with a Retry
-   packet (see Section 8.1.1) or in a previous connection using the
-   NEW_TOKEN frame (see Section 8.1.2).
+   the cryptographic handshake.  Client addresses can be verified using
+   an address validation token.  This token is delivered during
+   connection establishment with a Retry packet (see Section 8.1.1) or
+   in a previous connection using the NEW_TOKEN frame (see
+   Section 8.1.2).
 
 8.1.1.  Address Validation using Retry Packets
 
@@ -2121,7 +2116,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    establishment.  Any time the server wishes to validate a client
    address, it provides the client with a token.  As long as it is not
    possible for an attacker to generate a valid token for its address
+   (see Section 8.1.3) and the client is able to return that token, it
+   proves to the server that it received the token.
 
+   Upon receiving the client's Initial packet, the server can request
+   address validation by sending a Retry packet (Section 18.7)
+   containing a token.  This token is repeated by the client in an
 
 
 
@@ -2130,12 +2130,6 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 38]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-   (see Section 8.1.3) and the client is able to return that token, it
-   proves to the server that it received the token.
-
-   Upon receiving the client's Initial packet, the server can request
-   address validation by sending a Retry packet (Section 18.7)
-   containing a token.  This token is repeated by the client in an
    Initial packet after it receives the Retry packet.  In response to
    receiving a token in an Initial packet, a server can either abort the
    connection or permit it to proceed.
@@ -2177,6 +2171,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    The client MUST NOT use the token provided in a Retry for future
    connections.
 
+   Unlike the token that is created for a Retry packet, there might be
+   some time between when the token is created and when the token is
+   subsequently used.  Thus, a resumption token SHOULD include an
+   expiration time.  The server MAY include either an explicit
+   expiration time or an issued timestamp and dynamically calculate the
+   expiration time.  It is also unlikely that the client port number is
 
 
 
@@ -2186,12 +2186,6 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 39]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-   Unlike the token that is created for a Retry packet, there might be
-   some time between when the token is created and when the token is
-   subsequently used.  Thus, a resumption token SHOULD include an
-   expiration time.  The server MAY include either an explicit
-   expiration time or an issued timestamp and dynamically calculate the
-   expiration time.  It is also unlikely that the client port number is
    the same on two different connections; validating the port is
    therefore unlikely to be successful.
 
@@ -2233,6 +2227,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       frames and Retry packets differently, and validate the latter more
       strictly.
 
+   In a stateless design, a server can use encrypted and authenticated
+   tokens to pass information to clients that the server can later
+   recover and use to validate a client address.  Tokens are not
+   integrated into the cryptographic handshake and so they are not
+   authenticated.  For instance, a client might be able to reuse a
+   token.  To avoid attacks that exploit this property, a server can
 
 
 
@@ -2242,12 +2242,6 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 40]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-   In a stateless design, a server can use encrypted and authenticated
-   tokens to pass information to clients that the server can later
-   recover and use to validate a client address.  Tokens are not
-   integrated into the cryptographic handshake and so they are not
-   authenticated.  For instance, a client might be able to reuse a
-   token.  To avoid attacks that exploit this property, a server can
    limit its use of tokens to only the information needed validate
    client addresses.
 
@@ -2290,6 +2284,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    Path validation is not designed as a NAT traversal mechanism.  Though
    the mechanism described here might be effective for the creation of
+   NAT bindings that support NAT traversal, the expectation is that one
+   or other peer is able to receive packets without first having sent a
+   packet on that path.  Effective NAT traversal needs additional
+   synchronization mechanisms that are not provided here.
+
+
 
 
 
@@ -2297,11 +2297,6 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 41]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
-
-   NAT bindings that support NAT traversal, the expectation is that one
-   or other peer is able to receive packets without first having sent a
-   packet on that path.  Effective NAT traversal needs additional
-   synchronization mechanisms that are not provided here.
 
    An endpoint MAY bundle PATH_CHALLENGE and PATH_RESPONSE frames that
    are used for path validation with other frames.  In particular, an
@@ -2345,6 +2340,11 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    which the PATH_CHALLENGE was received, to the same remote address
    from which the PATH_CHALLENGE was received.
 
+8.5.  Successful Path Validation
+
+   A new address is considered valid when a PATH_RESPONSE frame is
+   received containing data that was sent in a previous PATH_CHALLENGE.
+   Receipt of an acknowledgment for a packet containing a PATH_CHALLENGE
 
 
 
@@ -2354,11 +2354,6 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 42]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-8.5.  Successful Path Validation
-
-   A new address is considered valid when a PATH_RESPONSE frame is
-   received containing data that was sent in a previous PATH_CHALLENGE.
-   Receipt of an acknowledgment for a packet containing a PATH_CHALLENGE
    frame is not adequate validation, since the acknowledgment can be
    spoofed by a malicious peer.
 
@@ -2402,6 +2397,11 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    path is initiated while a path validation on the old path is in
    progress.
 
+9.  Connection Migration
+
+   The use of a connection ID allows connections to survive changes to
+   endpoint addresses (that is, IP address and/or port), such as those
+
 
 
 
@@ -2410,10 +2410,6 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 43]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-9.  Connection Migration
-
-   The use of a connection ID allows connections to survive changes to
-   endpoint addresses (that is, IP address and/or port), such as those
    caused by an endpoint migrating to a new network.  This section
    describes the process by which an endpoint migrates to a new address.
 
@@ -2459,16 +2455,16 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    connection ID is available at the peer.  That can be achieved by
    including a NEW_CONNECTION_ID frame in the probe.
 
+   Receiving a PATH_CHALLENGE frame from a peer indicates that the peer
+   is probing for reachability on a path.  An endpoint sends a
+   PATH_RESPONSE in response as per Section 8.2.
+
 
 
 Iyengar & Thomson        Expires April 26, 2019                [Page 44]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
-
-   Receiving a PATH_CHALLENGE frame from a peer indicates that the peer
-   is probing for reachability on a path.  An endpoint sends a
-   PATH_RESPONSE in response as per Section 8.2.
 
    PATH_CHALLENGE, PATH_RESPONSE, NEW_CONNECTION_ID, and PADDING frames
    are "probing frames", and all other frames are "non-probing frames".
@@ -2515,6 +2511,10 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Section 9.3.2.  An endpoint MAY skip validation of a peer address if
    that address has been seen recently.
 
+   An endpoint only changes the address that it sends packets to in
+   response to the highest-numbered non-probing packet.  This ensures
+
+
 
 
 Iyengar & Thomson        Expires April 26, 2019                [Page 45]
@@ -2522,8 +2522,6 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 45]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-   An endpoint only changes the address that it sends packets to in
-   response to the highest-numbered non-probing packet.  This ensures
    that an endpoint does not send packets to an old peer address in the
    case that it receives reordered packets.
 
@@ -2570,6 +2568,8 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    because the entity at the source address does not have the necessary
    cryptographic keys to read or respond to the PATH_CHALLENGE frame
    that is sent to it even if it wanted to.
+
+
 
 
 
