@@ -150,18 +150,18 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    11. Using Explicit Congestion Notification  . . . . . . . . . . .  50
    12. Connection Termination  . . . . . . . . . . . . . . . . . . .  52
      12.1.  Closing and Draining Connection States . . . . . . . . .  52
-       12.1.1.  Idle Timeout . . . . . . . . . . . . . . . . . . . .  54
-       12.1.2.  Immediate Close  . . . . . . . . . . . . . . . . . .  54
-       12.1.3.  Stateless Reset  . . . . . . . . . . . . . . . . . .  55
+     12.2.  Idle Timeout . . . . . . . . . . . . . . . . . . . . . .  54
+     12.3.  Immediate Close  . . . . . . . . . . . . . . . . . . . .  54
+     12.4.  Stateless Reset  . . . . . . . . . . . . . . . . . . . .  55
+       12.4.1.  Detecting a Stateless Reset  . . . . . . . . . . . .  58
+       12.4.2.  Calculating a Stateless Reset Token  . . . . . . . .  58
+       12.4.3.  Looping  . . . . . . . . . . . . . . . . . . . . . .  59
    13. Error Handling  . . . . . . . . . . . . . . . . . . . . . . .  59
      13.1.  Connection Errors  . . . . . . . . . . . . . . . . . . .  60
      13.2.  Stream Errors  . . . . . . . . . . . . . . . . . . . . .  60
    14. Packets and Frames  . . . . . . . . . . . . . . . . . . . . .  61
      14.1.  Protected Packets  . . . . . . . . . . . . . . . . . . .  61
      14.2.  Coalescing Packets . . . . . . . . . . . . . . . . . . .  62
-     14.3.  Packet Numbers . . . . . . . . . . . . . . . . . . . . .  62
-     14.4.  Frames and Frame Types . . . . . . . . . . . . . . . . .  64
-   15. Packetization and Reliability . . . . . . . . . . . . . . . .  66
 
 
 
@@ -170,6 +170,9 @@ Iyengar & Thomson        Expires April 26, 2019                 [Page 3]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+     14.3.  Packet Numbers . . . . . . . . . . . . . . . . . . . . .  62
+     14.4.  Frames and Frame Types . . . . . . . . . . . . . . . . .  64
+   15. Packetization and Reliability . . . . . . . . . . . . . . . .  66
      15.1.  Packet Processing and Acknowledgment . . . . . . . . . .  67
        15.1.1.  Sending ACK Frames . . . . . . . . . . . . . . . . .  67
        15.1.2.  ACK Frames and Packet Protection . . . . . . . . . .  68
@@ -215,9 +218,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
      21.17. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 106
      21.18. NEW_TOKEN frame  . . . . . . . . . . . . . . . . . . . . 106
      21.19. STREAM Frames  . . . . . . . . . . . . . . . . . . . . . 106
-     21.20. CRYPTO Frame . . . . . . . . . . . . . . . . . . . . . . 108
-     21.21. Extension Frames . . . . . . . . . . . . . . . . . . . . 109
-   22. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 109
 
 
 
@@ -226,6 +226,9 @@ Iyengar & Thomson        Expires April 26, 2019                 [Page 4]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+     21.20. CRYPTO Frame . . . . . . . . . . . . . . . . . . . . . . 108
+     21.21. Extension Frames . . . . . . . . . . . . . . . . . . . . 109
+   22. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 109
      22.1.  Application Protocol Error Codes . . . . . . . . . . . . 110
    23. Security Considerations . . . . . . . . . . . . . . . . . . . 111
      23.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 111
@@ -270,10 +273,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    QUIC is a multiplexed and secure transport protocol that runs on top
    of UDP.  QUIC aims to provide a flexible set of features that allow
-   it to be a general-purpose secure transport for multiple
-   applications.
 
-   o  Version negotiation
 
 
 
@@ -281,6 +281,11 @@ Iyengar & Thomson        Expires April 26, 2019                 [Page 5]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   it to be a general-purpose secure transport for multiple
+   applications.
+
+   o  Version negotiation
 
    o  Low-latency connection establishment
 
@@ -325,11 +330,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       *  Section 12 lists the options for terminating an open
          connection.
 
-   o  Packets and frames are the basic unit used by QUIC to communicate.
-
-      *  Section 14 describes concepts related to packets and frames,
-
-
 
 
 
@@ -337,6 +337,10 @@ Iyengar & Thomson        Expires April 26, 2019                 [Page 6]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   o  Packets and frames are the basic unit used by QUIC to communicate.
+
+      *  Section 14 describes concepts related to packets and frames,
 
       *  Section 15 defines models for the transmission, retransmission,
          and acknowledgement of information, and
@@ -381,10 +385,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Stream:  A logical unidirectional or bidirectional channel of ordered
       bytes within a QUIC connection.
 
-   Connection:  A conversation between two QUIC endpoints with a single
-      encryption context that multiplexes streams within it.
-
-
 
 
 
@@ -393,6 +393,9 @@ Iyengar & Thomson        Expires April 26, 2019                 [Page 7]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   Connection:  A conversation between two QUIC endpoints with a single
+      encryption context that multiplexes streams within it.
 
    Connection ID:  An opaque identifier that is used to identify a QUIC
       connection at an endpoint.  Each endpoint sets a value that its
@@ -439,9 +442,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Streams can be created by sending data.  Other processes associated
    with stream management - ending, cancelling, and managing flow
    control - are all designed to impose minimal overheads.  For
-   instance, a single STREAM frame (Section 21.19) can open, carry data
-   for, and close a stream.  Streams can also be long-lived and can last
-   the entire duration of a connection.
 
 
 
@@ -449,6 +449,10 @@ Iyengar & Thomson        Expires April 26, 2019                 [Page 8]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   instance, a single STREAM frame (Section 21.19) can open, carry data
+   for, and close a stream.  Streams can also be long-lived and can last
+   the entire duration of a connection.
 
    Stream offsets allow for the octets on a stream to be placed in
    order.  An endpoint MUST be capable of delivering data received on a
@@ -493,10 +497,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The two type bits from a Stream ID therefore identify streams as
    summarized in Table 1.
-
-
-
-
 
 
 
@@ -1461,7 +1461,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Connection ID fields if they do not correspond to a single
    connection.
 
-   Endpoints SHOULD send a Stateless Reset (Section 12.1.3) for any
+   Endpoints SHOULD send a Stateless Reset (Section 12.4) for any
    packets that cannot be attributed to an existing connection.
 
    Packets that are matched to an existing connection, but for which the
@@ -2886,11 +2886,11 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    negotiated period of time.  A QUIC connection, once established, can
    be terminated in one of three ways:
 
-   o  idle timeout (Section 12.1.1)
+   o  idle timeout (Section 12.2)
 
-   o  immediate close (Section 12.1.2)
+   o  immediate close (Section 12.3)
 
-   o  stateless reset (Section 12.1.3)
+   o  stateless reset (Section 12.4)
 
 12.1.  Closing and Draining Connection States
 
@@ -2901,9 +2901,9 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    [QUIC-RECOVERY].
 
    An endpoint enters a closing period after initiating an immediate
-   close (Section 12.1.2).  While closing, an endpoint MUST NOT send
+   close (Section 12.3).  While closing, an endpoint MUST NOT send
    packets unless they contain a CONNECTION_CLOSE or APPLICATION_CLOSE
-   frame (see Section 12.1.2 for details).  An endpoint retains only
+   frame (see Section 12.3 for details).  An endpoint retains only
    enough information to generate a packet containing a closing frame
    and to identify packets as belonging to the connection.  The
 
@@ -2947,7 +2947,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    send a stateless reset in response to any further incoming packets.
 
    The draining and closing periods do not apply when a stateless reset
-   (Section 12.1.3) is sent.
+   (Section 12.4) is sent.
 
    An endpoint is not expected to handle key updates when it is closing
    or draining.  A key update might prevent the endpoint from moving
@@ -2970,7 +2970,7 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 53]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-12.1.1.  Idle Timeout
+12.2.  Idle Timeout
 
    If the idle timeout is enabled, a connection that remains idle for
    longer than the advertised idle timeout (see Section 20.1) is closed.
@@ -2996,7 +2996,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Section 4.3.3 of [QUIC-RECOVERY]), it is advisable to test for
    liveness before sending any data that cannot be retried safely.
 
-12.1.2.  Immediate Close
+12.3.  Immediate Close
 
    An endpoint sends a closing frame (CONNECTION_CLOSE or
    APPLICATION_CLOSE) to terminate the connection immediately.  Any
@@ -3056,7 +3056,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    use an APPLICATION_CLOSE message with an appropriate error code to
    signal closure.
 
-12.1.3.  Stateless Reset
+12.4.  Stateless Reset
 
    A stateless reset is provided as an option of last resort for an
    endpoint that does not have access to the state of a connection.  A
@@ -3155,7 +3155,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    o  The packet might not reach the peer.  If the Destination
       Connection ID is critical for routing toward the peer, then this
       packet could be incorrectly routed.  This might also trigger
-      another Stateless Reset in response, see Section 12.1.3.3.  A
+      another Stateless Reset in response, see Section 12.4.3.  A
       Stateless Reset that is not correctly routed is ineffective in
       causing errors to be quickly detected and recovered.  In this
       case, endpoints will need to rely on other methods - such as
@@ -3194,7 +3194,7 @@ Iyengar & Thomson        Expires April 26, 2019                [Page 57]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-12.1.3.1.  Detecting a Stateless Reset
+12.4.1.  Detecting a Stateless Reset
 
    An endpoint detects a potential stateless reset when a packet with a
    short header either cannot be decrypted or is marked as a duplicate
@@ -3205,7 +3205,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    period and not send any further packets on this connection.  If the
    comparison fails, the packet can be discarded.
 
-12.1.3.2.  Calculating a Stateless Reset Token
+12.4.2.  Calculating a Stateless Reset Token
 
    The stateless reset token MUST be difficult to guess.  In order to
    create a Stateless Reset Token, an endpoint could randomly generate
@@ -3260,7 +3260,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Note that Stateless Reset packets do not have any cryptographic
    protection.
 
-12.1.3.3.  Looping
+12.4.3.  Looping
 
    The design of a Stateless Reset is such that it is indistinguishable
    from a valid packet.  This means that a Stateless Reset might trigger
@@ -3311,7 +3311,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    identifies error conditions, it also identifies the error code that
    is used.
 
-   A stateless reset (Section 12.1.3) is not suitable for any error that
+   A stateless reset (Section 12.4) is not suitable for any error that
    can be signaled with a CONNECTION_CLOSE, APPLICATION_CLOSE, or
    RST_STREAM frame.  A stateless reset MUST NOT be used by an endpoint
    that has the state necessary to send a frame on the connection.
@@ -3342,7 +3342,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    CONNECTION_CLOSE or APPLICATION_CLOSE risks a peer missing the first
    such packet.  The only mechanism available to an endpoint that
    continues to receive data for a terminated connection is to use the
-   stateless reset process (Section 12.1.3).
+   stateless reset process (Section 12.4).
 
    An endpoint that receives an invalid CONNECTION_CLOSE or
    APPLICATION_CLOSE frame MUST NOT signal the existence of the error to
@@ -3514,7 +3514,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    keys).  If the packet number for sending reaches 2^62 - 1, the sender
    MUST close the connection without sending a CONNECTION_CLOSE frame or
    any further packets; an endpoint MAY send a Stateless Reset
-   (Section 12.1.3) in response to further packets that it receives.
+   (Section 12.4) in response to further packets that it receives.
 
    A receiver MUST discard a newly unprotected packet unless it is
    certain that it has not processed another packet with the same packet
@@ -5068,8 +5068,8 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    A server MAY include the following transport parameters:
 
    stateless_reset_token (0x0006):  The Stateless Reset Token is used in
-      verifying a stateless reset, see Section 12.1.3.  This parameter
-      is a sequence of 16 octets.
+      verifying a stateless reset, see Section 12.4.  This parameter is
+      a sequence of 16 octets.
 
    preferred_address (0x0004):  The server's Preferred Address is used
       to effect a change in server address at the end of the handshake,
@@ -5528,7 +5528,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    Stateless Reset Token:  A 128-bit value that will be used for a
       stateless reset when the associated connection ID is used (see
-      Section 12.1.3).
+      Section 12.4).
 
    An endpoint MUST NOT send this frame if it currently requires that
    its peer send packets with a zero-length Destination Connection ID.
@@ -6179,7 +6179,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Once a connection is established QUIC endpoints might accept some
    unauthenticated ICMP packets (see Section 16.1.1), but the use of
    these packets is extremely limited.  The only other type of packet
-   that an endpoint might accept is a stateless reset (Section 12.1.3)
+   that an endpoint might accept is a stateless reset (Section 12.4)
    which relies on the token being kept secret until it is used.
 
    During the creation of a connection, QUIC only provides protection
@@ -6264,7 +6264,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    network supports.  An endpoint MAY skip packet numbers when sending
    packets to detect this behavior.  An endpoint can then immediately
    close the connection with a connection error of type
-   PROTOCOL_VIOLATION (see Section 12.1.2).
+   PROTOCOL_VIOLATION (see Section 12.3).
 
 
 
@@ -6370,9 +6370,9 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    key, for example by changing an IP address or port, then an attacker
    can cause the server to send a stateless reset.  To defend against
    this style of denial service, endpoints that share a static key for
-   stateless reset (see Section 12.1.3.2) MUST be arranged so that
-   packets with a given connection ID always arrive at an instance that
-   has connection state, unless that connection is no longer active.
+   stateless reset (see Section 12.4.2) MUST be arranged so that packets
+   with a given connection ID always arrive at an instance that has
+   connection state, unless that connection is no longer active.
 
    In the case of a cluster that uses dynamic load balancing, it's
    possible that a change in load balancer configuration could happen
