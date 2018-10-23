@@ -452,7 +452,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and M. Thomson, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-transport-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2018-10-21" />
+  <meta name="dct.issued" scheme="ISO8601" content="2018-10-23" />
   <meta name="dct.abstract" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
   <meta name="description" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
 
@@ -476,12 +476,12 @@ ul.toc li {
 <td class="right">M. Thomson, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: April 24, 2019</td>
+<td class="left">Expires: April 26, 2019</td>
 <td class="right">Mozilla</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">October 21, 2018</td>
+<td class="right">October 23, 2018</td>
 </tr>
 
     	
@@ -500,7 +500,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on April 24, 2019.</p>
+<p>This Internet-Draft will expire on April 26, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2018 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -1719,15 +1719,17 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <a href="#rfc.section.12.1.2">12.1.2.</a> <a href="#immediate-close" id="immediate-close">Immediate Close</a>
 </h3>
 <p id="rfc.section.12.1.2.p.1">An endpoint sends a closing frame (CONNECTION_CLOSE or APPLICATION_CLOSE) to terminate the connection immediately.  Any closing frame causes all streams to immediately become closed; open streams can be assumed to be implicitly reset.</p>
-<p id="rfc.section.12.1.2.p.2">After sending a closing frame, endpoints immediately enter the closing state.  During the closing period, an endpoint that sends a closing frame SHOULD respond to any packet that it receives with another packet containing a closing frame.  To minimize the state that an endpoint maintains for a closing connection, endpoints MAY send the exact same packet.  However, endpoints SHOULD limit the number of packets they generate containing a closing frame.  For instance, an endpoint could progressively increase the number of packets that it receives before sending additional packets or increase the time between packets.</p>
+<p id="rfc.section.12.1.2.p.2">If the endpoint has received an ACK for a 1-RTT packet, it SHOULD send CONNECTION_CLOSE in a 1-RTT packet. If not, and it has received a Handshake packet from the peer, it SHOULD send CONNECTION_CLOSE in a Handshake packet.</p>
+<p id="rfc.section.12.1.2.p.3">If the endpoint has received only Initial packets from the peer, it SHOULD send CONNECTION_CLOSE in an Initial packet. If it has Handshake keys available, it SHOULD also send the frame in a Handshake packet coalesced with the Initial packet.</p>
+<p id="rfc.section.12.1.2.p.4">After sending a closing frame, endpoints immediately enter the closing state.  During the closing period, an endpoint that sends a closing frame SHOULD respond to any packet that it receives with another packet containing a closing frame.  To minimize the state that an endpoint maintains for a closing connection, endpoints MAY send the exact same packet.  However, endpoints SHOULD limit the number of packets they generate containing a closing frame.  For instance, an endpoint could progressively increase the number of packets that it receives before sending additional packets or increase the time between packets.</p>
 <p></p>
 
 <dl>
 <dt>Note:</dt>
 <dd style="margin-left: 8">Allowing retransmission of a packet contradicts other advice in this document that recommends the creation of new packet numbers for every packet.  Sending new packet numbers is primarily of advantage to loss recovery and congestion control, which are not expected to be relevant for a closed connection.  Retransmitting the final packet requires less state.</dd>
 </dl>
-<p id="rfc.section.12.1.2.p.4">After receiving a closing frame, endpoints enter the draining state.  An endpoint that receives a closing frame MAY send a single packet containing a closing frame before entering the draining state, using a CONNECTION_CLOSE frame and a NO_ERROR code if appropriate.  An endpoint MUST NOT send further packets, which could result in a constant exchange of closing frames until the closing period on either peer ended.</p>
-<p id="rfc.section.12.1.2.p.5">An immediate close can be used after an application protocol has arranged to close a connection.  This might be after the application protocols negotiates a graceful shutdown.  The application protocol exchanges whatever messages that are needed to cause both endpoints to agree to close the connection, after which the application requests that the connection be closed.  The application protocol can use an APPLICATION_CLOSE message with an appropriate error code to signal closure.</p>
+<p id="rfc.section.12.1.2.p.6">After receiving a closing frame, endpoints enter the draining state.  An endpoint that receives a closing frame MAY send a single packet containing a closing frame before entering the draining state, using a CONNECTION_CLOSE frame and a NO_ERROR code if appropriate.  An endpoint MUST NOT send further packets, which could result in a constant exchange of closing frames until the closing period on either peer ended.</p>
+<p id="rfc.section.12.1.2.p.7">An immediate close can be used after an application protocol has arranged to close a connection.  This might be after the application protocols negotiates a graceful shutdown.  The application protocol exchanges whatever messages that are needed to cause both endpoints to agree to close the connection, after which the application requests that the connection be closed.  The application protocol can use an APPLICATION_CLOSE message with an appropriate error code to signal closure.</p>
 <h3 id="rfc.section.12.1.3">
 <a href="#rfc.section.12.1.3">12.1.3.</a> <a href="#stateless-reset" id="stateless-reset">Stateless Reset</a>
 </h3>
