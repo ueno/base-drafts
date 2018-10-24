@@ -204,13 +204,13 @@ Internet-Draft           QUIC Transport Protocol            October 2018
      19.5.  MAX_STREAM_DATA Frame  . . . . . . . . . . . . . . . . .  95
      19.6.  MAX_STREAM_ID Frame  . . . . . . . . . . . . . . . . . .  96
      19.7.  PING Frame . . . . . . . . . . . . . . . . . . . . . . .  97
-     19.8.  BLOCKED Frame  . . . . . . . . . . . . . . . . . . . . .  97
+     19.8.  BLOCKED Frame  . . . . . . . . . . . . . . . . . . . . .  98
      19.9.  STREAM_BLOCKED Frame . . . . . . . . . . . . . . . . . .  98
-     19.10. STREAM_ID_BLOCKED Frame  . . . . . . . . . . . . . . . .  98
+     19.10. STREAM_ID_BLOCKED Frame  . . . . . . . . . . . . . . . .  99
      19.11. NEW_CONNECTION_ID Frame  . . . . . . . . . . . . . . . .  99
      19.12. RETIRE_CONNECTION_ID Frame . . . . . . . . . . . . . . . 100
      19.13. STOP_SENDING Frame . . . . . . . . . . . . . . . . . . . 101
-     19.14. ACK Frame  . . . . . . . . . . . . . . . . . . . . . . . 101
+     19.14. ACK Frame  . . . . . . . . . . . . . . . . . . . . . . . 102
        19.14.1.  ACK Block Section . . . . . . . . . . . . . . . . . 103
        19.14.2.  ECN section . . . . . . . . . . . . . . . . . . . . 105
      19.15. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 106
@@ -5217,7 +5217,9 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    CONNECTION_CLOSE with a frame type of 0x02 is used to signal errors
    at the QUIC layer, or the absence of errors (with the NO_ERROR code).
    The CONNECTION_CLOSE frame with a type of 0x03 is used to signal an
-   error with the protocol that uses QUIC.
+   error with the protocol that uses QUIC.  Protocols that use QUIC only
+   use the CONNECTION_CLOSE frame of type 0x03; the frame with type 0x02
+   is only used internally by QUIC.
 
    If there are open streams that haven't been explicitly closed, they
    are implicitly closed when the connection is closed.
@@ -5256,8 +5258,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       practice any limits on packet size will also limit the space
       available for a reason phrase.
 
-   Reason Phrase:  A human-readable explanation for why the connection
-      was closed.  This can be zero length if the sender chooses to not
 
 
 
@@ -5266,6 +5266,8 @@ Iyengar & Thomson        Expires April 27, 2019                [Page 94]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   Reason Phrase:  A human-readable explanation for why the connection
+      was closed.  This can be zero length if the sender chooses to not
       give details beyond the Error Code.  This SHOULD be a UTF-8
       encoded string [RFC3629].
 
@@ -5313,14 +5315,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Note that an endpoint may legally receive a MAX_STREAM_DATA frame on
    a bidirectional stream it has not opened.
 
-   The frame is as follows:
-
 
 
 Iyengar & Thomson        Expires April 27, 2019                [Page 95]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   The frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -5368,8 +5370,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The fields in the MAX_STREAM_ID frame are as follows:
 
-   Maximum Stream ID:  ID of the maximum unidirectional or bidirectional
-      peer-initiated stream ID for the connection encoded as a variable-
 
 
 
@@ -5378,6 +5378,8 @@ Iyengar & Thomson        Expires April 27, 2019                [Page 96]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   Maximum Stream ID:  ID of the maximum unidirectional or bidirectional
+      peer-initiated stream ID for the connection encoded as a variable-
       length integer.  The limit applies to unidirectional steams if the
       second least signification bit of the stream ID is 1, and applies
       to bidirectional streams if it is 0.
@@ -5420,12 +5422,10 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    15 to 30 seconds is necessary to prevent the majority of middleboxes
    from losing state for UDP flows.
 
-19.8.  BLOCKED Frame
 
-   A sender SHOULD send a BLOCKED frame (type=0x08) when it wishes to
-   send data, but is unable to due to connection-level flow control (see
-   Section 4).  BLOCKED frames can be used as input to tuning of flow
-   control algorithms (see Section 4.2).
+
+
+
 
 
 
@@ -5433,6 +5433,13 @@ Iyengar & Thomson        Expires April 27, 2019                [Page 97]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+19.8.  BLOCKED Frame
+
+   A sender SHOULD send a BLOCKED frame (type=0x08) when it wishes to
+   send data, but is unable to due to connection-level flow control (see
+   Section 4).  BLOCKED frames can be used as input to tuning of flow
+   control algorithms (see Section 4.2).
 
    The BLOCKED frame is as follows:
 
@@ -5474,13 +5481,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Offset:  A variable-length integer indicating the offset of the
       stream at which the blocking occurred.
 
-19.10.  STREAM_ID_BLOCKED Frame
-
-   A sender SHOULD send a STREAM_ID_BLOCKED frame (type=0x0a) when it
-   wishes to open a stream, but is unable to due to the maximum stream
-   ID limit set by its peer (see Section 19.6).  This does not open the
-   stream, but informs the peer that a new stream was needed, but the
-   stream limit prevented the creation of the stream.
 
 
 
@@ -5489,6 +5489,14 @@ Iyengar & Thomson        Expires April 27, 2019                [Page 98]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+19.10.  STREAM_ID_BLOCKED Frame
+
+   A sender SHOULD send a STREAM_ID_BLOCKED frame (type=0x0a) when it
+   wishes to open a stream, but is unable to due to the maximum stream
+   ID limit set by its peer (see Section 19.6).  This does not open the
+   stream, but informs the peer that a new stream was needed, but the
+   stream limit prevented the creation of the stream.
 
    The STREAM_ID_BLOCKED frame is as follows:
 
@@ -5529,6 +5537,15 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The fields are:
 
+
+
+
+
+Iyengar & Thomson        Expires April 27, 2019                [Page 99]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
    Length:  An 8-bit unsigned integer containing the length of the
       connection ID.  Values less than 4 and greater than 18 are invalid
       and MUST be treated as a connection error of type
@@ -5538,13 +5555,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       by the sender.  See Section 5.1.1.
 
    Connection ID:  A connection ID of the specified length.
-
-
-
-Iyengar & Thomson        Expires April 27, 2019                [Page 99]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
 
    Stateless Reset Token:  A 128-bit value that will be used for a
       stateless reset when the associated connection ID is used (see
@@ -5584,6 +5594,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The RETIRE_CONNECTION_ID frame is as follows:
 
+
+
+
+Iyengar & Thomson        Expires April 27, 2019               [Page 100]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -5594,13 +5612,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    Sequence Number:  The sequence number of the connection ID being
       retired.  See Section 5.1.2.
-
-
-
-Iyengar & Thomson        Expires April 27, 2019               [Page 100]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
 
    Receipt of a RETIRE_CONNECTION_ID frame containing a sequence number
    greater than any previously sent to the peer MAY be treated as a
@@ -5638,6 +5649,15 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The fields are:
 
+
+
+
+
+Iyengar & Thomson        Expires April 27, 2019               [Page 101]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
    Stream ID:  A variable-length integer carrying the Stream ID of the
       stream being ignored.
 
@@ -5649,15 +5669,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Receivers send ACK frames (types 0x1a and 0x1b) to inform senders of
    packets they have received and processed.  The ACK frame contains one
    or more ACK Blocks.  ACK Blocks are ranges of acknowledged packets.
-
-
-
-
-Iyengar & Thomson        Expires April 27, 2019               [Page 101]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
-
    If the frame type is 0x1b, ACK frames also contain the sum of ECN
    marks received on the connection up until this point.
 
@@ -5695,6 +5706,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The fields in the ACK frame are as follows:
 
+
+
+
+Iyengar & Thomson        Expires April 27, 2019               [Page 102]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
    Largest Acknowledged:  A variable-length integer representing the
       largest packet number the peer is acknowledging; this is usually
       the largest packet number that the peer has received prior to
@@ -5706,14 +5725,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       the Largest Acknowledged field, was received by this peer to when
       this ACK was sent.  The value of the ACK Delay field is scaled by
       multiplying the encoded value by 2 to the power of the value of
-
-
-
-Iyengar & Thomson        Expires April 27, 2019               [Page 102]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
-
       the "ack_delay_exponent" transport parameter set by the sender of
       the ACK frame.  The "ack_delay_exponent" defaults to 3, or a
       multiplier of 8 (see Section 18.1).  Scaling in this fashion
@@ -5744,17 +5755,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    The ACK frame uses the least significant bit(bit (that is, type 0x1b)
    to indicate ECN feedback and report receipt of packets with ECN
    codepoints of ECT(0), ECT(1), or CE in the packet's IP header.
-
-
-
-
-
-
-
-
-
-
-
 
 
 
