@@ -693,7 +693,7 @@ ul.toc li {
 <p id="rfc.section.4.3.1.p.2">The initial crypto retransmission timeout SHOULD be set to twice the initial RTT.</p>
 <p id="rfc.section.4.3.1.p.3">At the beginning, there are no prior RTT samples within a connection.  Resumed connections over the same network SHOULD use the previous connection&#8217;s final smoothed RTT value as the resumed connection&#8217;s initial RTT.  If no previous RTT is available, or if the network changes, the initial RTT SHOULD be set to 100ms.  When an acknowledgement is received, a new RTT is computed and the timer SHOULD be set for twice the newly computed smoothed RTT.</p>
 <p id="rfc.section.4.3.1.p.4">When crypto packets are sent, the sender MUST set a timer for the crypto timeout period.  Upon timeout, the sender MUST retransmit all unacknowledged CRYPTO data if possible.</p>
-<p id="rfc.section.4.3.1.p.5">Until the server has validated the client&#8217;s address on the path, the number of bytes it can send is limited, as specified in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  If not all unacknowledged CRYPTO data can be sent, then all unacknowledged CRYPTO data sent in Initial packets should be retransmitted.  If no bytes can be sent, then no alarm should be armed until bytes have been received from the client.</p>
+<p id="rfc.section.4.3.1.p.5">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited, as specified in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  If not all unacknowledged CRYPTO data can be sent, then all unacknowledged CRYPTO data sent in Initial packets should be retransmitted.  If no data can be sent, then no alarm should be armed until data has been received from the client.</p>
 <p id="rfc.section.4.3.1.p.6">Because the server could be blocked until more packets are received, the client MUST start the crypto retransmission timer even if there is no unacknowledged CRYPTO data.  If the timer expires and the client has no CRYPTO data to retransmit and does not have Handshake keys, it SHOULD send an Initial packet in a UDP datagram of at least 1200 octets.  If the client has Handshake keys, it SHOULD send a Handshake packet.</p>
 <p id="rfc.section.4.3.1.p.7">On each consecutive expiration of the crypto timer without receiving an acknowledgement for a new packet, the sender SHOULD double the crypto retransmission timeout and set a timer for this period.</p>
 <p id="rfc.section.4.3.1.p.8">When crypto packets are outstanding, the TLP and RTO timers are not active.</p>
@@ -736,7 +736,7 @@ ul.toc li {
 <p id="rfc.section.4.3.3.p.7">QUIC also diverges from TCP by including MaxAckDelay in the RTO period. Since QUIC corrects for this delay in its SRTT and RTTVAR computations, it is necessary to add this delay explicitly in the TLP and RTO computation.</p>
 <p id="rfc.section.4.3.3.p.8">When an acknowledgment is received for a packet sent on an RTO event, any unacknowledged packets with lower packet numbers than those acknowledged MUST be marked as lost.  If an acknowledgement for a packet sent on an RTO is received at the same time packets sent prior to the first RTO are acknowledged, the RTO is considered spurious and standard loss detection rules apply.</p>
 <p id="rfc.section.4.3.3.p.9">A packet sent when an RTO timer expires MAY carry new data if available or unacknowledged data to potentially reduce recovery time. Since this packet is sent as a probe into the network prior to establishing any packet loss, prior unacknowledged packets SHOULD NOT be marked as lost.</p>
-<p id="rfc.section.4.3.3.p.10">A packet sent on an RTO timer MUST NOT be blocked by the sender&#8217;s congestion controller. A sender MUST however count these bytes as additional bytes in flight, since this packet adds network load without establishing packet loss.</p>
+<p id="rfc.section.4.3.3.p.10">A packet sent on an RTO timer MUST NOT be blocked by the sender&#8217;s congestion controller. A sender MUST however count these octets as being in flight, since this packet adds network load without establishing packet loss.</p>
 <h2 id="rfc.section.4.4">
 <a href="#rfc.section.4.4">4.4.</a> <a href="#generating-acknowledgements" id="generating-acknowledgements">Generating Acknowledgements</a>
 </h2>
@@ -831,7 +831,7 @@ ul.toc li {
 <dt>loss_time:</dt>
 <dd style="margin-left: 8">The time at which the next packet will be considered lost based on early transmit or exceeding the reordering window in time.</dd>
 <dt>sent_packets:</dt>
-<dd style="margin-left: 8">An association of packet numbers to information about them, including a number field indicating the packet number, a time field indicating the time a packet was sent, a boolean indicating whether the packet is ack-only, a boolean indicating whether it counts towards bytes in flight, and a bytes field indicating the packet&#8217;s size.  sent_packets is ordered by packet number, and packets remain in sent_packets until acknowledged or lost.  A sent_packets data structure is maintained per packet number space, and ACK processing only applies to a single space.</dd>
+<dd style="margin-left: 8">An association of packet numbers to information about them, including a number field indicating the packet number, a time field indicating the time a packet was sent, a boolean indicating whether the packet is ack-only, a boolean indicating whether it counts towards bytes in flight, and a size field that indicates the packet&#8217;s size.  sent_packets is ordered by packet number, and packets remain in sent_packets until acknowledged or lost.  A sent_packets data structure is maintained per packet number space, and ACK processing only applies to a single space.</dd>
 </dl>
 <h3 id="rfc.section.4.5.3">
 <a href="#rfc.section.4.5.3">4.5.3.</a> <a href="#initialization" id="initialization">Initialization</a>
@@ -868,7 +868,7 @@ ul.toc li {
 <li>ack_only: A boolean that indicates whether a packet contains only ACK or PADDING frame(s).  If true, it is still expected an ack will be received for this packet, but it is not retransmittable.</li>
 <li>in_flight: A boolean that indicates whether the packet counts towards bytes in flight.</li>
 <li>is_crypto_packet: A boolean that indicates whether the packet contains cryptographic handshake messages critical to the completion of the QUIC handshake. In this version of QUIC, this includes any packet with the long header that includes a CRYPTO frame.</li>
-<li>sent_bytes: The number of bytes sent in the packet, not including UDP or IP overhead, but including QUIC framing overhead.</li>
+<li>sent_bytes: The number of octets sent in the packet, not including UDP or IP overhead, but including QUIC framing overhead.</li>
 </ul>
 <p id="rfc.section.4.5.4.p.3">Pseudocode for OnPacketSent follows:</p>
 <pre>
@@ -884,7 +884,7 @@ ul.toc li {
        time_of_last_sent_crypto_packet = now
      time_of_last_sent_retransmittable_packet = now
      OnPacketSentCC(sent_bytes)
-     sent_packets[packet_number].bytes = sent_bytes
+     sent_packets[packet_number].size = sent_bytes
      SetLossDetectionTimer()
 </pre>
 <h3 id="rfc.section.4.5.5">
@@ -1072,7 +1072,7 @@ DetectLostPackets(largest_acked):
 <h1 id="rfc.section.5">
 <a href="#rfc.section.5">5.</a> <a href="#congestion-control" id="congestion-control">Congestion Control</a>
 </h1>
-<p id="rfc.section.5.p.1">QUIC&#8217;s congestion control is based on TCP NewReno <a href="#RFC6582" class="xref">[RFC6582]</a>.  NewReno is a congestion window based congestion control.  QUIC specifies the congestion window in bytes rather than packets due to finer control and the ease of appropriate byte counting <a href="#RFC3465" class="xref">[RFC3465]</a>.</p>
+<p id="rfc.section.5.p.1">QUIC&#8217;s congestion control is based on TCP NewReno <a href="#RFC6582" class="xref">[RFC6582]</a>.  NewReno is a congestion window based congestion control.  QUIC specifies the congestion window in octets rather than packets due to finer control and the ease of appropriate byte counting <a href="#RFC3465" class="xref">[RFC3465]</a>.</p>
 <p id="rfc.section.5.p.2">QUIC hosts MUST NOT send packets if they would increase bytes_in_flight (defined in <a href="#vars-of-interest" class="xref">Section 5.8.2</a>) beyond the available congestion window, unless the packet is a probe packet sent after the TLP or RTO timer expires, as described in <a href="#tlp" class="xref">Section 4.3.2</a> and <a href="#rto" class="xref">Section 4.3.3</a>.</p>
 <p id="rfc.section.5.p.3">Implementations MAY use other congestion control algorithms, and endpoints MAY use different algorithms from one another. The signals QUIC provides for congestion control are generic and are designed to support different algorithms.</p>
 <h2 id="rfc.section.5.1">
@@ -1082,7 +1082,7 @@ DetectLostPackets(largest_acked):
 <h2 id="rfc.section.5.2">
 <a href="#rfc.section.5.2">5.2.</a> <a href="#slow-start" id="slow-start">Slow Start</a>
 </h2>
-<p id="rfc.section.5.2.p.1">QUIC begins every connection in slow start and exits slow start upon loss or upon increase in the ECN-CE counter. QUIC re-enters slow start anytime the congestion window is less than ssthresh, which typically only occurs after an RTO. While in slow start, QUIC increases the congestion window by the number of bytes acknowledged when each ack is processed.</p>
+<p id="rfc.section.5.2.p.1">QUIC begins every connection in slow start and exits slow start upon loss or upon increase in the ECN-CE counter. QUIC re-enters slow start anytime the congestion window is less than ssthresh, which typically only occurs after an RTO. While in slow start, QUIC increases the congestion window by the number of octets acknowledged when each acknowledgment is processed.</p>
 <h2 id="rfc.section.5.3">
 <a href="#rfc.section.5.3">5.3.</a> <a href="#congestion-avoidance" id="congestion-avoidance">Congestion Avoidance</a>
 </h2>
@@ -1095,7 +1095,7 @@ DetectLostPackets(largest_acked):
 <h2 id="rfc.section.5.5">
 <a href="#rfc.section.5.5">5.5.</a> <a href="#tail-loss-probe" id="tail-loss-probe">Tail Loss Probe</a>
 </h2>
-<p id="rfc.section.5.5.p.1">A TLP packet MUST NOT be blocked by the sender&#8217;s congestion controller. The sender MUST however count these bytes as additional bytes-in-flight, since a TLP adds network load without establishing packet loss.</p>
+<p id="rfc.section.5.5.p.1">A TLP packet MUST NOT be blocked by the sender&#8217;s congestion controller. The sender MUST however count TLP packets against bytes-in-flight, since a TLP adds network load without establishing packet loss.</p>
 <p id="rfc.section.5.5.p.2">Acknowledgement or loss of tail loss probes are treated like any other packet.</p>
 <h2 id="rfc.section.5.6">
 <a href="#rfc.section.5.6">5.6.</a> <a href="#retransmission-timeout" id="retransmission-timeout">Retransmission Timeout</a>
@@ -1118,11 +1118,11 @@ DetectLostPackets(largest_acked):
 
 <dl>
 <dt>kMaxDatagramSize:</dt>
-<dd style="margin-left: 8">The sender&#8217;s maximum payload size. Does not include UDP or IP overhead.  The max packet size is used for calculating initial and minimum congestion windows. The RECOMMENDED value is 1200 bytes.</dd>
+<dd style="margin-left: 8">The sender&#8217;s maximum payload size. Does not include UDP or IP overhead.  The max packet size is used for calculating initial and minimum congestion windows. The RECOMMENDED value is 1200 octets.</dd>
 <dt>kInitialWindow:</dt>
-<dd style="margin-left: 8">Default limit on the initial amount of outstanding data in bytes.  Taken from <a href="#RFC6928" class="xref">[RFC6928]</a>.  The RECOMMENDED value is the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14600)).</dd>
+<dd style="margin-left: 8">Default limit on the initial amount of outstanding data in octets.  Taken from <a href="#RFC6928" class="xref">[RFC6928]</a>.  The RECOMMENDED value is the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14600)).</dd>
 <dt>kMinimumWindow:</dt>
-<dd style="margin-left: 8">Minimum congestion window in bytes. The RECOMMENDED value is 2 * kMaxDatagramSize.</dd>
+<dd style="margin-left: 8">Minimum congestion window in octets. The RECOMMENDED value is 2 * kMaxDatagramSize.</dd>
 <dt>kLossReductionFactor:</dt>
 <dd style="margin-left: 8">Reduction in congestion window when a new loss event is detected.  The RECOMMENDED value is 0.5.</dd>
 </dl>
@@ -1136,13 +1136,13 @@ DetectLostPackets(largest_acked):
 <dt>ecn_ce_counter:</dt>
 <dd style="margin-left: 8">The highest value reported for the ECN-CE counter by the peer in an ACK frame. This variable is used to detect increases in the reported ECN-CE counter.</dd>
 <dt>bytes_in_flight:</dt>
-<dd style="margin-left: 8">The sum of the size in bytes of all sent packets that contain at least one retransmittable or PADDING frame, and have not been acked or declared lost. The size does not include IP or UDP overhead, but does include the QUIC header and AEAD overhead.  Packets only containing ACK frames do not count towards bytes_in_flight to ensure congestion control does not impede congestion feedback.</dd>
+<dd style="margin-left: 8">The sum of the size in octets of all sent packets that contain at least one retransmittable or PADDING frame, and have not been acked or declared lost. The size does not include IP or UDP overhead, but does include the QUIC header and AEAD overhead.  Packets only containing ACK frames do not count towards bytes_in_flight to ensure congestion control does not impede congestion feedback.</dd>
 <dt>congestion_window:</dt>
 <dd style="margin-left: 8">Maximum number of bytes-in-flight that may be sent.</dd>
 <dt>end_of_recovery:</dt>
 <dd style="margin-left: 8">The largest packet number sent when QUIC detects a loss.  When a larger packet is acknowledged, QUIC exits recovery.</dd>
 <dt>ssthresh:</dt>
-<dd style="margin-left: 8">Slow start threshold in bytes.  When the congestion window is below ssthresh, the mode is slow start and the window grows by the number of bytes acknowledged.</dd>
+<dd style="margin-left: 8">Slow start threshold in octets.  When the congestion window is below ssthresh, the mode is slow start and the window grows by the number of octets acknowledged.</dd>
 </dl>
 <h3 id="rfc.section.5.8.3">
 <a href="#rfc.section.5.8.3">5.8.3.</a> <a href="#initialization-1" id="initialization-1">Initialization</a>
@@ -1173,16 +1173,16 @@ DetectLostPackets(largest_acked):
 
    OnPacketAckedCC(acked_packet):
      // Remove from bytes_in_flight.
-     bytes_in_flight -= acked_packet.bytes
+     bytes_in_flight -= acked_packet.size
      if (InRecovery(acked_packet.packet_number)):
        // Do not increase congestion window in recovery period.
        return
      if (congestion_window &lt; ssthresh):
        // Slow start.
-       congestion_window += acked_packet.bytes
+       congestion_window += acked_packet.size
      else:
        // Congestion avoidance.
-       congestion_window += kMaxDatagramSize * acked_packet.bytes
+       congestion_window += kMaxDatagramSize * acked_packet.size
            / congestion_window
 </pre>
 <h3 id="rfc.section.5.8.6">
@@ -1221,7 +1221,7 @@ DetectLostPackets(largest_acked):
    OnPacketsLost(lost_packets):
      // Remove lost packets from bytes_in_flight.
      for (lost_packet : lost_packets):
-       bytes_in_flight -= lost_packet.bytes
+       bytes_in_flight -= lost_packet.size
      largest_lost_packet = lost_packets.last()
 
      // Start a new congestion epoch if the last lost packet
@@ -1238,7 +1238,7 @@ DetectLostPackets(largest_acked):
      // Declare all packets prior to packet_number lost.
      for (sent_packet: sent_packets):
        if (sent_packet.packet_number &lt; packet_number):
-         bytes_in_flight -= sent_packet.bytes
+         bytes_in_flight -= sent_packet.size
          sent_packets.remove(sent_packet.packet_number)
 </pre>
 <h1 id="rfc.section.6">
