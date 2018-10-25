@@ -385,7 +385,8 @@ ul.toc li {
 <link href="#rfc.section.17.6" rel="Chapter" title="17.6 Handshake Packet">
 <link href="#rfc.section.17.7" rel="Chapter" title="17.7 Retry Packet">
 <link href="#rfc.section.18" rel="Chapter" title="18 Transport Parameter Encoding">
-<link href="#rfc.section.18.1" rel="Chapter" title="18.1 Transport Parameter Definitions">
+<link href="#rfc.section.18.1" rel="Chapter" title="18.1 Version Validation Fields">
+<link href="#rfc.section.18.2" rel="Chapter" title="18.2 Transport Parameter Definitions">
 <link href="#rfc.section.19" rel="Chapter" title="19 Frame Types and Formats">
 <link href="#rfc.section.19.1" rel="Chapter" title="19.1 PADDING Frame">
 <link href="#rfc.section.19.2" rel="Chapter" title="19.2 RST_STREAM Frame">
@@ -457,7 +458,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and M. Thomson, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-transport-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2018-10-24" />
+  <meta name="dct.issued" scheme="ISO8601" content="2018-10-25" />
   <meta name="dct.abstract" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
   <meta name="description" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
 
@@ -481,12 +482,12 @@ ul.toc li {
 <td class="right">M. Thomson, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: April 27, 2019</td>
+<td class="left">Expires: April 28, 2019</td>
 <td class="right">Mozilla</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">October 24, 2018</td>
+<td class="right">October 25, 2018</td>
 </tr>
 
     	
@@ -505,7 +506,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on April 27, 2019.</p>
+<p>This Internet-Draft will expire on April 28, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2018 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -723,7 +724,9 @@ ul.toc li {
 </li>
 </ul><li>18.   <a href="#rfc.section.18">Transport Parameter Encoding</a>
 </li>
-<ul><li>18.1.   <a href="#rfc.section.18.1">Transport Parameter Definitions</a>
+<ul><li>18.1.   <a href="#rfc.section.18.1">Version Validation Fields</a>
+</li>
+<li>18.2.   <a href="#rfc.section.18.2">Transport Parameter Definitions</a>
 </li>
 </ul><li>19.   <a href="#rfc.section.19">Frame Types and Formats</a>
 </li>
@@ -1299,7 +1302,7 @@ ul.toc li {
 <h2 id="rfc.section.4.5">
 <a href="#rfc.section.4.5">4.5.</a> <a href="#stream-limit-increment" id="stream-limit-increment">Stream Limit Increment</a>
 </h2>
-<p id="rfc.section.4.5.p.1">An endpoint limits the number of concurrently active incoming streams by limiting the maximum stream ID.  An initial value is set in the transport parameters (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) and is subsequently increased by MAX_STREAM_ID frames (see <a href="#frame-max-stream-id" class="xref">Section 19.7</a>).</p>
+<p id="rfc.section.4.5.p.1">An endpoint limits the number of concurrently active incoming streams by limiting the maximum stream ID.  An initial value is set in the transport parameters (see <a href="#transport-parameter-definitions" class="xref">Section 18.2</a>) and is subsequently increased by MAX_STREAM_ID frames (see <a href="#frame-max-stream-id" class="xref">Section 19.7</a>).</p>
 <p id="rfc.section.4.5.p.2">As with stream and connection flow control, this document leaves when and how many streams to make available to a peer via MAX_STREAM_ID to implementations, but offers a few considerations.  MAX_STREAM_ID frames constitute minimal overhead, while withholding MAX_STREAM_ID frames can prevent the peer from using the available parallelism.</p>
 <p id="rfc.section.4.5.p.3">The STREAM_ID_BLOCKED frame (<a href="#frame-stream-id-blocked" class="xref">Section 19.11</a>) can be used to signal a shortage of available streams. Implementations will likely want to increase the maximum stream ID as peer-initiated streams close.</p>
 <h1 id="rfc.section.5">
@@ -1390,21 +1393,23 @@ Packet (v=Y) -&gt;
 <a href="#rfc.section.6.2">6.2.</a> <a href="#handle-vn" id="handle-vn">Handling Version Negotiation Packets</a>
 </h2>
 <p id="rfc.section.6.2.p.1">When the client receives a Version Negotiation packet, it first checks that the Destination and Source Connection ID fields match the Source and Destination Connection ID fields in a packet that the client sent.  If this check fails, the packet MUST be discarded.</p>
-<p id="rfc.section.6.2.p.2">Once the Version Negotiation packet is determined to be valid, the client then selects an acceptable protocol version from the list provided by the server.  The client then attempts to create a connection using that version.  Though the content of the Initial packet the client sends might not change in response to version negotiation, a client MUST increase the packet number it uses on every packet it sends.  Packets MUST continue to use long headers (<a href="#long-header" class="xref">Section 17.2</a>) and MUST include the new negotiated protocol version.</p>
-<p id="rfc.section.6.2.p.3">The client MUST use the long header format and include its selected version on all packets until it has 1-RTT keys and it has received a packet from the server which is not a Version Negotiation packet.</p>
-<p id="rfc.section.6.2.p.4">A client MUST NOT change the version it uses unless it is in response to a Version Negotiation packet from the server.  Once a client receives a packet from the server which is not a Version Negotiation packet, it MUST discard other Version Negotiation packets on the same connection.  Similarly, a client MUST ignore a Version Negotiation packet if it has already received and acted on a Version Negotiation packet.</p>
-<p id="rfc.section.6.2.p.5">A client MUST ignore a Version Negotiation packet that lists the client&#8217;s chosen version.</p>
-<p id="rfc.section.6.2.p.6">A client MAY attempt 0-RTT after receiving a Version Negotiation packet.  A client that sends additional 0-RTT packets MUST NOT reset the packet number to 0 as a result, see <a href="#retry-0rtt-pn" class="xref">Section 17.5.2</a>.</p>
-<p id="rfc.section.6.2.p.7">The format of the packet that a client sends might be different in the new version.  In this case, the client generates a new packet that conforms to the selected version.  Though different versions might convey information about versions differently, a client MUST NOT change either the list of versions it claims to support.  Similarly, a client MUST NOT change what it reports as the version it first attempted to use.</p>
-<p id="rfc.section.6.2.p.8">Version negotiation packets have no cryptographic protection.  Keeping version-related information consistent between versions is critical for validation of the choice of version (see <a href="#version-validation" class="xref">Section 7.3.3</a>).</p>
+<p id="rfc.section.6.2.p.2">Once the Version Negotiation packet is determined to be valid, the client then selects an acceptable protocol version from the list provided by the server. The client MUST choose the version that it most prefers from those supported by the server.  The server will abort the connection attempt if the client chooses in a manner inconsistent from the preference order included with the client transport parameters (see <a href="#version-validation" class="xref">Section 7.3.3</a>).</p>
+<p id="rfc.section.6.2.p.3">The client then attempts to create a connection using the version it selects.  Though the content of the Initial packet the client sends might not change in response to version negotiation, a client MUST increase the packet number it uses on every packet it sends.  Packets MUST continue to use long headers (<a href="#long-header" class="xref">Section 17.2</a>) and MUST include the new negotiated protocol version.</p>
+<p id="rfc.section.6.2.p.4">The client MUST use the long header format and include its selected version on all packets until it has 1-RTT keys and it has received a packet from the server which is not a Version Negotiation packet.</p>
+<p id="rfc.section.6.2.p.5">A client MUST NOT change the version it uses unless it is in response to a Version Negotiation packet from the server, or if the server picks a different, but compatible version (see <a href="#version-upgrade" class="xref">Section 6.3</a>).  Once a client receives a packet from the server which is not a Version Negotiation packet, it MUST discard other Version Negotiation packets on the same connection.  Similarly, a client MUST ignore a Version Negotiation packet if it has already received and acted on a Version Negotiation packet.</p>
+<p id="rfc.section.6.2.p.6">A client MUST ignore a Version Negotiation packet that lists the client&#8217;s chosen version.</p>
+<p id="rfc.section.6.2.p.7">A client MAY attempt 0-RTT after receiving a Version Negotiation packet.  A client that sends additional 0-RTT packets MUST NOT reset the packet number to 0 as a result, see <a href="#retry-0rtt-pn" class="xref">Section 17.5.2</a>.</p>
+<p id="rfc.section.6.2.p.8">The format of the packet that a client sends might be different in the new version.  In this case, the client generates a new packet that conforms to the selected version.  Though different versions might convey information about versions differently, a client MUST send both its first attempted version and the list of versions it claims to support in preference order.</p>
+<p id="rfc.section.6.2.p.9">Version negotiation packets have no cryptographic protection.  Keeping version-related information consistent between versions is critical for validation of the choice of version (see <a href="#version-validation" class="xref">Section 7.3.3</a>).</p>
 <h2 id="rfc.section.6.3">
 <a href="#rfc.section.6.3">6.3.</a> <a href="#version-upgrade" id="version-upgrade">Compatible Version Upgrade</a>
 </h2>
-<p id="rfc.section.6.3.p.1">The first packet sent by a client uses a QUIC version selected by the client.  In this version of QUIC, this packet also includes transport parameters.  Those transport parameters include a list of QUIC versions the client supports.</p>
-<p id="rfc.section.6.3.p.2">A server that understands the version selected by the client can extract the list of QUIC versions and select an alternative version from the list of supported versions.  A server MAY choose a compatible version from that list and continue the handshake with that version.  The server sends its first packet as though it was continuing with the version it selects.</p>
-<p id="rfc.section.6.3.p.3">A QUIC version is compatible with this version if the cryptographic handshake message sent in the first packet can be used in both versions.  A compatible version is also able to identify and acknowledge the first packet sent by the client in some fashion.  Other QUIC versions might have different constraints in determining what is compatible.  In order to facilitate this process, new QUIC versions could define a process for transforming the first packet from other compatible versions into the equivalent packet in the new version.</p>
+<p id="rfc.section.6.3.p.1">The first packet sent by a client uses a QUIC version selected by the client.  In this version of QUIC, this packet also includes transport parameters.  Those transport parameters includes the version the client first attempts to use, plus a list of QUIC versions the client supports in the order that the client prefers them.</p>
+<p id="rfc.section.6.3.p.2">A server that understands the version selected by the client can extract the list of QUIC versions and select an alternative version from the list of supported versions.  A server MAY choose version from that list that is compatible with the version selected by the client and continue the handshake with that version.  The server sends its first packet as though it was continuing with the version it selects.</p>
+<p id="rfc.section.6.3.p.3">A QUIC version is compatible with another version if the cryptographic handshake message sent in the first packet can be used in both versions.  A compatible version is also able to identify and acknowledge the first packet sent by the client in some fashion.  Other QUIC versions might have different constraints in determining what is compatible.  In order to facilitate this process, new QUIC versions could define a process for transforming the first packet from other compatible versions into the equivalent packet in the new version.</p>
 <p id="rfc.section.6.3.p.4">Upgrading in this manner allows a server to upgrade without incurring the round trip imposed by sending a Version Negotiation packet.  It also allows clients to send their first packet using a widely deployed version, without the risk of having to use that version with servers that supports a more-preferred version.</p>
 <p id="rfc.section.6.3.p.5">A server MUST NOT send a Version Negotiation packet if it prefers a version that is not compatible with the version the client initially chose; a server has to allow the client to choose between versions that are not compatible.</p>
+<p id="rfc.section.6.3.p.6">A client MUST abort the connection attempt with a VERSION_NEGOTIATION_ERROR if the server chooses a compatible version upgrade to the version that the client first attempted.</p>
 <h2 id="rfc.section.6.4">
 <a href="#rfc.section.6.4">6.4.</a> <a href="#using-reserved-versions" id="using-reserved-versions">Using Reserved Versions</a>
 </h2>
@@ -1496,17 +1501,17 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <a href="#rfc.section.7.3">7.3.</a> <a href="#transport-parameters" id="transport-parameters">Transport Parameters</a>
 </h2>
 <p id="rfc.section.7.3.p.1">During connection establishment, both endpoints make authenticated declarations of their transport parameters, which are a set of key-value pairs.  These declarations are made unilaterally by each endpoint.  Endpoints are required to comply with the restrictions implied by these parameters; the definition of each transport parameter includes rules for its handling.</p>
-<p id="rfc.section.7.3.p.2">The encoding of the transport parameters is detailed in <a href="#transport-parameter-encoding" class="xref">Section 18</a>.  Transport parameters are key-value pairs.  Definitions and rules for encoding for each of the defined transport parameters are included in <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>.</p>
+<p id="rfc.section.7.3.p.2">The encoding of the transport parameters is detailed in <a href="#transport-parameter-encoding" class="xref">Section 18</a>.  Transport parameters are key-value pairs.  Definitions and rules for encoding for each of the defined transport parameters are included in <a href="#transport-parameter-definitions" class="xref">Section 18.2</a>.</p>
 <p id="rfc.section.7.3.p.3">QUIC includes the encoded transport parameters in the cryptographic handshake.  Once the handshake completes, the transport parameters declared by the peer are available.  Each endpoint validates the value provided by its peer.  Successful validation of transport parameters MUST be completed before a connection is considered successfully established.</p>
-<p id="rfc.section.7.3.p.4">A client also includes a list of supported versions along with its transport parameters.  Transport parameters are carried in the first packet the client sends.  Sending the list of supported versions enables upgrades between compatible versions, as described in <a href="#version-upgrade" class="xref">Section 6.3</a>. These parameters also enable validation of version negotiation by the server (see <a href="#version-validation" class="xref">Section 7.3.3</a>).</p>
+<p id="rfc.section.7.3.p.4">A client also includes information about the QUIC versions it supports along with its transport parameters.  Transport parameters are carried in the first packet the client sends.  Sending a list of supported versions enables upgrades between compatible versions, as described in <a href="#version-upgrade" class="xref">Section 6.3</a>. These parameters are used by a server to validate the outcome of version negotiation (see <a href="#version-validation" class="xref">Section 7.3.3</a>).</p>
 <p id="rfc.section.7.3.p.5">A transport parameter MUST appear at most once in a given transport parameters extension.  An endpoint MUST treat receipt of duplicate transport parameters as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
-<p id="rfc.section.7.3.p.6">A server MUST include the original_connection_id transport parameter (<a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) if it sent a Retry packet.</p>
+<p id="rfc.section.7.3.p.6">A server MUST include the original_connection_id transport parameter (<a href="#transport-parameter-definitions" class="xref">Section 18.2</a>) if it sent a Retry packet.</p>
 <h3 id="rfc.section.7.3.1">
 <a href="#rfc.section.7.3.1">7.3.1.</a> <a href="#zerortt-parameters" id="zerortt-parameters">Values of Transport Parameters for 0-RTT</a>
 </h3>
 <p id="rfc.section.7.3.1.p.1">A client that attempts to send 0-RTT data MUST remember the transport parameters used by the server.  The transport parameters that the server advertises during connection establishment apply to all connections that are resumed using the keying material established during that handshake.  Remembered transport parameters apply to the new connection until the handshake completes and new transport parameters from the server can be provided.</p>
 <p id="rfc.section.7.3.1.p.2">A server can remember the transport parameters that it advertised, or store an integrity-protected copy of the values in the ticket and recover the information when accepting 0-RTT data.  A server uses the transport parameters in determining whether to accept 0-RTT data.</p>
-<p id="rfc.section.7.3.1.p.3">A server MAY accept 0-RTT and subsequently provide different values for transport parameters for use in the new connection.  If 0-RTT data is accepted by the server, the server MUST NOT reduce any limits or alter any values that might be violated by the client with its 0-RTT data.  In particular, a server that accepts 0-RTT data MUST NOT set values for initial_max_data, initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, initial_max_stream_data_uni, initial_max_bidi_streams, or initial_max_uni_streams (<a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) that are smaller than the remembered value of those parameters.</p>
+<p id="rfc.section.7.3.1.p.3">A server MAY accept 0-RTT and subsequently provide different values for transport parameters for use in the new connection.  If 0-RTT data is accepted by the server, the server MUST NOT reduce any limits or alter any values that might be violated by the client with its 0-RTT data.  In particular, a server that accepts 0-RTT data MUST NOT set values for initial_max_data, initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, initial_max_stream_data_uni, initial_max_bidi_streams, or initial_max_uni_streams (<a href="#transport-parameter-definitions" class="xref">Section 18.2</a>) that are smaller than the remembered value of those parameters.</p>
 <p id="rfc.section.7.3.1.p.4">Omitting or setting a zero value for certain transport parameters can result in 0-RTT data being enabled, but not usable.  The applicable subset of transport parameters that permit sending of application data SHOULD be set to non-zero values for 0-RTT.  This includes initial_max_data and either initial_max_bidi_streams and initial_max_stream_data_bidi_remote, or initial_max_uni_streams and initial_max_stream_data_uni.</p>
 <p id="rfc.section.7.3.1.p.5">The value of the server&#8217;s previous preferred_address MUST NOT be used when establishing a new connection; rather, the client should wait to observe the server&#8217;s new preferred_address value in the handshake.</p>
 <p id="rfc.section.7.3.1.p.6">A server MUST reject 0-RTT data or even abort a handshake if the implied values for transport parameters cannot be supported.</p>
@@ -1519,10 +1524,13 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <a href="#rfc.section.7.3.3">7.3.3.</a> <a href="#version-validation" id="version-validation">Version Negotiation Validation</a>
 </h3>
 <p id="rfc.section.7.3.3.p.1">Though the cryptographic handshake has integrity protection, two forms of QUIC version downgrade are possible.  In the first, an attacker replaces the QUIC version in the Initial packet.  In the second, a fake Version Negotiation packet is sent by an attacker.</p>
-<p id="rfc.section.7.3.3.p.2">To protect against these attacks, the transport parameters includes the complete list of versions that a client is willing to use, with the version it used for sending the first packet in the first entry.  Including this information in the cryptographic handshake provides it with integrity protection, and allows the server to detect version downgrade attacks.</p>
-<p id="rfc.section.7.3.3.p.3">The client MUST include the first QUIC version it attempts to use as the first entry of the supported_versions list in the transport parameters.  A server MUST close the connection attempt with a VERSION_NEGOTIATION_ERROR if it supports the first entry in the list it receives and that version does not match the version of the QUIC packet.  The server MAY choose to upgrade to a compatible version, as defined in <a href="#version-upgrade" class="xref">Section 6.3</a>.</p>
-<p id="rfc.section.7.3.3.p.4">Different QUIC versions might define transport parameters, or their equivalent, using a different format.  However, the version field in the QUIC packet header is authenticated using transport parameters.  The position and the format of the version fields in transport parameters therefore MUST either be identical across different QUIC versions, or be unambiguously different to ensure no confusion about their interpretation.  One way that a new format could be introduced is to define a TLS extension with a different codepoint.</p>
-<p id="rfc.section.7.3.3.p.5">Transport parameters for QUIC versions that are compatible with this QUIC version MUST provide transport parameters definitions that retain both a list of versions the client supports, as well as the one that it first attempts to use.</p>
+<p id="rfc.section.7.3.3.p.2">To protect against these attacks, the transport parameters includes both the original version the client uses with its first packet, a complete list of versions that a client is willing to use in preference order.  Including this information in the cryptographic handshake provides it with integrity protection, and allows the server to detect version downgrade attacks.</p>
+<p id="rfc.section.7.3.3.p.3">The client MUST include the first QUIC version it attempts to use in the original_version field of its transport parameters.  A server MUST abort the connection attempt with a VERSION_NEGOTIATION_ERROR if it supports the version in the original_version field and that version does not match the version of the Initial packet from the client.</p>
+<p id="rfc.section.7.3.3.p.4">The client MUST include the versions it claims to support in preference order in the supported_versions field of its transport parameters.  A server MUST abort the connection attempt with a VERSION_NEGOTIATION_ERROR if the Initial packet from the client contains a version that is less preferred by the client than any version it supports, unless that version also matches the original_version field.</p>
+<p id="rfc.section.7.3.3.p.5">After validating the version parameters from the client, a server MAY choose to upgrade to a compatible version, as defined in <a href="#version-upgrade" class="xref">Section 6.3</a>, even if that version is less preferred by the client.</p>
+<p id="rfc.section.7.3.3.p.6">Different QUIC versions might define transport parameters, or their equivalent, using a different format.  However, the negotiated version is validated using these parameters, so they require that equivalent information is conveyed.</p>
+<p id="rfc.section.7.3.3.p.7">If a new version uses transport parameters with a similar encoding, the position and the format of the version fields in transport parameters MUST either be identical across different QUIC versions, or be unambiguously different to ensure no confusion about their interpretation.  If the same sequence of octets could be interpreted differently based on the assumed version, this might be exploited to attack version negotiation.  One way that a new format could be introduced is to define a TLS extension with a different codepoint.</p>
+<p id="rfc.section.7.3.3.p.8">Transport parameters for QUIC versions that are compatible with this QUIC version MUST provide transport parameters definitions that retain equivalents for the original_version and supported_versions fields.</p>
 <h1 id="rfc.section.8">
 <a href="#rfc.section.8">8.</a> <a href="#address-validation" id="address-validation">Address Validation</a>
 </h1>
@@ -1735,7 +1743,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.10.2">
 <a href="#rfc.section.10.2">10.2.</a> <a href="#idle-timeout" id="idle-timeout">Idle Timeout</a>
 </h2>
-<p id="rfc.section.10.2.p.1">If the idle timeout is enabled, a connection that remains idle for longer than the advertised idle timeout (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) is closed.  A connection enters the draining state when the idle timeout expires.</p>
+<p id="rfc.section.10.2.p.1">If the idle timeout is enabled, a connection that remains idle for longer than the advertised idle timeout (see <a href="#transport-parameter-definitions" class="xref">Section 18.2</a>) is closed.  A connection enters the draining state when the idle timeout expires.</p>
 <p id="rfc.section.10.2.p.2">Each endpoint advertises its own idle timeout to its peer. The idle timeout starts from the last packet received.  In order to ensure that initiating new activity postpones an idle timeout, an endpoint restarts this timer when sending a packet.  An endpoint does not postpone the idle timeout if another packet has been sent containing frames other than ACK or PADDING, and that other packet has not been acknowledged or declared lost.  Packets that contain only ACK or PADDING frames are not acknowledged until an endpoint has other frames to send, so they could prevent the timeout from being refreshed.</p>
 <p id="rfc.section.10.2.p.3">The value for an idle timeout can be asymmetric.  The value advertised by an endpoint is only used to determine whether the connection is live at that endpoint.  An endpoint that sends packets near the end of the idle timeout period of a peer risks having those packets discarded if its peer enters the draining state before the packets arrive.  If a peer could timeout within an RTO (see Section 4.3.3 of <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), it is advisable to test for liveness before sending any data that cannot be retried safely.</p>
 <h2 id="rfc.section.10.3">
@@ -2540,7 +2548,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.17.7.p.10">A client sets the Destination Connection ID field of this Initial packet to the value from the Source Connection ID in the Retry packet. Changing Destination Connection ID also results in a change to the keys used to protect the Initial packet. It also sets the Token field to the token provided in the Retry. The client MUST NOT change the Source Connection ID because the server could include the connection ID as part of its token validation logic (see <a href="#validate-future" class="xref">Section 8.1.2</a>).</p>
 <p id="rfc.section.17.7.p.11">All subsequent Initial packets from the client MUST use the connection ID and token values from the Retry packet.  Aside from this, the Initial packet sent by the client is subject to the same restrictions as the first Initial packet.  A client can either reuse the cryptographic handshake message or construct a new one at its discretion.</p>
 <p id="rfc.section.17.7.p.12">A client MAY attempt 0-RTT after receiving a Retry packet by sending 0-RTT packets to the connection ID provided by the server.  A client that sends additional 0-RTT packets without constructing a new cryptographic handshake message MUST NOT reset the packet number to 0 after a Retry packet, see <a href="#retry-0rtt-pn" class="xref">Section 17.5.2</a>.</p>
-<p id="rfc.section.17.7.p.13">A server acknowledges the use of a Retry packet for a connection using the original_connection_id transport parameter (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>).  If the server sends a Retry packet, it MUST include the value of the Original Destination Connection ID field of the Retry packet (that is, the Destination Connection ID field from the client&#8217;s first Initial packet) in the transport parameter.</p>
+<p id="rfc.section.17.7.p.13">A server acknowledges the use of a Retry packet for a connection using the original_connection_id transport parameter (see <a href="#transport-parameter-definitions" class="xref">Section 18.2</a>).  If the server sends a Retry packet, it MUST include the value of the Original Destination Connection ID field of the Retry packet (that is, the Destination Connection ID field from the client&#8217;s first Initial packet) in the transport parameter.</p>
 <p id="rfc.section.17.7.p.14">If the client received and processed a Retry packet, it validates that the original_connection_id transport parameter is present and correct; otherwise, it validates that the transport parameter is absent.  A client MUST treat a failed validation as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
 <p id="rfc.section.17.7.p.15">A Retry packet does not include a packet number and cannot be explicitly acknowledged by a client.</p>
 <h1 id="rfc.section.18">
@@ -2578,6 +2586,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
    struct {
       select (Handshake.msg_type) {
          case client_hello:
+            QuicVersion original_version;
             QuicVersion supported_versions&lt;4..2^8-4&gt;;
       };
       TransportParameter parameters&lt;0..2^16-1&gt;;
@@ -2593,12 +2602,17 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </pre>
 <p class="figure">Figure 15: Definition of TransportParameters</p>
 <p id="rfc.section.18.p.2">The <samp>extension_data</samp> field of the quic_transport_parameters extension defined in <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a> contains a TransportParameters value.</p>
-<p id="rfc.section.18.p.3">A client includes a list of its supported versions in its transport parameters.  This supports validation of the negotiated versions as defined in <a href="#version-validation" class="xref">Section 7.3.3</a>.</p>
-<p id="rfc.section.18.p.4">QUIC encodes transport parameters into a sequence of octets, which are then included in the cryptographic handshake.</p>
+<p id="rfc.section.18.p.3">QUIC encodes transport parameters into a sequence of octets, which are then included in the cryptographic handshake.</p>
 <h2 id="rfc.section.18.1">
-<a href="#rfc.section.18.1">18.1.</a> <a href="#transport-parameter-definitions" id="transport-parameter-definitions">Transport Parameter Definitions</a>
+<a href="#rfc.section.18.1">18.1.</a> <a href="#version-validation-fields" id="version-validation-fields">Version Validation Fields</a>
 </h2>
-<p id="rfc.section.18.1.p.1">An endpoint MAY use the following transport parameters:</p>
+<p id="rfc.section.18.1.p.1">A client includes the QUIC version it first attempts to connect with in the original_version field of its transport parameters.</p>
+<p id="rfc.section.18.1.p.2">The supported_versions field is a list of the versions the client supports.  This list MUST be ordered starting with the version the client most prefers and ending with the least-prefered version.  This supports validation of the negotiated versions as defined in <a href="#version-validation" class="xref">Section 7.3.3</a>.</p>
+<p id="rfc.section.18.1.p.3">Though different QUIC versions might express these values differently, a client MUST not change these values in response to Version Negotiation.</p>
+<h2 id="rfc.section.18.2">
+<a href="#rfc.section.18.2">18.2.</a> <a href="#transport-parameter-definitions" id="transport-parameter-definitions">Transport Parameter Definitions</a>
+</h2>
+<p id="rfc.section.18.2.p.1">An endpoint MAY use the following transport parameters:</p>
 <p></p>
 
 <dl>
@@ -2613,7 +2627,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>max_ack_delay (0x000c):</dt>
 <dd style="margin-left: 8">An 8 bit unsigned integer value indicating the maximum amount of time in milliseconds by which the endpoint will delay sending acknowledgments.  If this value is absent, a default of 25 milliseconds is assumed.</dd>
 </dl>
-<p id="rfc.section.18.1.p.3">Either peer MAY advertise an initial value for flow control of each type of stream on which they might receive data.  Each of the following transport parameters is encoded as an unsigned 32-bit integer in units of octets:</p>
+<p id="rfc.section.18.2.p.3">Either peer MAY advertise an initial value for flow control of each type of stream on which they might receive data.  Each of the following transport parameters is encoded as an unsigned 32-bit integer in units of octets:</p>
 <p></p>
 
 <dl>
@@ -2624,7 +2638,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>initial_max_stream_data_uni (0x000b):</dt>
 <dd style="margin-left: 8">The initial stream maximum data for unidirectional streams parameter contains the initial flow control limit for newly created unidirectional streams opened by the endpoint that receives the transport parameter.  In client transport parameters, this applies to streams with an identifier ending in 0x3; in server transport parameters, this applies to streams ending in 0x2.</dd>
 </dl>
-<p id="rfc.section.18.1.p.5">If present, transport parameters that set initial flow control limits (initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, and initial_max_stream_data_uni) are equivalent to sending a MAX_STREAM_DATA frame (<a href="#frame-max-stream-data" class="xref">Section 19.6</a>) on every stream of the corresponding type immediately after opening.  If the transport parameter is absent, streams of that type start with a flow control limit of 0.</p>
+<p id="rfc.section.18.2.p.5">If present, transport parameters that set initial flow control limits (initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, and initial_max_stream_data_uni) are equivalent to sending a MAX_STREAM_DATA frame (<a href="#frame-max-stream-data" class="xref">Section 19.6</a>) on every stream of the corresponding type immediately after opening.  If the transport parameter is absent, streams of that type start with a flow control limit of 0.</p>
 <p></p>
 
 <dl>
@@ -2635,14 +2649,14 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>initial_max_uni_streams (0x0008):</dt>
 <dd style="margin-left: 8">The initial maximum unidirectional streams parameter contains the initial maximum number of unidirectional streams the peer may initiate, encoded as an unsigned 16-bit integer.  If this parameter is absent or zero, unidirectional streams cannot be created until a MAX_STREAM_ID frame is sent.  Setting this parameter is equivalent to sending a MAX_STREAM_ID (<a href="#frame-max-stream-id" class="xref">Section 19.7</a>) immediately after completing the handshake containing the corresponding Stream ID. For example, a value of 0x05 would be equivalent to receiving a MAX_STREAM_ID containing 18 when received by a client or 19 when received by a server.</dd>
 </dl>
-<p id="rfc.section.18.1.p.7">A server MUST include the following transport parameter if it sent a Retry packet:</p>
+<p id="rfc.section.18.2.p.7">A server MUST include the following transport parameter if it sent a Retry packet:</p>
 <p></p>
 
 <dl>
 <dt>original_connection_id (0x000d):</dt>
 <dd style="margin-left: 8">The value of the Destination Connection ID field from the first Initial packet sent by the client.  This transport parameter is only sent by the server.</dd>
 </dl>
-<p id="rfc.section.18.1.p.9">A server MAY include the following transport parameters:</p>
+<p id="rfc.section.18.2.p.9">A server MAY include the following transport parameters:</p>
 <p></p>
 
 <dl>
@@ -2651,7 +2665,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>preferred_address (0x0004):</dt>
 <dd style="margin-left: 8">The server&#8217;s Preferred Address is used to effect a change in server address at the end of the handshake, as described in <a href="#preferred-address" class="xref">Section 9.6</a>.</dd>
 </dl>
-<p id="rfc.section.18.1.p.11">A client MUST NOT include an original connection ID, a stateless reset token, or a preferred address.  A server MUST treat receipt of any of these transport parameters as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
+<p id="rfc.section.18.2.p.11">A client MUST NOT include an original connection ID, a stateless reset token, or a preferred address.  A server MUST treat receipt of any of these transport parameters as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
 <h1 id="rfc.section.19">
 <a href="#rfc.section.19">19.</a> <a href="#frame-formats" id="frame-formats">Frame Types and Formats</a>
 </h1>
@@ -3005,7 +3019,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>Largest Acknowledged:</dt>
 <dd style="margin-left: 8">A variable-length integer representing the largest packet number the peer is acknowledging; this is usually the largest packet number that the peer has received prior to generating the ACK frame.  Unlike the packet number in the QUIC long or short header, the value in an ACK frame is not truncated.</dd>
 <dt>ACK Delay:</dt>
-<dd style="margin-left: 8">A variable-length integer including the time in microseconds that the largest acknowledged packet, as indicated in the Largest Acknowledged field, was received by this peer to when this ACK was sent.  The value of the ACK Delay field is scaled by multiplying the encoded value by 2 to the power of the value of the <samp>ack_delay_exponent</samp> transport parameter set by the sender of the ACK frame.  The <samp>ack_delay_exponent</samp> defaults to 3, or a multiplier of 8 (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>).  Scaling in this fashion allows for a larger range of values with a shorter encoding at the cost of lower resolution.</dd>
+<dd style="margin-left: 8">A variable-length integer including the time in microseconds that the largest acknowledged packet, as indicated in the Largest Acknowledged field, was received by this peer to when this ACK was sent.  The value of the ACK Delay field is scaled by multiplying the encoded value by 2 to the power of the value of the <samp>ack_delay_exponent</samp> transport parameter set by the sender of the ACK frame.  The <samp>ack_delay_exponent</samp> defaults to 3, or a multiplier of 8 (see <a href="#transport-parameter-definitions" class="xref">Section 18.2</a>).  Scaling in this fashion allows for a larger range of values with a shorter encoding at the cost of lower resolution.</dd>
 <dt>ACK Block Count:</dt>
 <dd style="margin-left: 8">A variable-length integer specifying the number of Additional ACK Block (and Gap) fields after the First ACK Block.</dd>
 <dt>ACK Blocks:</dt>
@@ -3349,72 +3363,72 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <tr>
 <td class="left">0x0000</td>
 <td class="left">initial_max_stream_data_bidi_local</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0001</td>
 <td class="left">initial_max_data</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0002</td>
 <td class="left">initial_max_bidi_streams</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0003</td>
 <td class="left">idle_timeout</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0004</td>
 <td class="left">preferred_address</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0005</td>
 <td class="left">max_packet_size</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0006</td>
 <td class="left">stateless_reset_token</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0007</td>
 <td class="left">ack_delay_exponent</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0008</td>
 <td class="left">initial_max_uni_streams</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x0009</td>
 <td class="left">disable_migration</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x000a</td>
 <td class="left">initial_max_stream_data_bidi_remote</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x000b</td>
 <td class="left">initial_max_stream_data_uni</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x000c</td>
 <td class="left">max_ack_delay</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 <tr>
 <td class="left">0x000d</td>
 <td class="left">original_connection_id</td>
-<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.1</a></td>
+<td class="left"><a href="#transport-parameter-definitions" class="xref">Section 18.2</a></td>
 </tr>
 </tbody>
 </table>
