@@ -2086,27 +2086,29 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h3 id="rfc.section.13.3.1">
 <a href="#rfc.section.13.3.1">13.3.1.</a> <a href="#ecn-counters" id="ecn-counters">ECN Counters</a>
 </h3>
-<p id="rfc.section.13.3.1.p.1">On receiving a packet with an ECT or CE codepoint, an endpoint that can access the IP ECN codepoints increases the corresponding ECT(0), ECT(1), or CE count, and includes these counters in subsequent (see <a href="#processing-and-ack" class="xref">Section 13.1</a>) ACK frames (see <a href="#frame-ack" class="xref">Section 19.15</a>).</p>
+<p id="rfc.section.13.3.1.p.1">On receiving a QUIC packet with an ECT or CE codepoint, an endpoint that can access the ECN codepoints from the enclosing IP packet increases the corresponding ECT(0), ECT(1), or CE count, and includes these counters in subsequent ACK frames (see <a href="#processing-and-ack" class="xref">Section 13.1</a> and <a href="#frame-ack" class="xref">Section 19.15</a>).</p>
 <p id="rfc.section.13.3.1.p.2">A packet detected by a receiver as a duplicate does not affect the receiver&#8217;s local ECN codepoint counts; see (<a href="#security-ecn" class="xref">Section 21.7</a>) for relevant security concerns.</p>
-<p id="rfc.section.13.3.1.p.3">If an endpoint receives a packet without an ECT or CE codepoint, it responds per <a href="#processing-and-ack" class="xref">Section 13.1</a> with an ACK frame.  If an endpoint does not have access to received ECN codepoints, it acknowledges received packets per <a href="#processing-and-ack" class="xref">Section 13.1</a> with an ACK frame.</p>
+<p id="rfc.section.13.3.1.p.3">If an endpoint receives a QUIC packet without an ECT or CE codepoint in the IP packet header, it responds per <a href="#processing-and-ack" class="xref">Section 13.1</a> with an ACK frame without increasing any ECN counters.  Similarly, if an endpoint does not have access to received ECN codepoints, it does not increase ECN counters.</p>
+<p id="rfc.section.13.3.1.p.4">Coalesced packets (see <a href="#packet-coalesce" class="xref">Section 12.2</a>) mean that several packets can share the same IP header.  The ECN counter for the ECN codepoint received in the associated IP header are incremented once for each QUIC packet, not per enclosing IP packet or UDP datagram.</p>
+<p id="rfc.section.13.3.1.p.5">Each packet number space maintains separate acknowledgement state and separate ECN counters.  For example, if one each of an Initial, 0-RTT, Handshake, and 1-RTT QUIC packet are coalesced, the corresponding counters for the Initial and Handshake packet number space will be incremented by one and the counters for the 1-RTT packet number space will be increased by two.</p>
 <h3 id="rfc.section.13.3.2">
 <a href="#rfc.section.13.3.2">13.3.2.</a> <a href="#ecn-verification" id="ecn-verification">ECN Verification</a>
 </h3>
 <p id="rfc.section.13.3.2.p.1">Each endpoint independently verifies and enables use of ECN by setting the IP header ECN codepoint to ECN Capable Transport (ECT) for the path from it to the other peer. Even if ECN is not used on the path to the peer, the endpoint MUST provide feedback about ECN markings received (if accessible).</p>
 <p id="rfc.section.13.3.2.p.2">To verify both that a path supports ECN and the peer can provide ECN feedback, an endpoint MUST set the ECT(0) codepoint in the IP header of all outgoing packets <a href="#RFC8311" class="xref">[RFC8311]</a>.</p>
 <p id="rfc.section.13.3.2.p.3">If an ECT codepoint set in the IP header is not corrupted by a network device, then a received packet contains either the codepoint sent by the peer or the Congestion Experienced (CE) codepoint set by a network device that is experiencing congestion.</p>
-<p id="rfc.section.13.3.2.p.4">If a packet sent with an ECT codepoint is newly acknowledged by the peer in an ACK frame without ECN feedback, the endpoint stops setting ECT codepoints in subsequent packets, with the expectation that either the network or the peer no longer supports ECN.</p>
-<p id="rfc.section.13.3.2.p.5">To protect the connection from arbitrary corruption of ECN codepoints by the network, an endpoint verifies the following when an ACK frame is received:</p>
+<p id="rfc.section.13.3.2.p.4">If a QUIC packet sent with an ECT codepoint is newly acknowledged by the peer in an ACK frame without ECN feedback, the endpoint stops setting ECT codepoints in subsequent IP packets, with the expectation that either the network path or the peer no longer supports ECN.</p>
+<p id="rfc.section.13.3.2.p.5">To protect the connection from arbitrary corruption of ECN codepoints by elements on the network path, an endpoint verifies the following when an ACK frame is received:</p>
 <p></p>
 
 <ul>
-<li>The increase in ECT(0) and ECT(1) counters MUST be at least the number of packets newly acknowledged that were sent with the corresponding codepoint.</li>
-<li>The total increase in ECT(0), ECT(1), and CE counters reported in the ACK frame MUST be at least the total number of packets newly acknowledged in this ACK frame.</li>
+<li>The increase in ECT(0) and ECT(1) counters MUST be at least the number of QUIC packets newly acknowledged that were sent with the corresponding codepoint.</li>
+<li>The total increase in ECT(0), ECT(1), and CE counters reported in the ACK frame MUST be at least the total number of QUIC packets newly acknowledged in this ACK frame.</li>
 </ul>
 <p id="rfc.section.13.3.2.p.7">An endpoint could miss acknowledgements for a packet when ACK frames are lost.  It is therefore possible for the total increase in ECT(0), ECT(1), and CE counters to be greater than the number of packets acknowledged in an ACK frame.  When this happens, the local reference counts MUST be increased to match the counters in the ACK frame.</p>
 <p id="rfc.section.13.3.2.p.8">Upon successful verification, an endpoint continues to set ECT codepoints in subsequent packets with the expectation that the path is ECN-capable.</p>
-<p id="rfc.section.13.3.2.p.9">If verification fails, then the endpoint ceases setting ECT codepoints in subsequent packets with the expectation that either the network or the peer does not support ECN.</p>
-<p id="rfc.section.13.3.2.p.10">If an endpoint sets ECT codepoints on outgoing packets and encounters a retransmission timeout due to the absence of acknowledgments from the peer (see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), or if an endpoint has reason to believe that a network element might be corrupting ECN codepoints, the endpoint MAY cease setting ECT codepoints in subsequent packets. Doing so allows the connection to traverse network elements that drop or corrupt ECN codepoints in the IP header.</p>
+<p id="rfc.section.13.3.2.p.9">If verification fails, then the endpoint ceases setting ECT codepoints in subsequent IP packets with the expectation that either the network path or the peer does not support ECN.</p>
+<p id="rfc.section.13.3.2.p.10">If an endpoint sets ECT codepoints on outgoing IP packets and encounters a retransmission timeout due to the absence of acknowledgments from the peer (see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), or if an endpoint has reason to believe that an element on the network path might be corrupting ECN codepoints, the endpoint MAY cease setting ECT codepoints in subsequent packets. Doing so allows the connection to traverse network elements that drop or corrupt ECN codepoints in the IP header.</p>
 <h1 id="rfc.section.14">
 <a href="#rfc.section.14">14.</a> <a href="#packet-size" id="packet-size">Packet Size</a>
 </h1>
@@ -2977,7 +2979,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.19.15">
 <a href="#rfc.section.19.15">19.15.</a> <a href="#frame-ack" id="frame-ack">ACK Frame</a>
 </h2>
-<p id="rfc.section.19.15.p.1">Receivers send ACK frames (types 0x1a and 0x1b) to inform senders of packets they have received and processed. The ACK frame contains one or more ACK Blocks.  ACK Blocks are ranges of acknowledged packets. If the frame type is 0x1b, ACK frames also contain the sum of ECN marks received on the connection up until this point.</p>
+<p id="rfc.section.19.15.p.1">Receivers send ACK frames (types 0x1a and 0x1b) to inform senders of packets they have received and processed. The ACK frame contains one or more ACK Blocks.  ACK Blocks are ranges of acknowledged packets. If the frame type is 0x1b, ACK frames also contain the sum of QUIC packets with associated ECN marks received on the connection up until this point.</p>
 <p id="rfc.section.19.15.p.2">QUIC acknowledgements are irrevocable.  Once acknowledged, a packet remains acknowledged, even if it does not appear in a future ACK frame.  This is unlike TCP SACKs (<a href="#RFC2018" class="xref">[RFC2018]</a>).</p>
 <p id="rfc.section.19.15.p.3">It is expected that a sender will reuse the same packet number across different packet number spaces.  ACK frames only acknowledge the packet numbers that were transmitted by the sender in the same packet number space of the packet that the ACK was received in.</p>
 <p id="rfc.section.19.15.p.4">Version Negotiation and Retry packets cannot be acknowledged because they do not contain a packet number.  Rather than relying on ACK frames, these packets are implicitly acknowledged by the next Initial packet sent by the client.</p>
@@ -3018,7 +3020,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </h3>
 <p id="rfc.section.19.15.1.p.1">The ACK Block Section consists of alternating Gap and ACK Block fields in descending packet number order.  A First Ack Block field is followed by a variable number of alternating Gap and Additional ACK Blocks.  The number of Gap and Additional ACK Block fields is determined by the ACK Block Count field.</p>
 <p id="rfc.section.19.15.1.p.2">Gap and ACK Block fields use a relative integer encoding for efficiency.  Though each encoded value is positive, the values are subtracted, so that each ACK Block describes progressively lower-numbered packets.  As long as contiguous ranges of packets are small, the variable-length integer encoding ensures that each range can be expressed in a small number of bytes.</p>
-<p id="rfc.section.19.15.1.p.3">The ACK frame uses the least significant bit(bit (that is, type 0x1b) to indicate ECN feedback and report receipt of packets with ECN codepoints of ECT(0), ECT(1), or CE in the packet&#8217;s IP header.</p>
+<p id="rfc.section.19.15.1.p.3">The ACK frame uses the least significant bit (that is, type 0x1b) to indicate ECN feedback and report receipt of QUIC packets with associated ECN codepoints of ECT(0), ECT(1), or CE in the packet&#8217;s IP header.</p>
 <div id="rfc.figure.17"></div>
 <div id="ack-block-format"></div>
 <pre>
@@ -3091,6 +3093,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>CE Count:</dt>
 <dd style="margin-left: 8">A variable-length integer representing the total number packets received with the CE codepoint.</dd>
 </dl>
+<p id="rfc.section.19.15.2.p.3">ECN counters are maintained separately for each packet number space.</p>
 <h2 id="rfc.section.19.16">
 <a href="#rfc.section.19.16">19.16.</a> <a href="#frame-path-challenge" id="frame-path-challenge">PATH_CHALLENGE Frame</a>
 </h2>
