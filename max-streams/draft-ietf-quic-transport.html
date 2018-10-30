@@ -394,8 +394,8 @@ ul.toc li {
 <link href="#rfc.section.19.6" rel="Chapter" title="19.6 MAX_STREAM_DATA Frame">
 <link href="#rfc.section.19.7" rel="Chapter" title="19.7 MAX_STREAMS Frame">
 <link href="#rfc.section.19.8" rel="Chapter" title="19.8 PING Frame">
-<link href="#rfc.section.19.9" rel="Chapter" title="19.9 BLOCKED Frame">
-<link href="#rfc.section.19.10" rel="Chapter" title="19.10 STREAM_BLOCKED Frame">
+<link href="#rfc.section.19.9" rel="Chapter" title="19.9 DATA_BLOCKED Frame">
+<link href="#rfc.section.19.10" rel="Chapter" title="19.10 STREAM_DATA_BLOCKED Frame">
 <link href="#rfc.section.19.11" rel="Chapter" title="19.11 STREAMS_BLOCKED Frame">
 <link href="#rfc.section.19.12" rel="Chapter" title="19.12 NEW_CONNECTION_ID Frame">
 <link href="#rfc.section.19.13" rel="Chapter" title="19.13 RETIRE_CONNECTION_ID Frame">
@@ -456,7 +456,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and M. Thomson, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-transport-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2018-10-29" />
+  <meta name="dct.issued" scheme="ISO8601" content="2018-10-30" />
   <meta name="dct.abstract" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
   <meta name="description" content="This document defines the core of the QUIC transport protocol.  This document describes connection establishment, packet format, multiplexing, and reliability.  Accompanying documents describe the cryptographic handshake and loss detection." />
 
@@ -480,12 +480,12 @@ ul.toc li {
 <td class="right">M. Thomson, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: May 2, 2019</td>
+<td class="left">Expires: May 3, 2019</td>
 <td class="right">Mozilla</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">October 29, 2018</td>
+<td class="right">October 30, 2018</td>
 </tr>
 
     	
@@ -504,7 +504,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on May 2, 2019.</p>
+<p>This Internet-Draft will expire on May 3, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2018 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -740,9 +740,9 @@ ul.toc li {
 </li>
 <li>19.8.   <a href="#rfc.section.19.8">PING Frame</a>
 </li>
-<li>19.9.   <a href="#rfc.section.19.9">BLOCKED Frame</a>
+<li>19.9.   <a href="#rfc.section.19.9">DATA_BLOCKED Frame</a>
 </li>
-<li>19.10.   <a href="#rfc.section.19.10">STREAM_BLOCKED Frame</a>
+<li>19.10.   <a href="#rfc.section.19.10">STREAM_DATA_BLOCKED Frame</a>
 </li>
 <li>19.11.   <a href="#rfc.section.19.11">STREAMS_BLOCKED Frame</a>
 </li>
@@ -1070,7 +1070,7 @@ ul.toc li {
    +-------+                       |
        |                           |
        | Send STREAM /             |
-       |      STREAM_BLOCKED       |
+       |      STREAM_DATA_BLOCKED  |
        |                           |
        | Create Bidirectional      |
        |      Stream (Receiving)   |
@@ -1096,10 +1096,10 @@ ul.toc li {
 </pre>
 <p class="figure">Figure 1: States for Send Streams</p>
 <p id="rfc.section.3.1.p.2">The sending part of stream that the endpoint initiates (types 0 and 2 for clients, 1 and 3 for servers) is opened by the application or application protocol.  The &#8220;Ready&#8221; state represents a newly created stream that is able to accept data from the application.  Stream data might be buffered in this state in preparation for sending.</p>
-<p id="rfc.section.3.1.p.3">Sending the first STREAM or STREAM_BLOCKED frame causes a send stream to enter the &#8220;Send&#8221; state.  An implementation might choose to defer allocating a Stream ID to a send stream until it sends the first frame and enters this state, which can allow for better stream prioritization.</p>
+<p id="rfc.section.3.1.p.3">Sending the first STREAM or STREAM_DATA_BLOCKED frame causes a send stream to enter the &#8220;Send&#8221; state.  An implementation might choose to defer allocating a Stream ID to a send stream until it sends the first frame and enters this state, which can allow for better stream prioritization.</p>
 <p id="rfc.section.3.1.p.4">The sending part of a bidirectional stream initiated by a peer (type 0 for a server, type 1 for a client) enters the &#8220;Ready&#8221; state then immediately transitions to the &#8220;Send&#8221; state if the receiving part enters the &#8220;Recv&#8221; state.</p>
-<p id="rfc.section.3.1.p.5">In the &#8220;Send&#8221; state, an endpoint transmits - and retransmits as necessary - data in STREAM frames.  The endpoint respects the flow control limits of its peer, accepting MAX_STREAM_DATA frames.  An endpoint in the &#8220;Send&#8221; state generates STREAM_BLOCKED frames if it encounters flow control limits.</p>
-<p id="rfc.section.3.1.p.6">After the application indicates that stream data is complete and a STREAM frame containing the FIN bit is sent, the send stream enters the &#8220;Data Sent&#8221; state.  From this state, the endpoint only retransmits stream data as necessary.  The endpoint no longer needs to track flow control limits or send STREAM_BLOCKED frames for a send stream in this state.  The endpoint can ignore any MAX_STREAM_DATA frames it receives from its peer in this state; MAX_STREAM_DATA frames might be received until the peer receives the final stream offset.</p>
+<p id="rfc.section.3.1.p.5">In the &#8220;Send&#8221; state, an endpoint transmits - and retransmits as necessary - data in STREAM frames.  The endpoint respects the flow control limits of its peer, accepting MAX_STREAM_DATA frames.  An endpoint in the &#8220;Send&#8221; state generates STREAM_DATA_BLOCKED frames if it encounters flow control limits.</p>
+<p id="rfc.section.3.1.p.6">After the application indicates that stream data is complete and a STREAM frame containing the FIN bit is sent, the send stream enters the &#8220;Data Sent&#8221; state.  From this state, the endpoint only retransmits stream data as necessary.  The endpoint no longer needs to track flow control limits or send STREAM_DATA_BLOCKED frames for a send stream in this state.  The endpoint can ignore any MAX_STREAM_DATA frames it receives from its peer in this state; MAX_STREAM_DATA frames might be received until the peer receives the final stream offset.</p>
 <p id="rfc.section.3.1.p.7">Once all stream data has been successfully acknowledged, the send stream enters the &#8220;Data Recvd&#8221; state, which is a terminal state.</p>
 <p id="rfc.section.3.1.p.8">From any of the &#8220;Ready&#8221;, &#8220;Send&#8221;, or &#8220;Data Sent&#8221; states, an application can signal that it wishes to abandon transmission of stream data.  Similarly, the endpoint might receive a STOP_SENDING frame from its peer.  In either case, the endpoint sends a RST_STREAM frame, which causes the stream to enter the &#8220;Reset Sent&#8221; state.</p>
 <p id="rfc.section.3.1.p.9">An endpoint MAY send a RST_STREAM as the first frame on a send stream; this causes the send stream to open and then immediately transition to the &#8220;Reset Sent&#8221; state.</p>
@@ -1112,7 +1112,7 @@ ul.toc li {
 <div id="fig-stream-recv-states"></div>
 <pre>
        o
-       | Recv STREAM / STREAM_BLOCKED / RST_STREAM
+       | Recv STREAM / STREAM_DATA_BLOCKED / RST_STREAM
        | Create Bidirectional Stream (Sending)
        | Recv MAX_STREAM_DATA
        | Create Higher-Numbered Stream
@@ -1144,13 +1144,13 @@ ul.toc li {
    +-------+                   +-------+
 </pre>
 <p class="figure">Figure 2: States for Receive Streams</p>
-<p id="rfc.section.3.2.p.2">The receiving part of a stream initiated by a peer (types 1 and 3 for a client, or 0 and 2 for a server) are created when the first STREAM, STREAM_BLOCKED, RST_STREAM, or MAX_STREAM_DATA (bidirectional only, see below) is received for that stream.  The initial state for a receive stream is &#8220;Recv&#8221;.  Receiving a RST_STREAM frame causes the receive stream to immediately transition to the &#8220;Reset Recvd&#8221;.</p>
+<p id="rfc.section.3.2.p.2">The receiving part of a stream initiated by a peer (types 1 and 3 for a client, or 0 and 2 for a server) are created when the first STREAM, STREAM_DATA_BLOCKED, RST_STREAM, or MAX_STREAM_DATA (bidirectional only, see below) is received for that stream.  The initial state for a receive stream is &#8220;Recv&#8221;.  Receiving a RST_STREAM frame causes the receive stream to immediately transition to the &#8220;Reset Recvd&#8221;.</p>
 <p id="rfc.section.3.2.p.3">The receive stream enters the &#8220;Recv&#8221; state when the sending part of a bidirectional stream initiated by the endpoint (type 0 for a client, type 1 for a server) enters the &#8220;Ready&#8221; state.</p>
-<p id="rfc.section.3.2.p.4">A bidirectional stream also opens when a MAX_STREAM_DATA frame is received.  Receiving a MAX_STREAM_DATA frame implies that the remote peer has opened the stream and is providing flow control credit.  A MAX_STREAM_DATA frame might arrive before a STREAM or STREAM_BLOCKED frame if packets are lost or reordered.</p>
+<p id="rfc.section.3.2.p.4">A bidirectional stream also opens when a MAX_STREAM_DATA frame is received.  Receiving a MAX_STREAM_DATA frame implies that the remote peer has opened the stream and is providing flow control credit.  A MAX_STREAM_DATA frame might arrive before a STREAM or STREAM_DATA_BLOCKED frame if packets are lost or reordered.</p>
 <p id="rfc.section.3.2.p.5">Before creating a stream, all lower-numbered streams of the same type MUST be created.  That means that receipt of a frame that would open a stream causes all lower-numbered streams of the same type to be opened in numeric order.  This ensures that the creation order for streams is consistent on both endpoints.</p>
-<p id="rfc.section.3.2.p.6">In the &#8220;Recv&#8221; state, the endpoint receives STREAM and STREAM_BLOCKED frames.  Incoming data is buffered and can be reassembled into the correct order for delivery to the application.  As data is consumed by the application and buffer space becomes available, the endpoint sends MAX_STREAM_DATA frames to allow the peer to send more data.</p>
+<p id="rfc.section.3.2.p.6">In the &#8220;Recv&#8221; state, the endpoint receives STREAM and STREAM_DATA_BLOCKED frames.  Incoming data is buffered and can be reassembled into the correct order for delivery to the application.  As data is consumed by the application and buffer space becomes available, the endpoint sends MAX_STREAM_DATA frames to allow the peer to send more data.</p>
 <p id="rfc.section.3.2.p.7">When a STREAM frame with a FIN bit is received, the final offset (see <a href="#final-offset" class="xref">Section 4.3</a>) is known.  The receive stream enters the &#8220;Size Known&#8221; state.  In this state, the endpoint no longer needs to send MAX_STREAM_DATA frames, it only receives any retransmissions of stream data.</p>
-<p id="rfc.section.3.2.p.8">Once all data for the stream has been received, the receive stream enters the &#8220;Data Recvd&#8221; state.  This might happen as a result of receiving the same STREAM frame that causes the transition to &#8220;Size Known&#8221;.  In this state, the endpoint has all stream data.  Any STREAM or STREAM_BLOCKED frames it receives for the stream can be discarded.</p>
+<p id="rfc.section.3.2.p.8">Once all data for the stream has been received, the receive stream enters the &#8220;Data Recvd&#8221; state.  This might happen as a result of receiving the same STREAM frame that causes the transition to &#8220;Size Known&#8221;.  In this state, the endpoint has all stream data.  Any STREAM or STREAM_DATA_BLOCKED frames it receives for the stream can be discarded.</p>
 <p id="rfc.section.3.2.p.9">The &#8220;Data Recvd&#8221; state persists until stream data has been delivered to the application or application protocol.  Once stream data has been delivered, the stream enters the &#8220;Data Read&#8221; state, which is a terminal state.</p>
 <p id="rfc.section.3.2.p.10">Receiving a RST_STREAM frame in the &#8220;Recv&#8221; or &#8220;Size Known&#8221; states causes the stream to enter the &#8220;Reset Recvd&#8221; state.  This might cause the delivery of stream data to the application to be interrupted.</p>
 <p id="rfc.section.3.2.p.11">It is possible that all stream data is received when a RST_STREAM is received (that is, from the &#8220;Data Recvd&#8221; state).  Similarly, it is possible for remaining stream data to arrive after receiving a RST_STREAM frame (the &#8220;Reset Recvd&#8221; state).  An implementation is able to manage this situation as they choose.  Sending RST_STREAM means that an endpoint cannot guarantee delivery of stream data; however there is no requirement that stream data not be delivered if a RST_STREAM is received.  An implementation MAY interrupt delivery of stream data, discard any data that was not consumed, and signal the existence of the RST_STREAM immediately.  Alternatively, the RST_STREAM signal might be suppressed or withheld if stream data is completely received.  In the latter case, the receive stream effectively transitions to &#8220;Data Recvd&#8221; from &#8220;Reset Recvd&#8221;.</p>
@@ -1158,8 +1158,8 @@ ul.toc li {
 <h2 id="rfc.section.3.3">
 <a href="#rfc.section.3.3">3.3.</a> <a href="#permitted-frame-types" id="permitted-frame-types">Permitted Frame Types</a>
 </h2>
-<p id="rfc.section.3.3.p.1">The sender of a stream sends just three frame types that affect the state of a stream at either sender or receiver: STREAM (<a href="#frame-stream" class="xref">Section 19.19</a>), STREAM_BLOCKED (<a href="#frame-stream-blocked" class="xref">Section 19.10</a>), and RST_STREAM (<a href="#frame-rst-stream" class="xref">Section 19.2</a>).</p>
-<p id="rfc.section.3.3.p.2">A sender MUST NOT send any of these frames from a terminal state (&#8220;Data Recvd&#8221; or &#8220;Reset Recvd&#8221;).  A sender MUST NOT send STREAM or STREAM_BLOCKED after sending a RST_STREAM; that is, in the &#8220;Reset Sent&#8221; state in addition to the terminal states.  A receiver could receive any of these frames in any state, but only due to the possibility of delayed delivery of packets carrying them.</p>
+<p id="rfc.section.3.3.p.1">The sender of a stream sends just three frame types that affect the state of a stream at either sender or receiver: STREAM (<a href="#frame-stream" class="xref">Section 19.19</a>), STREAM_DATA_BLOCKED (<a href="#frame-stream-data-blocked" class="xref">Section 19.10</a>), and RST_STREAM (<a href="#frame-rst-stream" class="xref">Section 19.2</a>).</p>
+<p id="rfc.section.3.3.p.2">A sender MUST NOT send any of these frames from a terminal state (&#8220;Data Recvd&#8221; or &#8220;Reset Recvd&#8221;).  A sender MUST NOT send STREAM or STREAM_DATA_BLOCKED after sending a RST_STREAM; that is, in the &#8220;Reset Sent&#8221; state in addition to the terminal states.  A receiver could receive any of these frames in any state, but only due to the possibility of delayed delivery of packets carrying them.</p>
 <p id="rfc.section.3.3.p.3">The receiver of a stream sends MAX_STREAM_DATA (<a href="#frame-max-stream-data" class="xref">Section 19.6</a>) and STOP_SENDING frames (<a href="#frame-stop-sending" class="xref">Section 19.14</a>).</p>
 <p id="rfc.section.3.3.p.4">The receiver only sends MAX_STREAM_DATA in the &#8220;Recv&#8221; state.  A receiver can send STOP_SENDING in any state where it has not received a RST_STREAM frame; that is states other than &#8220;Reset Recvd&#8221; or &#8220;Reset Read&#8221;.  However there is little value in sending a STOP_SENDING frame after all stream data has been received in the &#8220;Data Recvd&#8221; state.  A sender could receive these frames in any state as a result of delayed delivery of packets.</p>
 <h2 id="rfc.section.3.4">
@@ -1264,7 +1264,7 @@ ul.toc li {
 <p id="rfc.section.4.p.6">Connection flow control is a limit to the total bytes of stream data sent in STREAM frames on all streams.  A receiver advertises credit for a connection by sending a MAX_DATA frame.  A receiver maintains a cumulative sum of bytes received on all contributing streams, which are used to check for flow control violations. A receiver might use a sum of bytes consumed on all streams to determine the maximum data limit to be advertised.</p>
 <p id="rfc.section.4.p.7">A receiver MAY advertise a larger offset at any point by sending MAX_STREAM_DATA or MAX_DATA frames.  A receiver cannot renege on an advertisement; that is, once a receiver advertises an offset, advertising a smaller offset has no effect.  A sender MUST therefore ignore any MAX_STREAM_DATA or MAX_DATA frames that do not increase flow control limits.</p>
 <p id="rfc.section.4.p.8">A receiver MUST close the connection with a FLOW_CONTROL_ERROR error (<a href="#error-handling" class="xref">Section 11</a>) if the peer violates the advertised connection or stream data limits.</p>
-<p id="rfc.section.4.p.9">A sender SHOULD send STREAM_BLOCKED or BLOCKED frames to indicate it has data to write but is blocked by flow control limits.  These frames are expected to be sent infrequently in common cases, but they are considered useful for debugging and monitoring purposes.</p>
+<p id="rfc.section.4.p.9">A sender SHOULD send STREAM_DATA_BLOCKED or DATA_BLOCKED frames to indicate it has data to write but is blocked by flow control limits.  These frames are expected to be sent infrequently in common cases, but they are considered useful for debugging and monitoring purposes.</p>
 <p id="rfc.section.4.p.10">A similar method is used to control the number of open streams (see <a href="#stream-limit-increment" class="xref">Section 4.5</a> for details).</p>
 <h2 id="rfc.section.4.1">
 <a href="#rfc.section.4.1">4.1.</a> <a href="#handling-of-stream-cancellation" id="handling-of-stream-cancellation">Handling of Stream Cancellation</a>
@@ -1277,11 +1277,11 @@ ul.toc li {
 <h2 id="rfc.section.4.2">
 <a href="#rfc.section.4.2">4.2.</a> <a href="#fc-credit" id="fc-credit">Data Limit Increments</a>
 </h2>
-<p id="rfc.section.4.2.p.1">This document leaves when and how many bytes to advertise in a MAX_DATA or MAX_STREAM_DATA to implementations, but offers a few considerations.  These frames contribute to connection overhead.  Therefore frequently sending frames with small changes is undesirable.  At the same time, larger increments to limits are necessary to avoid blocking if updates are less frequent, requiring larger resource commitments at the receiver.  Thus there is a trade-off between resource commitment and overhead when determining how large a limit is advertised.</p>
+<p id="rfc.section.4.2.p.1">This document leaves when and how many bytes to advertise in a MAX_STREAM_DATA or MAX_DATA frame to implementations, but offers a few considerations.  These frames contribute to connection overhead.  Therefore frequently sending frames with small changes is undesirable.  At the same time, larger increments to limits are necessary to avoid blocking if updates are less frequent, requiring larger resource commitments at the receiver.  Thus there is a trade-off between resource commitment and overhead when determining how large a limit is advertised.</p>
 <p id="rfc.section.4.2.p.2">A receiver MAY use an autotuning mechanism to tune the frequency and amount that it increases data limits based on a round-trip time estimate and the rate at which the receiving application consumes data, similar to common TCP implementations.</p>
-<p id="rfc.section.4.2.p.3">If a sender runs out of flow control credit, it will be unable to send new data. That is, the sender is blocked. A blocked sender SHOULD send a STREAM_BLOCKED or BLOCKED frame.  A receiver uses these frames for debugging purposes.  A receiver MUST NOT wait for a STREAM_BLOCKED or BLOCKED frame before sending MAX_STREAM_DATA or MAX_DATA, since doing so will mean that a sender will be blocked for an entire round trip and the peer may never send a STREAM_BLOCKED or BLOCKED frame.</p>
+<p id="rfc.section.4.2.p.3">If a sender runs out of flow control credit, it will be unable to send new data. That is, the sender is blocked. A blocked sender SHOULD send a STREAM_DATA_BLOCKED or DATA_BLOCKED frame.  A receiver uses these frames for debugging purposes.  A receiver MUST NOT wait for a STREAM_DATA_BLOCKED or DATA_BLOCKED frame before sending MAX_STREAM_DATA or MAX_DATA, since doing so will mean that a sender will be blocked for an entire round trip and the peer may never send a STREAM_DATA_BLOCKED or DATA_BLOCKED frame.</p>
 <p id="rfc.section.4.2.p.4">It is generally considered best to not let the sender go into quiescence if avoidable.  To avoid blocking a sender, and to reasonably account for the possibility of loss, a receiver should send a MAX_DATA or MAX_STREAM_DATA frame at least two round trips before it expects the sender to get blocked.</p>
-<p id="rfc.section.4.2.p.5">A sender sends a single BLOCKED or STREAM_BLOCKED frame only once when it reaches a data limit.  A sender SHOULD NOT send multiple BLOCKED or STREAM_BLOCKED frames for the same data limit, unless the original frame is determined to be lost.  Another BLOCKED or STREAM_BLOCKED frame can be sent after the data limit is increased.</p>
+<p id="rfc.section.4.2.p.5">A sender sends a single STREAM_DATA_BLOCKED or DATA_BLOCKED frame only once when it reaches a data limit.  A sender SHOULD NOT send multiple STREAM_DATA_BLOCKED or DATA_BLOCKED frames for the same data limit, unless the original frame is determined to be lost.  Another STREAM_DATA_BLOCKED or DATA_BLOCKED frame can be sent after the data limit is increased.</p>
 <h2 id="rfc.section.4.3">
 <a href="#rfc.section.4.3">4.3.</a> <a href="#final-offset" id="final-offset">Stream Final Offset</a>
 </h2>
@@ -1952,13 +1952,13 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </tr>
 <tr>
 <td class="left">0x08</td>
-<td class="left">BLOCKED</td>
-<td class="left"><a href="#frame-blocked" class="xref">Section 19.9</a></td>
+<td class="left">DATA_BLOCKED</td>
+<td class="left"><a href="#frame-data-blocked" class="xref">Section 19.9</a></td>
 </tr>
 <tr>
 <td class="left">0x09</td>
-<td class="left">STREAM_BLOCKED</td>
-<td class="left"><a href="#frame-stream-blocked" class="xref">Section 19.10</a></td>
+<td class="left">STREAM_DATA_BLOCKED</td>
+<td class="left"><a href="#frame-stream-data-blocked" class="xref">Section 19.10</a></td>
 </tr>
 <tr>
 <td class="left">0x0b</td>
@@ -2065,7 +2065,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <li>The current connection maximum data is sent in MAX_DATA frames. An updated value is sent in a MAX_DATA frame if the packet containing the most recently sent MAX_DATA frame is declared lost, or when the endpoint decides to update the limit.  Care is necessary to avoid sending this frame too often as the limit can increase frequently and cause an unnecessarily large number of MAX_DATA frames to be sent.</li>
 <li>The current maximum stream data offset is sent in MAX_STREAM_DATA frames.  Like MAX_DATA, an updated value is sent when the packet containing the most recent MAX_STREAM_DATA frame for a stream is lost or when the limit is updated, with care taken to prevent the frame from being sent too often. An endpoint SHOULD stop sending MAX_STREAM_DATA frames when the receive stream enters a &#8220;Size Known&#8221; state.</li>
 <li>The limit on streams of a given type is sent in MAX_STREAMS frames.  Like MAX_DATA, an updated value is sent when a packet containing the most recent MAX_STREAMS for a stream type frame is declared lost or when the limit is updated, with care taken to prevent the frame from being sent too often.</li>
-<li>Blocked signals are carried in BLOCKED, STREAM_BLOCKED, and STREAMS_BLOCKED frames. BLOCKED streams have connection scope, STREAM_BLOCKED frames have stream scope, and STREAMS_BLOCKED frames are scoped to a specific stream type. New frames are sent if packets containing the most recent frame for a scope is lost, but only while the endpoint is blocked on the corresponding limit. These frames always include the limit that is causing blocking at the time that they are transmitted.</li>
+<li>Blocked signals are carried in DATA_BLOCKED, STREAM_DATA_BLOCKED, and STREAMS_BLOCKED frames. DATA_BLOCKED streams have connection scope, STREAM_DATA_BLOCKED frames have stream scope, and STREAMS_BLOCKED frames are scoped to a specific stream type. New frames are sent if packets containing the most recent frame for a scope is lost, but only while the endpoint is blocked on the corresponding limit. These frames always include the limit that is causing blocking at the time that they are transmitted.</li>
 <li>A liveness or path validation check using PATH_CHALLENGE frames is sent periodically until a matching PATH_RESPONSE frame is received or until there is no remaining need for liveness or path validation checking. PATH_CHALLENGE frames include a different payload each time they are sent.</li>
 <li>Responses to path validation using PATH_RESPONSE frames are sent just once.  A new PATH_CHALLENGE frame will be sent if another PATH_RESPONSE frame is needed.</li>
 <li>New connection IDs are sent in NEW_CONNECTION_ID frames and retransmitted if the packet containing them is lost.  Retransmissions of this frame carry the same sequence number value.  Likewise, retired connection IDs are sent in RETIRE_CONNECTION_ID frames and retransmitted if the packet containing them is lost.</li>
@@ -2823,10 +2823,10 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.19.8.p.3">The PING frame can be used to keep a connection alive when an application or application protocol wishes to prevent the connection from timing out. An application protocol SHOULD provide guidance about the conditions under which generating a PING is recommended.  This guidance SHOULD indicate whether it is the client or the server that is expected to send the PING.  Having both endpoints send PING frames without coordination can produce an excessive number of packets and poor performance.</p>
 <p id="rfc.section.19.8.p.4">A connection will time out if no packets are sent or received for a period longer than the time specified in the idle_timeout transport parameter (see <a href="#termination" class="xref">Section 10</a>).  However, state in middleboxes might time out earlier than that.  Though REQ-5 in <a href="#RFC4787" class="xref">[RFC4787]</a> recommends a 2 minute timeout interval, experience shows that sending packets every 15 to 30 seconds is necessary to prevent the majority of middleboxes from losing state for UDP flows.</p>
 <h2 id="rfc.section.19.9">
-<a href="#rfc.section.19.9">19.9.</a> <a href="#frame-blocked" id="frame-blocked">BLOCKED Frame</a>
+<a href="#rfc.section.19.9">19.9.</a> <a href="#frame-data-blocked" id="frame-data-blocked">DATA_BLOCKED Frame</a>
 </h2>
-<p id="rfc.section.19.9.p.1">A sender SHOULD send a BLOCKED frame (type=0x08) when it wishes to send data, but is unable to due to connection-level flow control (see <a href="#flow-control" class="xref">Section 4</a>).  BLOCKED frames can be used as input to tuning of flow control algorithms (see <a href="#fc-credit" class="xref">Section 4.2</a>).</p>
-<p id="rfc.section.19.9.p.2">The BLOCKED frame is as follows:</p>
+<p id="rfc.section.19.9.p.1">A sender SHOULD send a DATA_BLOCKED frame (type=0x08) when it wishes to send data, but is unable to due to connection-level flow control (see <a href="#flow-control" class="xref">Section 4</a>).  DATA_BLOCKED frames can be used as input to tuning of flow control algorithms (see <a href="#fc-credit" class="xref">Section 4.2</a>).</p>
+<p id="rfc.section.19.9.p.2">The DATA_BLOCKED frame is as follows:</p>
 <pre>
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -2834,7 +2834,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 |                       Data Limit (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p id="rfc.section.19.9.p.3">The BLOCKED frame contains a single field.</p>
+<p id="rfc.section.19.9.p.3">The DATA_BLOCKED frame contains a single field.</p>
 <p></p>
 
 <dl>
@@ -2842,11 +2842,11 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">A variable-length integer indicating the connection-level limit at which blocking occurred.</dd>
 </dl>
 <h2 id="rfc.section.19.10">
-<a href="#rfc.section.19.10">19.10.</a> <a href="#frame-stream-blocked" id="frame-stream-blocked">STREAM_BLOCKED Frame</a>
+<a href="#rfc.section.19.10">19.10.</a> <a href="#frame-stream-data-blocked" id="frame-stream-data-blocked">STREAM_DATA_BLOCKED Frame</a>
 </h2>
-<p id="rfc.section.19.10.p.1">A sender SHOULD send a STREAM_BLOCKED frame (type=0x09) when it wishes to send data, but is unable to due to stream-level flow control.  This frame is analogous to BLOCKED (<a href="#frame-blocked" class="xref">Section 19.9</a>).</p>
-<p id="rfc.section.19.10.p.2">An endpoint that receives a STREAM_BLOCKED frame for a send-only stream MUST terminate the connection with error PROTOCOL_VIOLATION.</p>
-<p id="rfc.section.19.10.p.3">The STREAM_BLOCKED frame is as follows:</p>
+<p id="rfc.section.19.10.p.1">A sender SHOULD send a STREAM_DATA_BLOCKED frame (type=0x09) when it wishes to send data, but is unable to due to stream-level flow control.  This frame is analogous to DATA_BLOCKED (<a href="#frame-data-blocked" class="xref">Section 19.9</a>).</p>
+<p id="rfc.section.19.10.p.2">An endpoint that receives a STREAM_DATA_BLOCKED frame for a send-only stream MUST terminate the connection with error PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.19.10.p.3">The STREAM_DATA_BLOCKED frame is as follows:</p>
 <pre>
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -2856,7 +2856,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 |                        Data Limit (i)                       ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p id="rfc.section.19.10.p.4">The STREAM_BLOCKED frame contains two fields:</p>
+<p id="rfc.section.19.10.p.4">The STREAM_DATA_BLOCKED frame contains two fields:</p>
 <p></p>
 
 <dl>
