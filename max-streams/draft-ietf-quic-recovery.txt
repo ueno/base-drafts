@@ -485,18 +485,18 @@ Internet-Draft             QUIC Loss Detection              October 2018
    unacknowledged CRYPTO data if possible.
 
    Until the server has validated the client's address on the path, the
-   number of bytes it can send is limited, as specified in
+   amount of data it can send is limited, as specified in
    [QUIC-TRANSPORT].  If not all unacknowledged CRYPTO data can be sent,
    then all unacknowledged CRYPTO data sent in Initial packets should be
-   retransmitted.  If no bytes can be sent, then no alarm should be
-   armed until bytes have been received from the client.
+   retransmitted.  If no data can be sent, then no alarm should be armed
+   until data has been received from the client.
 
    Because the server could be blocked until more packets are received,
    the client MUST start the crypto retransmission timer even if there
    is no unacknowledged CRYPTO data.  If the timer expires and the
    client has no CRYPTO data to retransmit and does not have Handshake
    keys, it SHOULD send an Initial packet in a UDP datagram of at least
-   1200 octets.  If the client has Handshake keys, it SHOULD send a
+   1200 bytes.  If the client has Handshake keys, it SHOULD send a
    Handshake packet.
 
 
@@ -640,9 +640,9 @@ Internet-Draft             QUIC Loss Detection              October 2018
    be marked as lost.
 
    A packet sent on an RTO timer MUST NOT be blocked by the sender's
-   congestion controller.  A sender MUST however count these bytes as
-   additional bytes in flight, since this packet adds network load
-   without establishing packet loss.
+   congestion controller.  A sender MUST however count these packets as
+   being in flight, since this packet adds network load without
+   establishing packet loss.
 
 4.4.  Generating Acknowledgements
 
@@ -842,11 +842,12 @@ Iyengar & Swett            Expires May 3, 2019                 [Page 15]
 Internet-Draft             QUIC Loss Detection              October 2018
 
 
-      whether it counts towards bytes in flight, and a bytes field
-      indicating the packet's size.  sent_packets is ordered by packet
-      number, and packets remain in sent_packets until acknowledged or
-      lost.  A sent_packets data structure is maintained per packet
-      number space, and ACK processing only applies to a single space.
+      whether it counts towards bytes in flight, and a size field that
+      indicates the packet's size in bytes.  sent_packets is ordered by
+      packet number, and packets remain in sent_packets until
+      acknowledged or lost.  A sent_packets data structure is maintained
+      per packet number space, and ACK processing only applies to a
+      single space.
 
 4.5.3.  Initialization
 
@@ -889,7 +890,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    o  is_crypto_packet: A boolean that indicates whether the packet
       contains cryptographic handshake messages critical to the
-      completion of the QUIC handshake.  In this version of QUIC, this
 
 
 
@@ -898,6 +898,7 @@ Iyengar & Swett            Expires May 3, 2019                 [Page 16]
 Internet-Draft             QUIC Loss Detection              October 2018
 
 
+      completion of the QUIC handshake.  In this version of QUIC, this
       includes any packet with the long header that includes a CRYPTO
       frame.
 
@@ -918,7 +919,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
           time_of_last_sent_crypto_packet = now
         time_of_last_sent_retransmittable_packet = now
         OnPacketSentCC(sent_bytes)
-        sent_packets[packet_number].bytes = sent_bytes
+        sent_packets[packet_number].size = sent_bytes
         SetLossDetectionTimer()
 
 4.5.5.  On Receiving an Acknowledgment
@@ -927,7 +928,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
    packets.
 
    Pseudocode for OnAckReceived and UpdateRtt follow:
-
 
 
 
@@ -1261,7 +1261,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
    start anytime the congestion window is less than ssthresh, which
    typically only occurs after an RTO.  While in slow start, QUIC
    increases the congestion window by the number of bytes acknowledged
-   when each ack is processed.
+   when each acknowledgment is processed.
 
 5.3.  Congestion Avoidance
 
@@ -1297,9 +1297,9 @@ Internet-Draft             QUIC Loss Detection              October 2018
 5.5.  Tail Loss Probe
 
    A TLP packet MUST NOT be blocked by the sender's congestion
-   controller.  The sender MUST however count these bytes as additional
-   bytes-in-flight, since a TLP adds network load without establishing
-   packet loss.
+   controller.  The sender MUST however count TLP packets against bytes
+   in flight, since a TLP adds network load without establishing packet
+   loss.
 
    Acknowledgement or loss of tail loss probes are treated like any
    other packet.
@@ -1435,16 +1435,16 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
       OnPacketAckedCC(acked_packet):
         // Remove from bytes_in_flight.
-        bytes_in_flight -= acked_packet.bytes
+        bytes_in_flight -= acked_packet.size
         if (InRecovery(acked_packet.packet_number)):
           // Do not increase congestion window in recovery period.
           return
         if (congestion_window < ssthresh):
           // Slow start.
-          congestion_window += acked_packet.bytes
+          congestion_window += acked_packet.size
         else:
           // Congestion avoidance.
-          congestion_window += kMaxDatagramSize * acked_packet.bytes
+          congestion_window += kMaxDatagramSize * acked_packet.size
               / congestion_window
 
 
@@ -1495,7 +1495,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
       OnPacketsLost(lost_packets):
         // Remove lost packets from bytes_in_flight.
         for (lost_packet : lost_packets):
-          bytes_in_flight -= lost_packet.bytes
+          bytes_in_flight -= lost_packet.size
         largest_lost_packet = lost_packets.last()
 
         // Start a new congestion epoch if the last lost packet
@@ -1525,7 +1525,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
         // Declare all packets prior to packet_number lost.
         for (sent_packet: sent_packets):
           if (sent_packet.packet_number < packet_number):
-            bytes_in_flight -= sent_packet.bytes
+            bytes_in_flight -= sent_packet.size
             sent_packets.remove(sent_packet.packet_number)
 
 6.  Security Considerations
