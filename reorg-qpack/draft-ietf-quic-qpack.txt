@@ -5,10 +5,10 @@
 QUIC                                                           C. Krasic
 Internet-Draft                                                   Netflix
 Intended status: Standards Track                               M. Bishop
-Expires: April 20, 2019                              Akamai Technologies
+Expires: May 3, 2019                                 Akamai Technologies
                                                         A. Frindell, Ed.
                                                                 Facebook
-                                                        October 17, 2018
+                                                        October 30, 2018
 
 
               QPACK: Header Compression for HTTP over QUIC
@@ -46,14 +46,14 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on April 20, 2019.
+   This Internet-Draft will expire on May 3, 2019.
 
 
 
 
 
 
-Krasic, et al.           Expires April 20, 2019                 [Page 1]
+Krasic, et al.             Expires May 3, 2019                  [Page 1]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -80,14 +80,14 @@ Table of Contents
      1.2.  Notational Conventions  . . . . . . . . . . . . . . . . .   4
    2.  Compression Process Overview  . . . . . . . . . . . . . . . .   5
      2.1.  Encoder . . . . . . . . . . . . . . . . . . . . . . . . .   5
-       2.1.1.  Reference Tracking  . . . . . . . . . . . . . . . . .   5
+       2.1.1.  Reference Tracking  . . . . . . . . . . . . . . . . .   6
        2.1.2.  Blocked Dynamic Table Insertions  . . . . . . . . . .   6
-       2.1.3.  Avoiding Head-of-Line Blocking  . . . . . . . . . . .   6
+       2.1.3.  Avoiding Head-of-Line Blocking  . . . . . . . . . . .   7
        2.1.4.  Largest Known Received  . . . . . . . . . . . . . . .   7
        2.1.5.  Speculative table updates . . . . . . . . . . . . . .   8
      2.2.  Decoder . . . . . . . . . . . . . . . . . . . . . . . . .   8
        2.2.1.  State Synchronization . . . . . . . . . . . . . . . .   8
-       2.2.2.  Blocked Decoding  . . . . . . . . . . . . . . . . . .   8
+       2.2.2.  Blocked Decoding  . . . . . . . . . . . . . . . . . .   9
    3.  Header Tables . . . . . . . . . . . . . . . . . . . . . . . .   9
      3.1.  Static Table  . . . . . . . . . . . . . . . . . . . . . .   9
      3.2.  Dynamic Table . . . . . . . . . . . . . . . . . . . . . .   9
@@ -109,17 +109,17 @@ Table of Contents
 
 
 
-Krasic, et al.           Expires April 20, 2019                 [Page 2]
+Krasic, et al.             Expires May 3, 2019                  [Page 2]
 
 Internet-Draft                    QPACK                     October 2018
 
 
-       4.3.4.  Dynamic Table Size Update . . . . . . . . . . . . . .  15
+       4.3.4.  Dynamic Table Size Update . . . . . . . . . . . . . .  16
      4.4.  Decoder Stream  . . . . . . . . . . . . . . . . . . . . .  16
        4.4.1.  Table State Synchronize . . . . . . . . . . . . . . .  16
        4.4.2.  Header Acknowledgement  . . . . . . . . . . . . . . .  17
        4.4.3.  Stream Cancellation . . . . . . . . . . . . . . . . .  18
-     4.5.  Request and Push Streams  . . . . . . . . . . . . . . . .  18
+     4.5.  Request and Push Streams  . . . . . . . . . . . . . . . .  19
        4.5.1.  Header Data Prefix  . . . . . . . . . . . . . . . . .  19
        4.5.2.  Indexed Header Field  . . . . . . . . . . . . . . . .  20
        4.5.3.  Indexed Header Field With Post-Base Index . . . . . .  21
@@ -132,7 +132,7 @@ Internet-Draft                    QPACK                     October 2018
    8.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  24
      8.1.  Settings Registration . . . . . . . . . . . . . . . . . .  24
      8.2.  Stream Type Registration  . . . . . . . . . . . . . . . .  24
-     8.3.  Error Code Registration . . . . . . . . . . . . . . . . .  24
+     8.3.  Error Code Registration . . . . . . . . . . . . . . . . .  25
    9.  References  . . . . . . . . . . . . . . . . . . . . . . . . .  25
      9.1.  Normative References  . . . . . . . . . . . . . . . . . .  25
      9.2.  Informative References  . . . . . . . . . . . . . . . . .  26
@@ -165,7 +165,7 @@ Internet-Draft                    QPACK                     October 2018
 
 
 
-Krasic, et al.           Expires April 20, 2019                 [Page 3]
+Krasic, et al.             Expires May 3, 2019                  [Page 3]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -194,7 +194,7 @@ Internet-Draft                    QPACK                     October 2018
 
    Header field:  A name-value pair sent as part of an HTTP message.
 
-   Header list:  The ordered collection of header fields associated with
+   Header list:  An ordered collection of header fields associated with
       an HTTP message.  A header list can contain multiple header fields
       with the same name.  It can also contain duplicate header fields.
 
@@ -209,7 +209,7 @@ Internet-Draft                    QPACK                     October 2018
    Absolute Index:  A unique index for each entry in the dynamic table.
 
    Base Index:  An absolute index in a header block from which relative
-      indices are made
+      indices are made.
 
    QPACK is a name, not an acronym.
 
@@ -221,7 +221,7 @@ Internet-Draft                    QPACK                     October 2018
 
 
 
-Krasic, et al.           Expires April 20, 2019                 [Page 4]
+Krasic, et al.             Expires May 3, 2019                  [Page 4]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -241,31 +241,46 @@ Internet-Draft                    QPACK                     October 2018
    contains common header fields (some of them with an empty value).
    The dynamic table (see Section 3.2) is built up over the course of
    the connection and can be used by the encoder to index header fields
-   repeated in the encoded header lists.
+   in the encoded header lists.
 
    o  The encoder uses a unidirectional stream to modify the state of
-      the dynamic table without generating header fields to any
+      the dynamic table without generating header fields for any
       particular request.
 
    o  HEADERS and PUSH_PROMISE frames on request and push streams
       reference the table state without modifying it.
 
    o  The decoder sends feedback to the encoder on a unidirectional
-      stream that enables the encoder to manage dynamic table state.
+      stream.  This feedback enables the encoder to manage dynamic table
+      state.
 
 2.1.  Encoder
 
-   An encoder encodes a header list by emitting either an indexed or a
-   literal representation of each header field in the list.  Index
+   An encoder compresses a header list by emitting either an indexed or
+   a literal representation for each header field in the list.  Index
    references to the static table and literals do not require any
    dynamic state and never risk head-of-line blocking.  References to
-   the dynamic table do risk head-of-line blocking if the encoder has
-   not received an acknowledgement indicating the entry is available at
-   the decoder.
+   the dynamic table risk head-of-line blocking if the encoder has not
+   received an acknowledgement indicating the entry is available at the
+   decoder.
 
    QPACK preserves the ordering of header fields within each header
    list.  An encoder MUST emit header field representations in the order
    they appear in the input header list.
+
+   QPACK is designed to contain the more complex state tracking to the
+   encoder, while the decoder is relatively simple.
+
+
+
+
+
+
+
+Krasic, et al.             Expires May 3, 2019                  [Page 5]
+
+Internet-Draft                    QPACK                     October 2018
+
 
 2.1.1.  Reference Tracking
 
@@ -274,13 +289,6 @@ Internet-Draft                    QPACK                     October 2018
    has already been evicted.  To enable this, the encoder needs to track
    outstanding (unacknowledged) header blocks that reference the dynamic
    table.
-
-
-
-Krasic, et al.           Expires April 20, 2019                 [Page 5]
-
-Internet-Draft                    QPACK                     October 2018
-
 
 2.1.2.  Blocked Dynamic Table Insertions
 
@@ -292,8 +300,8 @@ Internet-Draft                    QPACK                     October 2018
 
    To ensure that the encoder is not prevented from adding new entries,
    the encoder can avoid referencing entries that will be evicted
-   soonest.  Rather than reference such an entry, the encoder SHOULD
-   emit a Duplicate instruction (see Section 4.3.3), and reference the
+   soonest.  Rather than reference such an entry, the encoder can emit a
+   Duplicate instruction (see Section 4.3.3), and reference the
    duplicate instead.
 
    Determining which entries are too close to eviction to reference is
@@ -304,10 +312,10 @@ Internet-Draft                    QPACK                     October 2018
    smallest absolute index in the dynamic table that it will emit a
    reference for.  As new entries are inserted, the encoder increases
    the draining index to maintain the section of the table that it will
-   not reference.  Draining entries - entries with an absolute index
-   lower than the draining index - will not accumulate new references.
-   The number of unacknowledged references to draining entries will
-   eventually become zero, making the entry available for eviction.
+   not reference.  If the encoder does not create new references to
+   entries with an absolute index lower than the draining index, the
+   number of unacknowledged references to those entries will eventually
+   become zero, allowing the entry to be evicted.
 
       +----------+---------------------------------+--------+
       | Draining |          Referenceable          | Unused |
@@ -320,6 +328,16 @@ Internet-Draft                    QPACK                     October 2018
 
                  Figure 1: Draining Dynamic Table Entries
 
+
+
+
+
+
+Krasic, et al.             Expires May 3, 2019                  [Page 6]
+
+Internet-Draft                    QPACK                     October 2018
+
+
 2.1.3.  Avoiding Head-of-Line Blocking
 
    Because QUIC does not guarantee order between data on different
@@ -330,29 +348,25 @@ Internet-Draft                    QPACK                     October 2018
    identifies the table state necessary for decoding.  If the greatest
    absolute index in the dynamic table is less than the value of the
    Largest Reference, the stream is considered "blocked."  While
-
-
-
-Krasic, et al.           Expires April 20, 2019                 [Page 6]
-
-Internet-Draft                    QPACK                     October 2018
-
-
-   blocked, header field data should remain in the blocked stream's flow
+   blocked, header field data SHOULD remain in the blocked stream's flow
    control window.  When the Largest Reference is zero, the frame
    contains no references to the dynamic table and can always be
    processed immediately.  A stream becomes unblocked when the greatest
    absolute index in the dynamic table becomes greater than or equal to
    the Largest Reference for all header blocks the decoder has started
-   reading from the stream.  If a decoder encounters a header block
+   reading from the stream.  If the decoder encounters a header block
    where the actual largest reference is not equal to the Largest
    Reference declared in the prefix, it MAY treat this as a stream error
    of type HTTP_QPACK_DECOMPRESSION_FAILED.
 
-   A decoder can permit the possibility of blocked streams by setting
-   SETTINGS_QPACK_BLOCKED_STREAMS to a non-zero value (see Section 5).
-   This setting specifies an upper bound on the number of streams which
-   can be blocked.
+   The SETTINGS_QPACK_BLOCKED_STREAMS setting (see Section 5) specifies
+   an upper bound on the number of streams which can be blocked.  An
+   encoder MUST limit the number of streams which could become blocked
+   to the value of SETTINGS_QPACK_BLOCKED_STREAMS at all times.  Note
+   that the decoder might not actually become blocked on every stream
+   which risks becoming blocked.  If the decoder encounters more blocked
+   streams than it promised to support, it MUST treat this as a stream
+   error of type HTTP_QPACK_DECOMPRESSION_FAILED.
 
    An encoder can decide whether to risk having a stream become blocked.
    If permitted by the value of SETTINGS_QPACK_BLOCKED_STREAMS,
@@ -364,52 +378,47 @@ Internet-Draft                    QPACK                     October 2018
    make the header block larger, this can result in the encoder becoming
    blocked on congestion or flow control limits.
 
-   An encoder MUST limit the number of streams which could become
-   blocked to the value of SETTINGS_QPACK_BLOCKED_STREAMS at all times.
-   Note that the decoder might not actually become blocked on every
-   stream which risks becoming blocked.  If the decoder encounters more
-   blocked streams than it promised to support, it MUST treat this as a
-   stream error of type HTTP_QPACK_DECOMPRESSION_FAILED.
-
 2.1.4.  Largest Known Received
 
    For the encoder to identify which dynamic table entries can be safely
    used without a stream becoming blocked, the encoder tracks the
    absolute index of the decoder's Largest Known Received entry.
 
-   When blocking references are permitted, the encoder uses
-   acknowledgement of header blocks to identify the Largest Known
-   Received index, as described in Section 4.4.2.
+
+
+
+
+
+Krasic, et al.             Expires May 3, 2019                  [Page 7]
+
+Internet-Draft                    QPACK                     October 2018
+
+
+   When blocking references are permitted, the encoder uses header block
+   acknowledgement to identify the Largest Known Received index, as
+   described in Section 4.4.2.
 
    To acknowledge dynamic table entries which are not referenced by
    header blocks, for example because the encoder or the decoder have
    chosen not to risk blocked streams, the decoder sends a Table State
    Synchronize instruction (see Section 4.4.1).
 
-
-
-
-Krasic, et al.           Expires April 20, 2019                 [Page 7]
-
-Internet-Draft                    QPACK                     October 2018
-
-
 2.1.5.  Speculative table updates
 
-   Implementations can _speculatively_ send instructions on the encoder
+   Implementations can speculatively send instructions on the encoder
    stream which are not needed for any current HTTP request or response.
    Such headers could be used strategically to improve performance.  For
-   instance, the encoder might decide to _refresh_ by sending Duplicate
+   instance, the encoder might decide to refresh by sending Duplicate
    representations for popular header fields (Section 4.3.3), ensuring
    they have small indices and hence minimal size on the wire.
 
 2.2.  Decoder
 
-   Like in HPACK, the decoder processes header blocks and emits the
+   As in HPACK, the decoder processes header blocks and emits the
    corresponding header lists.  It also processes dynamic table
    modifications from instructions on the encoder stream.
 
-   A decoder MUST must emit header fields in the order their
+   The decoder MUST emit header fields in the order their
    representations appear in the input header block.
 
 2.2.1.  State Synchronization
@@ -431,24 +440,22 @@ Internet-Draft                    QPACK                     October 2018
    that these header blocks will never be processed serves a similar
    function; see Section 4.4.3.
 
+
+
+
+
+
+Krasic, et al.             Expires May 3, 2019                  [Page 8]
+
+Internet-Draft                    QPACK                     October 2018
+
+
 2.2.2.  Blocked Decoding
 
    To track blocked streams, the necessary Largest Reference value for
    each stream can be used.  Whenever the decoder processes a table
    update, it can begin decoding any blocked streams that now have their
    dependencies satisfied.
-
-
-
-
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                 [Page 8]
-
-Internet-Draft                    QPACK                     October 2018
-
 
 3.  Header Tables
 
@@ -463,13 +470,13 @@ Internet-Draft                    QPACK                     October 2018
    defined in Appendix A.
 
    Note the QPACK static table is indexed from 0, whereas the HPACK
-   static table was indexed from 1.
+   static table is indexed from 1.
 
-   A decoder that encounters an invalid static table index on a request
-   stream or push stream MUST treat this as a stream error of type
-   "HTTP_QPACK_DECOMPRESSION_FAILED".  If this index is received on the
-   encoder stream, this MUST be treated as a connection error of type
-   "HTTP_QPACK_ENCODER_STREAM_ERROR".
+   When the decoder encounters an invalid static table index on a
+   request stream or push stream it MUST treat this as a stream error of
+   type "HTTP_QPACK_DECOMPRESSION_FAILED".  If this index is received on
+   the encoder stream, this MUST be treated as a connection error of
+   type "HTTP_QPACK_ENCODER_STREAM_ERROR".
 
 3.2.  Dynamic Table
 
@@ -491,6 +498,14 @@ Internet-Draft                    QPACK                     October 2018
 
    Before a new entry is added to the dynamic table, entries are evicted
    from the end of the dynamic table until the size of the dynamic table
+
+
+
+Krasic, et al.             Expires May 3, 2019                  [Page 9]
+
+Internet-Draft                    QPACK                     October 2018
+
+
    is less than or equal to (maximum size - new entry size) or until the
    table is empty.  The encoder MUST NOT evict a dynamic table entry
    unless it has first been acknowledged by the decoder.
@@ -498,14 +513,6 @@ Internet-Draft                    QPACK                     October 2018
    If the size of the new entry is less than or equal to the maximum
    size, that entry is added to the table.  It is an error to attempt to
    add an entry that is larger than the maximum size; this MUST be
-
-
-
-Krasic, et al.           Expires April 20, 2019                 [Page 9]
-
-Internet-Draft                    QPACK                     October 2018
-
-
    treated as a connection error of type
    "HTTP_QPACK_ENCODER_STREAM_ERROR".
 
@@ -517,7 +524,7 @@ Internet-Draft                    QPACK                     October 2018
 
    The dynamic table can contain duplicate entries (i.e., entries with
    the same name and same value).  Therefore, duplicate entries MUST NOT
-   be treated as an error by a decoder.
+   be treated as an error by the decoder.
 
 3.2.1.  Maximum Table Size
 
@@ -545,8 +552,15 @@ Internet-Draft                    QPACK                     October 2018
 
    The size of the dynamic table is the sum of the size of its entries.
 
-   The size of an entry is the sum of its name's length in octets (as
-   defined in Section 4.1.2), its value's length in octets, and 32.
+   The size of an entry is the sum of its name's length in bytes (as
+   defined in Section 4.1.2), its value's length in bytes, and 32.
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 10]
+
+Internet-Draft                    QPACK                     October 2018
+
 
    The size of an entry is calculated using the length of its name and
    value without any Huffman encoding applied.
@@ -554,13 +568,6 @@ Internet-Draft                    QPACK                     October 2018
    "MaxEntries" is the maximum number of entries that the dynamic table
    can have.  The smallest entry has empty name and value strings and
    has the size of 32.  The MaxEntries is calculated as
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 10]
-
-Internet-Draft                    QPACK                     October 2018
-
 
       MaxEntries = floor( MaxTableSize / 32 )
 
@@ -603,20 +610,18 @@ Internet-Draft                    QPACK                     October 2018
    Because frames from request streams can be delivered out of order
    with instructions on the encoder stream, relative indices are
    relative to the Base Index at the beginning of the header block (see
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 11]
+
+Internet-Draft                    QPACK                     October 2018
+
+
    Section 4.5.1).  The Base Index is an absolute index.  When
    interpreting the rest of the frame, the entry identified by Base
    Index has a relative index of zero.  The relative indices of entries
    do not change while interpreting headers on a request or push stream.
-
-
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 11]
-
-Internet-Draft                    QPACK                     October 2018
-
 
                 Base Index
                     |
@@ -661,18 +666,16 @@ Internet-Draft                    QPACK                     October 2018
    If the decoder encounters a reference on a request or push stream to
    a dynamic table entry which has already been evicted or which has an
    absolute index greater than the declared Largest Reference (see
-   Section 4.5.1), it MUST treat this as a stream error of type
-   "HTTP_QPACK_DECOMPRESSION_FAILED".
 
 
 
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 12]
+Krasic, et al.             Expires May 3, 2019                 [Page 12]
 
 Internet-Draft                    QPACK                     October 2018
 
+
+   Section 4.5.1), it MUST treat this as a stream error of type
+   "HTTP_QPACK_DECOMPRESSION_FAILED".
 
    If the decoder encounters a reference on the encoder stream to a
    dynamic table entry which has already been dropped, it MUST treat
@@ -697,7 +700,7 @@ Internet-Draft                    QPACK                     October 2018
    HPACK defines string literals to begin on a byte boundary.  They
    begin with a single flag (indicating whether the string is Huffman-
    coded), followed by the Length encoded as a 7-bit prefix integer, and
-   finally Length octets of data.  When Huffman encoding is enabled, the
+   finally Length bytes of data.  When Huffman encoding is enabled, the
    Huffman table from Appendix B of [RFC7541] is used without
    modification.
 
@@ -719,16 +722,17 @@ Internet-Draft                    QPACK                     October 2018
    o  The encoder stream is a unidirectional stream of type "0x48"
       (ASCII 'H') which carries table updates from encoder to decoder.
 
-   o  The decoder stream is a unidirectional stream of type "0x68"
-      (ASCII 'h') which carries acknowledgements of table modifications
-      and header processing from decoder to encoder.
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 13]
+Krasic, et al.             Expires May 3, 2019                 [Page 13]
 
 Internet-Draft                    QPACK                     October 2018
 
+
+   o  The decoder stream is a unidirectional stream of type "0x68"
+      (ASCII 'h') which carries acknowledgements of table modifications
+      and header processing from decoder to encoder.
 
    o  Finally, the contents of HEADERS and PUSH_PROMISE frames on
       request streams and push streams reference the QPACK table state.
@@ -768,23 +772,30 @@ Internet-Draft                    QPACK                     October 2018
    The header name reference is followed by the header field value
    represented as a string literal (see Section 5.2 of [RFC7541]).
 
+
+
+
+
+
+
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 14]
+
+Internet-Draft                    QPACK                     October 2018
+
+
         0   1   2   3   4   5   6   7
       +---+---+---+---+---+---+---+---+
       | 1 | S |    Name Index (6+)    |
       +---+---+-----------------------+
       | H |     Value Length (7+)     |
       +---+---------------------------+
-      | Value String (Length octets)  |
+      |  Value String (Length bytes)  |
       +-------------------------------+
 
                     Insert Header Field -- Indexed Name
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 14]
-
-Internet-Draft                    QPACK                     October 2018
-
 
 4.3.2.  Insert Without Name Reference
 
@@ -799,11 +810,11 @@ Internet-Draft                    QPACK                     October 2018
       +---+---+---+---+---+---+---+---+
       | 0 | 1 | H | Name Length (5+)  |
       +---+---+---+-------------------+
-      |  Name String (Length octets)  |
+      |  Name String (Length bytes)   |
       +---+---------------------------+
       | H |     Value Length (7+)     |
       +---+---------------------------+
-      | Value String (Length octets)  |
+      |  Value String (Length bytes)  |
       +-------------------------------+
 
                       Insert Header Field -- New Name
@@ -823,6 +834,14 @@ Internet-Draft                    QPACK                     October 2018
 
    The existing entry is re-inserted into the dynamic table without
    resending either the name or the value.  This is useful to mitigate
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 15]
+
+Internet-Draft                    QPACK                     October 2018
+
+
    the eviction of older entries which are frequently referenced, both
    to avoid the need to resend the header and to avoid the entry in the
    table blocking the ability to insert new headers.
@@ -833,14 +852,6 @@ Internet-Draft                    QPACK                     October 2018
    table using an instruction which begins with the '001' three-bit
    pattern.  The new maximum table size is represented as an integer
    with a 5-bit prefix (see Section 5.1 of [RFC7541]).
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 15]
-
-Internet-Draft                    QPACK                     October 2018
-
 
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
@@ -879,24 +890,19 @@ Internet-Draft                    QPACK                     October 2018
    The Table State Synchronize instruction begins with the '00' two-bit
    pattern.  The instruction specifies the total number of dynamic table
    inserts and duplications since the last Table State Synchronize or
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 16]
+
+Internet-Draft                    QPACK                     October 2018
+
+
    Header Acknowledgement that increased the Largest Known Received
    dynamic table entry (see Section 2.1.4).  This is encoded as a 6-bit
    prefix integer.  The encoder uses this value to determine which table
    entries might cause a stream to become blocked, as described in
    Section 2.2.1.
-
-
-
-
-
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 16]
-
-Internet-Draft                    QPACK                     October 2018
-
 
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
@@ -910,15 +916,15 @@ Internet-Draft                    QPACK                     October 2018
    MUST treat this as a connection error of type
    "HTTP_QPACK_DECODER_STREAM_ERROR".
 
-   A decoder chooses when to emit Table State Synchronize instructions.
-   Emitting a Table State Synchronize after adding each new dynamic
-   table entry will provide the most timely feedback to the encoder, but
-   could be redundant with other decoder feedback.  By delaying a
-   Table State Synchronize, a decoder might be able to coalesce multiple
-   Table State Synchronize instructions, or replace them entirely with
-   Header Acknowledgements.  However, delaying too long may lead to
-   compression inefficiencies if the encoder waits for an entry to be
-   acknowledged before using it.
+   The decoder chooses when to emit Table State Synchronize
+   instructions.  Emitting a Table State Synchronize after adding each
+   new dynamic table entry will provide the most timely feedback to the
+   encoder, but could be redundant with other decoder feedback.  By
+   delaying a Table State Synchronize instruction, the decoder might be
+   able to coalesce multiple Table State Synchronize instructions, or
+   replace them entirely with Header Acknowledgements.  However,
+   delaying too long may lead to compression inefficiencies if the
+   encoder waits for an entry to be acknowledged before using it.
 
 4.4.2.  Header Acknowledgement
 
@@ -926,8 +932,8 @@ Internet-Draft                    QPACK                     October 2018
    not zero, the decoder emits a Header Acknowledgement instruction on
    the decoder stream.  The instruction begins with the '1' one-bit
    pattern and includes the request stream's stream ID, encoded as a
-   7-bit prefix integer.  It is used by the peer's QPACK encoder to know
-   when it is safe to evict an entry, and possibly update Largest Known
+   7-bit prefix integer.  It is used by the peer's encoder to know when
+   it is safe to evict an entry, and possibly update Largest Known
    Received.
 
      0   1   2   3   4   5   6   7
@@ -940,20 +946,20 @@ Internet-Draft                    QPACK                     October 2018
    The same Stream ID can be identified multiple times, as multiple
    header blocks can be sent on a single stream in the case of
    intermediate responses, trailers, and pushed requests.  Since header
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 17]
+
+Internet-Draft                    QPACK                     October 2018
+
+
    frames on each stream are received and processed in order, this gives
    the encoder precise feedback on which header blocks within a stream
    have been fully processed.
 
    If an encoder receives a Header Acknowledgement instruction referring
    to a stream on which every header block with a non-zero Largest
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 17]
-
-Internet-Draft                    QPACK                     October 2018
-
-
    Reference has already been acknowledged, that MUST be treated as a
    connection error of type "HTTP_QPACK_DECODER_STREAM_ERROR".
 
@@ -980,10 +986,10 @@ Internet-Draft                    QPACK                     October 2018
                        Figure 6: Stream Cancellation
 
    A stream that is reset might have multiple outstanding header blocks
-   with dynamic table references.  A decoder that receives a stream
-   reset before the end of a stream generates a Stream Cancellation
-   instruction on the decoder stream.  Similarly, a decoder that
-   abandons reading of a stream needs to signal this using the Stream
+   with dynamic table references.  When the decoder receives a stream
+   reset before the end of a stream, it generates a Stream Cancellation
+   instruction on the decoder stream.  Similarly, when the decoder
+   abandons reading of a stream it needs to signal this using the Stream
    Cancellation instruction.  This signals to the encoder that all
    references to the dynamic table on that stream are no longer
    outstanding.  A decoder with a maximum dynamic table size equal to
@@ -993,22 +999,22 @@ Internet-Draft                    QPACK                     October 2018
    An encoder cannot infer from this instruction that any updates to the
    dynamic table have been received.
 
+
+
+
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 18]
+
+Internet-Draft                    QPACK                     October 2018
+
+
 4.5.  Request and Push Streams
 
    HEADERS and PUSH_PROMISE frames on request and push streams reference
    the dynamic table in a particular state without modifying it.  Frames
    on these streams emit the headers for an HTTP request or response.
-
-
-
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 18]
-
-Internet-Draft                    QPACK                     October 2018
-
 
 4.5.1.  Header Data Prefix
 
@@ -1034,37 +1040,35 @@ Internet-Draft                    QPACK                     October 2018
    Largest Reference is greater than zero, the encoder transforms it as
    follows before encoding:
 
-      LargestReference = LargestReference mod 2*MaxEntries + 1
+      LargestReference = (LargestReference mod (2 * MaxEntries)) + 1
 
    The decoder reconstructs the Largest Reference using the following
    algorithm:
 
       if LargestReference > 0:
          LargestReference -= 1
-         CurrentWrapped = TableLargestAbsoluteIndex mod 2*MaxEntries
+         CurrentWrapped = TotalNumberOfInserts mod (2 * MaxEntries)
 
          if CurrentWrapped >= LargestReference + MaxEntries:
             # Largest Reference wrapped around 1 extra time
-            LargestReference += 2*MaxEntries
+            LargestReference += 2 * MaxEntries
          else if CurrentWrapped + MaxEntries < LargestReference
             # Decoder wrapped around 1 extra time
-            CurrentWrapped += 2*MaxEntries
+            CurrentWrapped += 2 * MaxEntries
 
-         LargestReference +=
-            (TableLargestAbsoluteIndex - CurrentWrapped)
-
-   TableLargestAbsoluteIndex is the Absolute Index of the most recently
-   inserted item in the decoder's dynamic table.  This encoding limits
-   the length of the prefix on long-lived connections.
+         LargestReference += TotalNumberOfInserts - CurrentWrapped
 
 
 
 
-
-Krasic, et al.           Expires April 20, 2019                [Page 19]
+Krasic, et al.             Expires May 3, 2019                 [Page 19]
 
 Internet-Draft                    QPACK                     October 2018
 
+
+   TotalNumberOfInserts is the total number of inserts into the
+   decoder's dynamic table.  This encoding limits the length of the
+   prefix on long-lived connections.
 
 4.5.1.2.  Base Index
 
@@ -1113,11 +1117,7 @@ Internet-Draft                    QPACK                     October 2018
 
 
 
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 20]
+Krasic, et al.             Expires May 3, 2019                 [Page 20]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -1173,7 +1173,7 @@ Internet-Draft                    QPACK                     October 2018
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 21]
+Krasic, et al.             Expires May 3, 2019                 [Page 21]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -1188,7 +1188,7 @@ Internet-Draft                    QPACK                     October 2018
       +---+---+---+---+---------------+
       | H |     Value Length (7+)     |
       +---+---------------------------+
-      | Value String (Length octets)  |
+      |  Value String (Length bytes)  |
       +-------------------------------+
 
                  Literal Header Field With Name Reference
@@ -1213,7 +1213,7 @@ Internet-Draft                    QPACK                     October 2018
       +---+---+---+---+---+-----------+
       | H |     Value Length (7+)     |
       +---+---------------------------+
-      | Value String (Length octets)  |
+      |  Value String (Length bytes)  |
       +-------------------------------+
 
             Literal Header Field With Post-Base Name Reference
@@ -1229,7 +1229,7 @@ Internet-Draft                    QPACK                     October 2018
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 22]
+Krasic, et al.             Expires May 3, 2019                 [Page 22]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -1249,11 +1249,11 @@ Internet-Draft                    QPACK                     October 2018
       +---+---+---+---+---+---+---+---+
       | 0 | 0 | 1 | N | H |NameLen(3+)|
       +---+---+---+---+---+-----------+
-      |  Name String (Length octets)  |
+      |  Name String (Length bytes)   |
       +---+---------------------------+
       | H |     Value Length (7+)     |
       +---+---------------------------+
-      | Value String (Length octets)  |
+      |  Value String (Length bytes)  |
       +-------------------------------+
 
                 Literal Header Field Without Name Reference
@@ -1279,19 +1279,22 @@ Internet-Draft                    QPACK                     October 2018
    HTTP_QPACK_DECOMPRESSION_FAILED (TBD):  The decoder failed to
       interpret an instruction on a request or push stream and is not
       able to continue decoding that header block.
-
-   HTTP_QPACK_ENCODER_STREAM_ERROR (TBD):  The decoder failed to
-      interpret an instruction on the encoder stream.
+      HTTP_QPACK_ENCODER_STREAM_ERROR (TBD):
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 23]
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 23]
 
 Internet-Draft                    QPACK                     October 2018
 
 
-   HTTP_QPACK_DECODER_STREAM_ERROR (TBD):  The encoder failed to
-      interpret an instruction on the decoder stream.
+      The decoder failed to interpret an instruction on the encoder
+      stream.  HTTP_QPACK_DECODER_STREAM_ERROR (TBD):
+
+      The encoder failed to interpret an instruction on the decoder
+      stream.
 
    Upon encountering an error, an implementation MAY elect to treat it
    as a connection error even if this document prescribes that it MUST
@@ -1333,18 +1336,20 @@ Internet-Draft                    QPACK                     October 2018
          | QPACK Decoder Stream | 0x68 | Section 4     | Both   |
          +----------------------+------+---------------+--------+
 
+
+
+
+
+
+Krasic, et al.             Expires May 3, 2019                 [Page 24]
+
+Internet-Draft                    QPACK                     October 2018
+
+
 8.3.  Error Code Registration
 
    This document establishes the following new error codes in the "HTTP/
    QUIC Error Code" registry established in [QUIC-HTTP].
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 24]
-
-Internet-Draft                    QPACK                     October 2018
-
 
    +------------------------------+------+--------------+--------------+
    | Name                         | Code | Description  | Specificatio |
@@ -1387,20 +1392,19 @@ Internet-Draft                    QPACK                     October 2018
               HTTP/2", RFC 7541, DOI 10.17487/RFC7541, May 2015,
               <https://www.rfc-editor.org/info/rfc7541>.
 
-   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
-              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
-              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
 
 
 
 
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 25]
+Krasic, et al.             Expires May 3, 2019                 [Page 25]
 
 Internet-Draft                    QPACK                     October 2018
 
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
 9.2.  Informative References
 
@@ -1446,18 +1450,18 @@ Appendix A.  Static Table
    | 8    | if-modified-since           |                              |
    |      |                             |                              |
    | 9    | if-none-match               |                              |
-   |      |                             |                              |
-   | 10   | last-modified               |                              |
-   |      |                             |                              |
-   | 11   | link                        |                              |
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 26]
+Krasic, et al.             Expires May 3, 2019                 [Page 26]
 
 Internet-Draft                    QPACK                     October 2018
 
 
+   |      |                             |                              |
+   | 10   | last-modified               |                              |
+   |      |                             |                              |
+   | 11   | link                        |                              |
    |      |                             |                              |
    | 12   | location                    |                              |
    |      |                             |                              |
@@ -1502,18 +1506,18 @@ Internet-Draft                    QPACK                     October 2018
    | 32   | accept-ranges               | bytes                        |
    |      |                             |                              |
    | 33   | access-control-allow-       | cache-control                |
-   |      | headers                     |                              |
-   |      |                             |                              |
-   | 34   | access-control-allow-       | content-type                 |
-   |      | headers                     |                              |
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 27]
+Krasic, et al.             Expires May 3, 2019                 [Page 27]
 
 Internet-Draft                    QPACK                     October 2018
 
 
+   |      | headers                     |                              |
+   |      |                             |                              |
+   | 34   | access-control-allow-       | content-type                 |
+   |      | headers                     |                              |
    |      |                             |                              |
    | 35   | access-control-allow-origin | *                            |
    |      |                             |                              |
@@ -1558,18 +1562,18 @@ Internet-Draft                    QPACK                     October 2018
    |      |                             |                              |
    | 55   | range                       | bytes=0-                     |
    |      |                             |                              |
-   | 56   | strict-transport-security   | max-age=31536000             |
-   |      |                             |                              |
-   | 57   | strict-transport-security   | max-age=31536000;            |
-   |      |                             | includesubdomains            |
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 28]
+Krasic, et al.             Expires May 3, 2019                 [Page 28]
 
 Internet-Draft                    QPACK                     October 2018
 
 
+   | 56   | strict-transport-security   | max-age=31536000             |
+   |      |                             |                              |
+   | 57   | strict-transport-security   | max-age=31536000;            |
+   |      |                             | includesubdomains            |
    |      |                             |                              |
    | 58   | strict-transport-security   | max-age=31536000;            |
    |      |                             | includesubdomains; preload   |
@@ -1614,18 +1618,18 @@ Internet-Draft                    QPACK                     October 2018
    | 76   | access-control-allow-       | get                          |
    |      | methods                     |                              |
    |      |                             |                              |
-   | 77   | access-control-allow-       | get, post, options           |
-   |      | methods                     |                              |
-   |      |                             |                              |
-   | 78   | access-control-allow-       | options                      |
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 29]
+Krasic, et al.             Expires May 3, 2019                 [Page 29]
 
 Internet-Draft                    QPACK                     October 2018
 
 
+   | 77   | access-control-allow-       | get, post, options           |
+   |      | methods                     |                              |
+   |      |                             |                              |
+   | 78   | access-control-allow-       | options                      |
    |      | methods                     |                              |
    |      |                             |                              |
    | 79   | access-control-expose-      | content-length               |
@@ -1670,17 +1674,17 @@ Internet-Draft                    QPACK                     October 2018
    | 96   | x-forwarded-for             |                              |
    |      |                             |                              |
    | 97   | x-frame-options             | deny                         |
-   |      |                             |                              |
-   | 98   | x-frame-options             | sameorigin                   |
-   +------+-----------------------------+------------------------------+
 
 
 
-
-Krasic, et al.           Expires April 20, 2019                [Page 30]
+Krasic, et al.             Expires May 3, 2019                 [Page 30]
 
 Internet-Draft                    QPACK                     October 2018
 
+
+   |      |                             |                              |
+   | 98   | x-frame-options             | sameorigin                   |
+   +------+-----------------------------+------------------------------+
 
 Appendix B.  Sample One Pass Encoding Algorithm
 
@@ -1729,11 +1733,7 @@ Appendix B.  Sample One Pass Encoding Algorithm
 
 
 
-
-
-
-
-Krasic, et al.           Expires April 20, 2019                [Page 31]
+Krasic, et al.             Expires May 3, 2019                 [Page 31]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -1789,7 +1789,7 @@ Internet-Draft                    QPACK                     October 2018
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 32]
+Krasic, et al.             Expires May 3, 2019                 [Page 32]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -1845,7 +1845,7 @@ C.4.  Since draft-ietf-quic-qpack-00
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 33]
+Krasic, et al.             Expires May 3, 2019                 [Page 33]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -1901,7 +1901,7 @@ Authors' Addresses
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 34]
+Krasic, et al.             Expires May 3, 2019                 [Page 34]
 
 Internet-Draft                    QPACK                     October 2018
 
@@ -1957,4 +1957,4 @@ Internet-Draft                    QPACK                     October 2018
 
 
 
-Krasic, et al.           Expires April 20, 2019                [Page 35]
+Krasic, et al.             Expires May 3, 2019                 [Page 35]
