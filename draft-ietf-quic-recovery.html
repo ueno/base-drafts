@@ -894,7 +894,6 @@ ul.toc li {
 <p id="rfc.section.4.5.5.p.2">Pseudocode for OnAckReceived and UpdateRtt follow:</p>
 <pre>
   OnAckReceived(ack):
-    largest_acked_packet = ack.largest_acked
     // If the largest acknowledged is newly acked,
     // update the RTT.
     if (sent_packets[ack.largest_acked]):
@@ -919,7 +918,7 @@ ul.toc li {
       tlp_count = 0
       rto_count = 0
 
-    DetectLostPackets(ack.largest_acked_packet)
+    DetectLostPackets(ack.acked_packet)
     SetLossDetectionTimer()
 
     // Process ECN information if present.
@@ -1139,8 +1138,8 @@ DetectLostPackets(largest_acked):
 <dd style="margin-left: 8">The sum of the size in bytes of all sent packets that contain at least one retransmittable or PADDING frame, and have not been acked or declared lost. The size does not include IP or UDP overhead, but does include the QUIC header and AEAD overhead.  Packets only containing ACK frames do not count towards bytes_in_flight to ensure congestion control does not impede congestion feedback.</dd>
 <dt>congestion_window:</dt>
 <dd style="margin-left: 8">Maximum number of bytes-in-flight that may be sent.</dd>
-<dt>end_of_recovery:</dt>
-<dd style="margin-left: 8">The largest packet number sent when QUIC detects a loss.  When a larger packet is acknowledged, QUIC exits recovery.</dd>
+<dt>recovery_start_time:</dt>
+<dd style="margin-left: 8">The time when QUIC first detects a loss, causing it to enter recovery.  When a packet sent after this time is acknowledged, QUIC exits recovery.</dd>
 <dt>ssthresh:</dt>
 <dd style="margin-left: 8">Slow start threshold in bytes.  When the congestion window is below ssthresh, the mode is slow start and the window grows by the number of bytes acknowledged.</dd>
 </dl>
@@ -1151,7 +1150,7 @@ DetectLostPackets(largest_acked):
 <pre>
    congestion_window = kInitialWindow
    bytes_in_flight = 0
-   end_of_recovery = 0
+   recovery_start_time = 0
    ssthresh = infinite
    ecn_ce_counter = 0
 </pre>
@@ -1168,13 +1167,13 @@ DetectLostPackets(largest_acked):
 </h3>
 <p id="rfc.section.5.8.5.p.1">Invoked from loss detection&#8217;s OnPacketAcked and is supplied with acked_packet from sent_packets.</p>
 <pre>
-   InRecovery(packet_number):
-     return packet_number &lt;= end_of_recovery
+   InRecovery(sent_time):
+     return sent_time &lt;= recovery_start_time
 
    OnPacketAckedCC(acked_packet):
      // Remove from bytes_in_flight.
      bytes_in_flight -= acked_packet.size
-     if (InRecovery(acked_packet.packet_number)):
+     if (InRecovery(acked_packet.time)):
        // Do not increase congestion window in recovery period.
        return
      if (congestion_window &lt; ssthresh):
@@ -1188,13 +1187,13 @@ DetectLostPackets(largest_acked):
 <h3 id="rfc.section.5.8.6">
 <a href="#rfc.section.5.8.6">5.8.6.</a> <a href="#on-new-congestion-event" id="on-new-congestion-event">On New Congestion Event</a>
 </h3>
-<p id="rfc.section.5.8.6.p.1">Invoked from ProcessECN and OnPacketsLost when a new congestion event is detected. Starts a new recovery period and reduces the congestion window.</p>
+<p id="rfc.section.5.8.6.p.1">Invoked from ProcessECN and OnPacketsLost when a new congestion event is detected. May starts a new recovery period and reduces the congestion window.</p>
 <pre>
-   CongestionEvent(packet_number):
-     // Start a new congestion event if packet_number
-     // is larger than the end of the previous recovery epoch.
-     if (!InRecovery(packet_number)):
-       end_of_recovery = largest_sent_packet
+   CongestionEvent(sent_time):
+     // Start a new congestion event if the sent time is larger
+     // than the start time of the previous recovery epoch.
+     if (!InRecovery(sent_time)):
+       recovery_start_time = Now()
        congestion_window *= kLossReductionFactor
        congestion_window = max(congestion_window, kMinimumWindow)
        ssthresh = congestion_window
@@ -1210,8 +1209,9 @@ DetectLostPackets(largest_acked):
      if (ack.ce_counter &gt; ecn_ce_counter):
        ecn_ce_counter = ack.ce_counter
        // Start a new congestion event if the last acknowledged
-       // packet is past the end of the previous recovery epoch.
-       CongestionEvent(ack.largest_acked_packet)
+       // packet was sent after the start of the previous
+       // recovery epoch.
+       CongestionEvent(sent_packets[ack.largest_acked].time)
 </pre>
 <h3 id="rfc.section.5.8.8">
 <a href="#rfc.section.5.8.8">5.8.8.</a> <a href="#on-packets-lost" id="on-packets-lost">On Packets Lost</a>
@@ -1226,7 +1226,7 @@ DetectLostPackets(largest_acked):
 
      // Start a new congestion epoch if the last lost packet
      // is past the end of the previous recovery epoch.
-     CongestionEvent(largest_lost_packet.packet_number)
+     CongestionEvent(largest_lost_packet.time)
 </pre>
 <h3 id="rfc.section.5.8.9">
 <a href="#rfc.section.5.8.9">5.8.9.</a> <a href="#on-retransmission-timeout-verified" id="on-retransmission-timeout-verified">On Retransmission Timeout Verified</a>
