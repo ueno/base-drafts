@@ -204,9 +204,9 @@ Internet-Draft           QUIC Transport Protocol            October 2018
      19.5.  MAX_DATA Frame . . . . . . . . . . . . . . . . . . . . .  97
      19.6.  MAX_STREAM_DATA Frame  . . . . . . . . . . . . . . . . .  98
      19.7.  MAX_STREAMS Frame  . . . . . . . . . . . . . . . . . . .  99
-     19.8.  PING Frame . . . . . . . . . . . . . . . . . . . . . . .  99
+     19.8.  PING Frame . . . . . . . . . . . . . . . . . . . . . . . 100
      19.9.  DATA_BLOCKED Frame . . . . . . . . . . . . . . . . . . . 100
-     19.10. STREAM_DATA_BLOCKED Frame  . . . . . . . . . . . . . . . 100
+     19.10. STREAM_DATA_BLOCKED Frame  . . . . . . . . . . . . . . . 101
      19.11. STREAMS_BLOCKED Frame  . . . . . . . . . . . . . . . . . 101
      19.12. NEW_CONNECTION_ID Frame  . . . . . . . . . . . . . . . . 102
      19.13. RETIRE_CONNECTION_ID Frame . . . . . . . . . . . . . . . 103
@@ -5517,8 +5517,8 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The fields in the MAX_STREAMS frame are as follows:
 
-   Maximum Streams:  A count of the number of streams that can be
-      opened.
+   Maximum Streams:  A count of the total number of streams of the
+      corresponding type that can be opened.
 
    Loss or reordering can cause a MAX_STREAMS frame to be received which
    states a lower stream limit than an endpoint has previously received.
@@ -5532,11 +5532,11 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    with a STREAM_LIMIT_ERROR error if a peer opens more streams than was
    permitted.
 
-19.8.  PING Frame
+   Note that these frames (and the corresponding transport parameters)
+   do not describe the number of streams that can be opened
+   concurrently.  The limit includes streams that have been closed as
+   well as those that are open.
 
-   Endpoints can use PING frames (type=0x07) to verify that their peers
-   are still alive or to check reachability to the peer.  The PING frame
-   contains no additional fields.
 
 
 
@@ -5545,6 +5545,12 @@ Iyengar & Thomson          Expires May 3, 2019                 [Page 99]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+19.8.  PING Frame
+
+   Endpoints can use PING frames (type=0x07) to verify that their peers
+   are still alive or to check reachability to the peer.  The PING frame
+   contains no additional fields.
 
    The receiver of a PING frame simply needs to acknowledge the packet
    containing this frame.
@@ -5586,6 +5592,16 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Data Limit:  A variable-length integer indicating the connection-
       level limit at which blocking occurred.
 
+
+
+
+
+
+Iyengar & Thomson          Expires May 3, 2019                [Page 100]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
 19.10.  STREAM_DATA_BLOCKED Frame
 
    A sender SHOULD send a STREAM_DATA_BLOCKED frame (type=0x09) when it
@@ -5594,13 +5610,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    An endpoint that receives a STREAM_DATA_BLOCKED frame for a send-only
    stream MUST terminate the connection with error PROTOCOL_VIOLATION.
-
-
-
-Iyengar & Thomson          Expires May 3, 2019                [Page 100]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
 
    The STREAM_DATA_BLOCKED frame is as follows:
 
@@ -5641,15 +5650,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    |                        Stream Limit (i)                     ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-   The STREAMS_BLOCKED frame contains a single field.
-
-   Stream Limit:  A variable-length integer indicating the stream limit
-      at the time the frame was sent.
-
-
-
-
-
 
 
 
@@ -5657,6 +5657,11 @@ Iyengar & Thomson          Expires May 3, 2019                [Page 101]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   The STREAMS_BLOCKED frame contains a single field.
+
+   Stream Limit:  A variable-length integer indicating the stream limit
+      at the time the frame was sent.
 
 19.12.  NEW_CONNECTION_ID Frame
 
@@ -5701,11 +5706,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    An endpoint MUST NOT send this frame if it currently requires that
    its peer send packets with a zero-length Destination Connection ID.
    Changing the length of a connection ID to or from zero-length makes
-   it difficult to identify when the value of the connection ID changed.
-   An endpoint that is sending packets with a zero-length Destination
-   Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a
-   connection error of type PROTOCOL_VIOLATION.
-
 
 
 
@@ -5713,6 +5713,11 @@ Iyengar & Thomson          Expires May 3, 2019                [Page 102]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   it difficult to identify when the value of the connection ID changed.
+   An endpoint that is sending packets with a zero-length Destination
+   Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a
+   connection error of type PROTOCOL_VIOLATION.
 
    Transmission errors, timeouts and retransmissions might cause the
    same NEW_CONNECTION_ID frame to be received multiple times.  Receipt
@@ -5757,11 +5762,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    An endpoint cannot send this frame if it was provided with a zero-
    length connection ID by its peer.  An endpoint that provides a zero-
-   length connection ID MUST treat receipt of a RETIRE_CONNECTION_ID
-   frame as a connection error of type PROTOCOL_VIOLATION.
-
-
-
 
 
 
@@ -5769,6 +5769,9 @@ Iyengar & Thomson          Expires May 3, 2019                [Page 103]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   length connection ID MUST treat receipt of a RETIRE_CONNECTION_ID
+   frame as a connection error of type PROTOCOL_VIOLATION.
 
 19.14.  STOP_SENDING Frame
 
@@ -5816,9 +5819,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    remains acknowledged, even if it does not appear in a future ACK
    frame.  This is unlike TCP SACKs ([RFC2018]).
 
-   It is expected that a sender will reuse the same packet number across
-   different packet number spaces.  ACK frames only acknowledge the
-
 
 
 Iyengar & Thomson          Expires May 3, 2019                [Page 104]
@@ -5826,6 +5826,8 @@ Iyengar & Thomson          Expires May 3, 2019                [Page 104]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   It is expected that a sender will reuse the same packet number across
+   different packet number spaces.  ACK frames only acknowledge the
    packet numbers that were transmitted by the sender in the same packet
    number space of the packet that the ACK was received in.
 
@@ -5871,8 +5873,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       allows for a larger range of values with a shorter encoding at the
       cost of lower resolution.
 
-   ACK Block Count:  A variable-length integer specifying the number of
-      Additional ACK Block (and Gap) fields after the First ACK Block.
 
 
 
@@ -5881,6 +5881,9 @@ Iyengar & Thomson          Expires May 3, 2019                [Page 105]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   ACK Block Count:  A variable-length integer specifying the number of
+      Additional ACK Block (and Gap) fields after the First ACK Block.
 
    ACK Blocks:  Contains one or more blocks of packet numbers which have
       been successfully received, see Section 19.15.1.
@@ -5927,9 +5930,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
                        Figure 17: ACK Block Section
 
-   Each ACK Block acknowledges a contiguous range of packets by
-   indicating the number of acknowledged packets that precede the
-   largest packet number in that block.  A value of zero indicates that
 
 
 
@@ -5938,6 +5938,9 @@ Iyengar & Thomson          Expires May 3, 2019                [Page 106]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   Each ACK Block acknowledges a contiguous range of packets by
+   indicating the number of acknowledged packets that precede the
+   largest packet number in that block.  A value of zero indicates that
    only the largest packet number is acknowledged.  Larger ACK Block
    values indicate a larger range, with corresponding lower values for
    the smallest packet number in the range.  Thus, given a largest
@@ -5981,9 +5984,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Additional ACK Block (repeated):  A variable-length integer
       indicating the number of contiguous acknowledged packets preceding
       the largest packet number, as determined by the preceding Gap.
-
-
-
 
 
 
