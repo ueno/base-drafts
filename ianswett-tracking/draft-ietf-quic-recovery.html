@@ -304,7 +304,7 @@ ul.toc li {
 <link href="#rfc.section.4.4.2" rel="Chapter" title="4.4.2 ACK Ranges">
 <link href="#rfc.section.4.4.3" rel="Chapter" title="4.4.3 Receiver Tracking of ACK Frames">
 <link href="#rfc.section.4.5" rel="Chapter" title="4.5 Tracking Sent Packets">
-<link href="#rfc.section.4.5.1" rel="Chapter" title="4.5.1 Fields">
+<link href="#rfc.section.4.5.1" rel="Chapter" title="4.5.1 Sent Packet Fields">
 <link href="#rfc.section.4.6" rel="Chapter" title="4.6 Pseudocode">
 <link href="#rfc.section.4.6.1" rel="Chapter" title="4.6.1 Constants of interest">
 <link href="#rfc.section.4.6.2" rel="Chapter" title="4.6.2 Variables of interest">
@@ -472,7 +472,7 @@ ul.toc li {
 </li>
 </ul><li>4.5.   <a href="#rfc.section.4.5">Tracking Sent Packets</a>
 </li>
-<ul><li>4.5.1.   <a href="#rfc.section.4.5.1">Fields</a>
+<ul><li>4.5.1.   <a href="#rfc.section.4.5.1">Sent Packet Fields</a>
 </li>
 </ul><li>4.6.   <a href="#rfc.section.4.6">Pseudocode</a>
 </li>
@@ -604,13 +604,13 @@ ul.toc li {
 
 <dl>
 <dt>ACK-only:</dt>
-<dd style="margin-left: 8">Any packet containing only an ACK frame.</dd>
+<dd style="margin-left: 8">Any packet containing only one or more ACK frame(s).</dd>
 <dt>In-flight:</dt>
 <dd style="margin-left: 8">Packets are considered in-flight when they have been sent and neither acknowledged nor declared lost, and they are not ACK-only.</dd>
 <dt>Retransmittable Frames:</dt>
 <dd style="margin-left: 8">All frames besides ACK or PADDING are considered retransmittable.</dd>
 <dt>Retransmittable Packets:</dt>
-<dd style="margin-left: 8">Packets that contain retransmittable frames elicit an ACK from the receiver and are called retransmittable packets.</dd>
+<dd style="margin-left: 8">Packets that contain retransmittable frames elicit an ACK from the receiver within the maximum ack delay and are called retransmittable packets.</dd>
 <dt>Crypto Packets:</dt>
 <dd style="margin-left: 8">Packets containing CRYPTO data sent in Initial or Handshake packets.</dd>
 </dl>
@@ -623,7 +623,7 @@ ul.toc li {
 <p></p>
 
 <ul>
-<li>All packets are acknowledged, though packets that contain only ACK and PADDING frames are not acknowledged immediately.</li>
+<li>All packets are acknowledged, though packets that contain no retransmittable frames are only acknowledged along with retransmittable packets.</li>
 <li>Long header packets that contain CRYPTO frames are critical to the performance of the QUIC handshake and use shorter timers for acknowledgement and retransmission.</li>
 <li>Packets that contain only ACK frames do not count toward congestion control limits and are not considered in-flight. Note that this means PADDING frames cause packets to contribute toward bytes in flight without directly causing an acknowledgment to be sent.</li>
 </ul>
@@ -769,12 +769,12 @@ ul.toc li {
 <h2 id="rfc.section.4.5">
 <a href="#rfc.section.4.5">4.5.</a> <a href="#tracking-sent-packets" id="tracking-sent-packets">Tracking Sent Packets</a>
 </h2>
-<p id="rfc.section.4.5.p.1">QUIC stores information about every packet sent.  QUIC does not retransmit packets, but implementations SHOULD retransmit the data within a packet in a new QUIC packet when the packet is lost.  When retransmitting that data, it may be bundled with new data if there is space or split into multiple QUIC packets as necessary.</p>
-<p id="rfc.section.4.5.p.2">It&#8217;s expected implementations will index this per-packet information by packet number and store the per-packet field detailed below for loss recovery and congestion control.  Additionally, implementations must ensure that any reliable frames being transmitted are tracked in case of loss.  If a packet containing reliable frames is lost, the QUIC transport needs to decide how to recover from that loss, such as by retransmitting the data, sending an updated frame, or or abandoning the transmission. In the case of STREAM data, the data should be retransmitted unless the send side of the stream is closed.</p>
-<p id="rfc.section.4.5.p.3">Packets remain in sent_packets until acknowledged or lost.  After a packet is lost, it SHOULD be kept for an amount of time comparable to the maximum expected packet reordering, such as 1 RTT.</p>
+<p id="rfc.section.4.5.p.1">QUIC stores information about every packet sent. It&#8217;s expected implementations will index this per-packet information by packet number and store the per-packet fields detailed below for loss recovery and congestion control.  Additionally, implementations MUST ensure that any retransmittable frames being transmitted are tracked in case of loss.</p>
+<p id="rfc.section.4.5.p.2">If a packet containing retransmittable frames is lost, the QUIC transport needs to recover from that loss, such as by retransmitting the data, sending an updated frame, or abandoning the frame. In the case of STREAM data, the data should be retransmitted unless the send side of the stream is closed.</p>
+<p id="rfc.section.4.5.p.3">Packets MUST be tracked until acknowledged or lost.  After a packet is lost, it SHOULD be tracked for an amount of time comparable to the maximum expected packet reordering, such as 1 RTT.  This allows detection of spurious retransmissions and MAY allow avoiding an extra retransmissions if the frames contained within the packet were retransmitted and lost again.</p>
 <p id="rfc.section.4.5.p.4">Sent packets are tracked for each packet number space, and ACK processing only applies to a single space.</p>
 <h3 id="rfc.section.4.5.1">
-<a href="#rfc.section.4.5.1">4.5.1.</a> <a href="#fields" id="fields">Fields</a>
+<a href="#rfc.section.4.5.1">4.5.1.</a> <a href="#sent-packets-fields" id="sent-packets-fields">Sent Packet Fields</a>
 </h3>
 <p></p>
 
@@ -892,26 +892,17 @@ ul.toc li {
 <h3 id="rfc.section.4.6.4">
 <a href="#rfc.section.4.6.4">4.6.4.</a> <a href="#on-sending-a-packet" id="on-sending-a-packet">On Sending a Packet</a>
 </h3>
-<p id="rfc.section.4.6.4.p.1">After any packet is sent.  The parameters to OnPacketSent are as follows:</p>
-<p></p>
-
-<ul>
-<li>packet_number: The packet number of the sent packet.</li>
-<li>ack_only: A boolean that indicates whether a packet contains only ACK or PADDING frame(s).  If true, it is still expected an ack will be received for this packet, but it is not retransmittable.</li>
-<li>in_flight: A boolean that indicates whether the packet counts towards bytes in flight.</li>
-<li>is_crypto_packet: A boolean that indicates whether the packet contains cryptographic handshake messages critical to the completion of the QUIC handshake.</li>
-<li>sent_bytes: The number of bytes sent in the packet.</li>
-</ul>
-<p id="rfc.section.4.6.4.p.3">Pseudocode for OnPacketSent follows:</p>
+<p id="rfc.section.4.6.4.p.1">After any packet is sent.  The parameters to OnPacketSent are described in detail above in <a href="#sent-packets-fields" class="xref">Section 4.5.1</a>.</p>
+<p id="rfc.section.4.6.4.p.2">Pseudocode for OnPacketSent follows:</p>
 <pre>
- OnPacketSent(packet_number, ack_only, in_flight,
+ OnPacketSent(packet_number, retransmittable, in_flight,
               is_crypto_packet, sent_bytes):
    largest_sent_packet = packet_number
    sent_packets[packet_number].packet_number = packet_number
    sent_packets[packet_number].time = now
-   sent_packets[packet_number].ack_only = ack_only
+   sent_packets[packet_number].retransmittable = retransmittable
    sent_packets[packet_number].in_flight = in_flight
-   if !ack_only:
+   if retransmittable:
      if is_crypto_packet:
        time_of_last_sent_crypto_packet = now
      time_of_last_sent_retransmittable_packet = now
@@ -982,7 +973,7 @@ ul.toc li {
 <p id="rfc.section.4.6.6.p.4">Pseudocode for OnPacketAcked follows:</p>
 <pre>
    OnPacketAcked(acked_packet):
-     if (!acked_packet.is_ack_only):
+     if (acked_packet.retransmittable):
        OnPacketAckedCC(acked_packet)
      sent_packets.remove(acked_packet.packet_number)
 </pre>
@@ -1084,7 +1075,7 @@ DetectLostPackets(largest_acked):
     if (time_since_sent &gt; delay_until_lost ||
         delta &gt; reordering_threshold):
       sent_packets.remove(unacked.packet_number)
-      if (!unacked.is_ack_only):
+      if (unacked.retransmittable):
         lost_packets.insert(unacked)
     else if (loss_time == 0 &amp;&amp; delay_until_lost != infinite):
       loss_time = now() + delay_until_lost - time_since_sent
