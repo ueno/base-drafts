@@ -194,7 +194,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    Definitions of terms that are used in this document:
 
-   ACK-only:  Any packet containing only an ACK frame.
+   ACK-only:  Any packet containing only one or more ACK frame(s).
 
    In-flight:  Packets are considered in-flight when they have been sent
       and neither acknowledged nor declared lost, and they are not ACK-
@@ -204,8 +204,8 @@ Internet-Draft             QUIC Loss Detection              October 2018
       considered retransmittable.
 
    Retransmittable Packets:  Packets that contain retransmittable frames
-      elicit an ACK from the receiver and are called retransmittable
-      packets.
+      elicit an ACK from the receiver within the maximum ack delay and
+      are called retransmittable packets.
 
    Crypto Packets:  Packets containing CRYPTO data sent in Initial or
       Handshake packets.
@@ -240,8 +240,9 @@ Internet-Draft             QUIC Loss Detection              October 2018
    necessary.  The types of frames contained in a packet affect recovery
    and congestion control logic:
 
-   o  All packets are acknowledged, though packets that contain only ACK
-      and PADDING frames are not acknowledged immediately.
+   o  All packets are acknowledged, though packets that contain no
+      retransmittable frames are only acknowledged along with
+      retransmittable packets.
 
    o  Long header packets that contain CRYPTO frames are critical to the
       performance of the QUIC handshake and use shorter timers for
@@ -270,7 +271,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
    retransmission of packets sent with a different encryption level.
    Congestion control and RTT measurement are unified across packet
    number spaces.
-
 
 
 
@@ -833,7 +833,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
    sent_packets:  An association of packet numbers to information about
       them, including a number field indicating the packet number, a
       time field indicating the time a packet was sent, a boolean
-      indicating whether the packet is ack-only, a boolean indicating
+      indicating whether the packet is retransmittable, a boolean
 
 
 
@@ -842,12 +842,12 @@ Iyengar & Swett            Expires May 4, 2019                 [Page 15]
 Internet-Draft             QUIC Loss Detection              October 2018
 
 
-      whether it counts towards bytes in flight, and a size field that
-      indicates the packet's size in bytes.  sent_packets is ordered by
-      packet number, and packets remain in sent_packets until
-      acknowledged or lost.  A sent_packets data structure is maintained
-      per packet number space, and ACK processing only applies to a
-      single space.
+      indicating whether it counts towards bytes in flight, and a size
+      field indicating the packet's size in bytes.  sent_packets is
+      ordered and indexed by packet number.  Packets remain in
+      sent_packets until acknowledged or lost.  A sent_packets data
+      structure is maintained per packet number space, and processing of
+      an ACK frame only applies to a single space.
 
 4.5.3.  Initialization
 
@@ -881,15 +881,15 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    o  packet_number: The packet number of the sent packet.
 
-   o  ack_only: A boolean that indicates whether a packet contains only
-      ACK or PADDING frame(s).  If true, it is still expected an ack
-      will be received for this packet, but it is not retransmittable.
+   o  retransmittable: A boolean that indicates whether a packet is
+      retransmittable.  If true, it is expected that an acknowledgement
+      will be received, though the peer could delay sending the ACK
+      frame containing it by up to the MaxAckDelay.
 
    o  in_flight: A boolean that indicates whether the packet counts
       towards bytes in flight.
 
-   o  is_crypto_packet: A boolean that indicates whether the packet
-      contains cryptographic handshake messages critical to the
+
 
 
 
@@ -898,6 +898,8 @@ Iyengar & Swett            Expires May 4, 2019                 [Page 16]
 Internet-Draft             QUIC Loss Detection              October 2018
 
 
+   o  is_crypto_packet: A boolean that indicates whether the packet
+      contains cryptographic handshake messages critical to the
       completion of the QUIC handshake.  In this version of QUIC, this
       includes any packet with the long header that includes a CRYPTO
       frame.
@@ -907,14 +909,14 @@ Internet-Draft             QUIC Loss Detection              October 2018
 
    Pseudocode for OnPacketSent follows:
 
-    OnPacketSent(packet_number, ack_only, in_flight,
+    OnPacketSent(packet_number, retransmittable, in_flight,
                  is_crypto_packet, sent_bytes):
       largest_sent_packet = packet_number
       sent_packets[packet_number].packet_number = packet_number
       sent_packets[packet_number].time = now
-      sent_packets[packet_number].ack_only = ack_only
+      sent_packets[packet_number].retransmittable = retransmittable
       sent_packets[packet_number].in_flight = in_flight
-      if !ack_only:
+      if retransmittable:
         if is_crypto_packet:
           time_of_last_sent_crypto_packet = now
         time_of_last_sent_retransmittable_packet = now
@@ -928,8 +930,6 @@ Internet-Draft             QUIC Loss Detection              October 2018
    packets.
 
    Pseudocode for OnAckReceived and UpdateRtt follow:
-
-
 
 
 
@@ -1028,7 +1028,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
    Pseudocode for OnPacketAcked follows:
 
       OnPacketAcked(acked_packet):
-        if (!acked_packet.is_ack_only):
+        if (acked_packet.retransmittable):
           OnPacketAckedCC(acked_packet)
         sent_packets.remove(acked_packet.packet_number)
 
@@ -1195,7 +1195,7 @@ Internet-Draft             QUIC Loss Detection              October 2018
        if (time_since_sent > delay_until_lost ||
            delta > reordering_threshold):
          sent_packets.remove(unacked.packet_number)
-         if (!unacked.is_ack_only):
+         if (unacked.retransmittable):
            lost_packets.insert(unacked)
        else if (loss_time == 0 && delay_until_lost != infinite):
          loss_time = now() + delay_until_lost - time_since_sent
