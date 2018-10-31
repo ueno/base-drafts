@@ -98,7 +98,7 @@ Table of Contents
      4.5.  Stream Limit Increment  . . . . . . . . . . . . . . . . .  24
    5.  Connections . . . . . . . . . . . . . . . . . . . . . . . . .  24
      5.1.  Connection ID . . . . . . . . . . . . . . . . . . . . . .  24
-       5.1.1.  Issuing Connection IDs  . . . . . . . . . . . . . . .  25
+       5.1.1.  Issuing Connection IDs  . . . . . . . . . . . . . . .  26
        5.1.2.  Consuming and Retiring Connection IDs . . . . . . . .  26
      5.2.  Matching Packets to Connections . . . . . . . . . . . . .  27
        5.2.1.  Client Packet Handling  . . . . . . . . . . . . . . .  27
@@ -197,17 +197,17 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    18. Transport Parameter Encoding  . . . . . . . . . . . . . . . .  90
      18.1.  Transport Parameter Definitions  . . . . . . . . . . . .  92
    19. Frame Types and Formats . . . . . . . . . . . . . . . . . . .  94
-     19.1.  PADDING Frame  . . . . . . . . . . . . . . . . . . . . .  95
+     19.1.  PADDING Frame  . . . . . . . . . . . . . . . . . . . . .  94
      19.2.  RST_STREAM Frame . . . . . . . . . . . . . . . . . . . .  95
-     19.3.  CONNECTION_CLOSE frame . . . . . . . . . . . . . . . . .  96
-     19.4.  APPLICATION_CLOSE frame  . . . . . . . . . . . . . . . .  97
+     19.3.  CONNECTION_CLOSE frame . . . . . . . . . . . . . . . . .  95
+     19.4.  APPLICATION_CLOSE frame  . . . . . . . . . . . . . . . .  96
      19.5.  MAX_DATA Frame . . . . . . . . . . . . . . . . . . . . .  97
      19.6.  MAX_STREAM_DATA Frame  . . . . . . . . . . . . . . . . .  98
-     19.7.  MAX_STREAM_ID Frame  . . . . . . . . . . . . . . . . . .  99
+     19.7.  MAX_STREAMS Frame  . . . . . . . . . . . . . . . . . . .  99
      19.8.  PING Frame . . . . . . . . . . . . . . . . . . . . . . . 100
-     19.9.  BLOCKED Frame  . . . . . . . . . . . . . . . . . . . . . 100
-     19.10. STREAM_BLOCKED Frame . . . . . . . . . . . . . . . . . . 101
-     19.11. STREAM_ID_BLOCKED Frame  . . . . . . . . . . . . . . . . 101
+     19.9.  DATA_BLOCKED Frame . . . . . . . . . . . . . . . . . . . 100
+     19.10. STREAM_DATA_BLOCKED Frame  . . . . . . . . . . . . . . . 101
+     19.11. STREAMS_BLOCKED Frame  . . . . . . . . . . . . . . . . . 101
      19.12. NEW_CONNECTION_ID Frame  . . . . . . . . . . . . . . . . 102
      19.13. RETIRE_CONNECTION_ID Frame . . . . . . . . . . . . . . . 103
      19.14. STOP_SENDING Frame . . . . . . . . . . . . . . . . . . . 104
@@ -229,14 +229,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
      19.20. CRYPTO Frame . . . . . . . . . . . . . . . . . . . . . . 111
      19.21. Extension Frames . . . . . . . . . . . . . . . . . . . . 112
    20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 112
-     20.1.  Application Protocol Error Codes . . . . . . . . . . . . 113
+     20.1.  Application Protocol Error Codes . . . . . . . . . . . . 114
    21. Security Considerations . . . . . . . . . . . . . . . . . . . 114
      21.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 114
      21.2.  Spoofed ACK Attack . . . . . . . . . . . . . . . . . . . 115
      21.3.  Optimistic ACK Attack  . . . . . . . . . . . . . . . . . 115
-     21.4.  Slowloris Attacks  . . . . . . . . . . . . . . . . . . . 115
+     21.4.  Slowloris Attacks  . . . . . . . . . . . . . . . . . . . 116
      21.5.  Stream Fragmentation and Reassembly Attacks  . . . . . . 116
-     21.6.  Stream Commitment Attack . . . . . . . . . . . . . . . . 116
+     21.6.  Stream Commitment Attack . . . . . . . . . . . . . . . . 117
      21.7.  Explicit Congestion Notification Attacks . . . . . . . . 117
      21.8.  Stateless Reset Oracle . . . . . . . . . . . . . . . . . 117
    22. IANA Considerations . . . . . . . . . . . . . . . . . . . . . 118
@@ -542,18 +542,18 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    QUIC allows for an arbitrary number of streams to operate
    concurrently.  An endpoint limits the number of concurrently active
-   incoming streams by limiting the maximum stream ID (see Section 4.5).
+   incoming streams by limiting the number of streams of each type (see
+   Section 4.5).
 
-   The maximum stream ID is specific to each endpoint and applies only
-   to the peer that receives the setting.  That is, clients specify the
-   maximum stream ID the server can initiate, and servers specify the
-   maximum stream ID the client can initiate.  Each endpoint may respond
-   on streams initiated by the other peer, regardless of whether it is
-   permitted to initiate new streams.
+   The stream limit is specific to each endpoint and applies only to the
+   peer that receives the setting.  That is, the client limits the
+   number of streams of each type the server can initiate, and the
+   server limits the number of streams the client can initiate.  Each
+   endpoint can respond on streams initiated by the other peer,
+   regardless of whether it is permitted to initiate new streams.
 
    Endpoints MUST NOT exceed the limit set by their peer.  An endpoint
    that receives a STREAM frame with an ID greater than the limit it has
-   sent MUST treat this as a stream error of type STREAM_ID_ERROR
 
 
 
@@ -562,14 +562,13 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 10]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-   (Section 11), unless this is a result of a change in the initial
-   limits (see Section 7.3.1).
+   sent MUST treat this as a stream error of type STREAM_LIMIT_ERROR
+   (Section 11).
 
    A receiver cannot renege on an advertisement; that is, once a
-   receiver advertises a stream ID via a MAX_STREAM_ID frame,
-   advertising a smaller maximum ID has no effect.  A receiver MUST
-   ignore any MAX_STREAM_ID frame that does not increase the maximum
-   stream ID.
+   receiver advertises a stream limit using the MAX_STREAMS frame,
+   advertising a smaller limit has no effect.  A receiver MUST ignore
+   any MAX_STREAMS frame that does not increase the stream limit.
 
 2.3.  Sending and Receiving Data
 
@@ -610,6 +609,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Stream multiplexing has a significant effect on application
    performance if resources allocated to streams are correctly
    prioritized.  Experience with other multiplexed protocols, such as
+
 
 
 
@@ -740,7 +740,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       +-------+                       |
           |                           |
           | Send STREAM /             |
-          |      STREAM_BLOCKED       |
+          |      STREAM_DATA_BLOCKED  |
           |                           |
           | Create Bidirectional      |
           |      Stream (Receiving)   |
@@ -772,10 +772,10 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    stream that is able to accept data from the application.  Stream data
    might be buffered in this state in preparation for sending.
 
-   Sending the first STREAM or STREAM_BLOCKED frame causes a send stream
-   to enter the "Send" state.  An implementation might choose to defer
-   allocating a Stream ID to a send stream until it sends the first
-   frame and enters this state, which can allow for better stream
+   Sending the first STREAM or STREAM_DATA_BLOCKED frame causes a send
+   stream to enter the "Send" state.  An implementation might choose to
+   defer allocating a Stream ID to a send stream until it sends the
+   first frame and enters this state, which can allow for better stream
    prioritization.
 
 
@@ -794,18 +794,18 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    In the "Send" state, an endpoint transmits - and retransmits as
    necessary - data in STREAM frames.  The endpoint respects the flow
    control limits of its peer, accepting MAX_STREAM_DATA frames.  An
-   endpoint in the "Send" state generates STREAM_BLOCKED frames if it
-   encounters flow control limits.
+   endpoint in the "Send" state generates STREAM_DATA_BLOCKED frames if
+   it encounters flow control limits.
 
    After the application indicates that stream data is complete and a
    STREAM frame containing the FIN bit is sent, the send stream enters
    the "Data Sent" state.  From this state, the endpoint only
    retransmits stream data as necessary.  The endpoint no longer needs
-   to track flow control limits or send STREAM_BLOCKED frames for a send
-   stream in this state.  The endpoint can ignore any MAX_STREAM_DATA
-   frames it receives from its peer in this state; MAX_STREAM_DATA
-   frames might be received until the peer receives the final stream
-   offset.
+   to track flow control limits or send STREAM_DATA_BLOCKED frames for a
+   send stream in this state.  The endpoint can ignore any
+   MAX_STREAM_DATA frames it receives from its peer in this state;
+   MAX_STREAM_DATA frames might be received until the peer receives the
+   final stream offset.
 
    Once all stream data has been successfully acknowledged, the send
    stream enters the "Data Recvd" state, which is a terminal state.
@@ -843,7 +843,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
 
           o
-          | Recv STREAM / STREAM_BLOCKED / RST_STREAM
+          | Recv STREAM / STREAM_DATA_BLOCKED / RST_STREAM
           | Create Bidirectional Stream (Sending)
           | Recv MAX_STREAM_DATA
           | Create Higher-Numbered Stream
@@ -878,9 +878,9 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The receiving part of a stream initiated by a peer (types 1 and 3 for
    a client, or 0 and 2 for a server) are created when the first STREAM,
-   STREAM_BLOCKED, RST_STREAM, or MAX_STREAM_DATA (bidirectional only,
-   see below) is received for that stream.  The initial state for a
-   receive stream is "Recv".  Receiving a RST_STREAM frame causes the
+   STREAM_DATA_BLOCKED, RST_STREAM, or MAX_STREAM_DATA (bidirectional
+   only, see below) is received for that stream.  The initial state for
+   a receive stream is "Recv".  Receiving a RST_STREAM frame causes the
    receive stream to immediately transition to the "Reset Recvd".
 
    The receive stream enters the "Recv" state when the sending part of a
@@ -898,8 +898,8 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 16]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-   MAX_STREAM_DATA frame might arrive before a STREAM or STREAM_BLOCKED
-   frame if packets are lost or reordered.
+   MAX_STREAM_DATA frame might arrive before a STREAM or
+   STREAM_DATA_BLOCKED frame if packets are lost or reordered.
 
    Before creating a stream, all lower-numbered streams of the same type
    MUST be created.  That means that receipt of a frame that would open
@@ -907,11 +907,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    opened in numeric order.  This ensures that the creation order for
    streams is consistent on both endpoints.
 
-   In the "Recv" state, the endpoint receives STREAM and STREAM_BLOCKED
-   frames.  Incoming data is buffered and can be reassembled into the
-   correct order for delivery to the application.  As data is consumed
-   by the application and buffer space becomes available, the endpoint
-   sends MAX_STREAM_DATA frames to allow the peer to send more data.
+   In the "Recv" state, the endpoint receives STREAM and
+   STREAM_DATA_BLOCKED frames.  Incoming data is buffered and can be
+   reassembled into the correct order for delivery to the application.
+   As data is consumed by the application and buffer space becomes
+   available, the endpoint sends MAX_STREAM_DATA frames to allow the
+   peer to send more data.
 
    When a STREAM frame with a FIN bit is received, the final offset (see
    Section 4.3) is known.  The receive stream enters the "Size Known"
@@ -923,7 +924,8 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    enters the "Data Recvd" state.  This might happen as a result of
    receiving the same STREAM frame that causes the transition to "Size
    Known".  In this state, the endpoint has all stream data.  Any STREAM
-   or STREAM_BLOCKED frames it receives for the stream can be discarded.
+   or STREAM_DATA_BLOCKED frames it receives for the stream can be
+   discarded.
 
    The "Data Recvd" state persists until stream data has been delivered
    to the application or application protocol.  Once stream data has
@@ -944,8 +946,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    a RST_STREAM is received.  An implementation MAY interrupt delivery
    of stream data, discard any data that was not consumed, and signal
    the existence of the RST_STREAM immediately.  Alternatively, the
-   RST_STREAM signal might be suppressed or withheld if stream data is
-
 
 
 
@@ -954,6 +954,7 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 17]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   RST_STREAM signal might be suppressed or withheld if stream data is
    completely received.  In the latter case, the receive stream
    effectively transitions to "Data Recvd" from "Reset Recvd".
 
@@ -965,14 +966,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    The sender of a stream sends just three frame types that affect the
    state of a stream at either sender or receiver: STREAM
-   (Section 19.19), STREAM_BLOCKED (Section 19.10), and RST_STREAM
+   (Section 19.19), STREAM_DATA_BLOCKED (Section 19.10), and RST_STREAM
    (Section 19.2).
 
    A sender MUST NOT send any of these frames from a terminal state
    ("Data Recvd" or "Reset Recvd").  A sender MUST NOT send STREAM or
-   STREAM_BLOCKED after sending a RST_STREAM; that is, in the "Reset
-   Sent" state in addition to the terminal states.  A receiver could
-   receive any of these frames in any state, but only due to the
+   STREAM_DATA_BLOCKED after sending a RST_STREAM; that is, in the
+   "Reset Sent" state in addition to the terminal states.  A receiver
+   could receive any of these frames in any state, but only due to the
    possibility of delayed delivery of packets carrying them.
 
    The receiver of a stream sends MAX_STREAM_DATA (Section 19.6) and
@@ -1001,7 +1002,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    the same composite state.  Note that this is just one possibility for
    such a mapping; this mapping requires that data is acknowledged
    before the transition to a "closed" or "half-closed" state.
-
 
 
 
@@ -1155,10 +1155,10 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    (Section 11) if the peer violates the advertised connection or stream
    data limits.
 
-   A sender SHOULD send STREAM_BLOCKED or BLOCKED frames to indicate it
-   has data to write but is blocked by flow control limits.  These
-   frames are expected to be sent infrequently in common cases, but they
-   are considered useful for debugging and monitoring purposes.
+   A sender SHOULD send STREAM_DATA_BLOCKED or DATA_BLOCKED frames to
+   indicate it has data to write but is blocked by flow control limits.
+   These frames are expected to be sent infrequently in common cases,
+   but they are considered useful for debugging and monitoring purposes.
 
    A similar method is used to control the number of open streams (see
    Section 4.5 for details).
@@ -1216,8 +1216,8 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 4.2.  Data Limit Increments
 
    This document leaves when and how many bytes to advertise in a
-   MAX_DATA or MAX_STREAM_DATA to implementations, but offers a few
-   considerations.  These frames contribute to connection overhead.
+   MAX_STREAM_DATA or MAX_DATA frame to implementations, but offers a
+   few considerations.  These frames contribute to connection overhead.
    Therefore frequently sending frames with small changes is
    undesirable.  At the same time, larger increments to limits are
    necessary to avoid blocking if updates are less frequent, requiring
@@ -1241,12 +1241,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    If a sender runs out of flow control credit, it will be unable to
    send new data.  That is, the sender is blocked.  A blocked sender
-   SHOULD send a STREAM_BLOCKED or BLOCKED frame.  A receiver uses these
-   frames for debugging purposes.  A receiver MUST NOT wait for a
-   STREAM_BLOCKED or BLOCKED frame before sending MAX_STREAM_DATA or
-   MAX_DATA, since doing so will mean that a sender will be blocked for
-   an entire round trip and the peer may never send a STREAM_BLOCKED or
-   BLOCKED frame.
+   SHOULD send a STREAM_DATA_BLOCKED or DATA_BLOCKED frame.  A receiver
+   uses these frames for debugging purposes.  A receiver MUST NOT wait
+   for a STREAM_DATA_BLOCKED or DATA_BLOCKED frame before sending
+   MAX_STREAM_DATA or MAX_DATA, since doing so will mean that a sender
+   will be blocked for an entire round trip and the peer might never
+   send a STREAM_DATA_BLOCKED or DATA_BLOCKED frame.
 
    It is generally considered best to not let the sender go into
    quiescence if avoidable.  To avoid blocking a sender, and to
@@ -1254,11 +1254,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    send a MAX_DATA or MAX_STREAM_DATA frame at least two round trips
    before it expects the sender to get blocked.
 
-   A sender sends a single BLOCKED or STREAM_BLOCKED frame only once
-   when it reaches a data limit.  A sender SHOULD NOT send multiple
-   BLOCKED or STREAM_BLOCKED frames for the same data limit, unless the
-   original frame is determined to be lost.  Another BLOCKED or
-   STREAM_BLOCKED frame can be sent after the data limit is increased.
+   A sender sends a single STREAM_DATA_BLOCKED or DATA_BLOCKED frame
+   only once when it reaches a data limit.  A sender SHOULD NOT send
+   multiple STREAM_DATA_BLOCKED or DATA_BLOCKED frames for the same data
+   limit, unless the original frame is determined to be lost.  Another
+   STREAM_DATA_BLOCKED or DATA_BLOCKED frame can be sent after the data
+   limit is increased.
 
 4.3.  Stream Final Offset
 
@@ -1281,7 +1282,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    (see Section 11).  A receiver SHOULD treat receipt of data at or
    beyond the final offset as a FINAL_OFFSET_ERROR error, even after a
    stream is closed.  Generating these errors is not mandatory, but only
-   because requiring that an endpoint generate these errors also means
 
 
 
@@ -1290,6 +1290,7 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 23]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   because requiring that an endpoint generate these errors also means
    that the endpoint needs to maintain the final offset state for closed
    streams, which could mean a significant state commitment.
 
@@ -1304,20 +1305,21 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
 4.5.  Stream Limit Increment
 
-   An endpoint limits the number of concurrently active incoming streams
-   by limiting the maximum stream ID.  An initial value is set in the
-   transport parameters (see Section 18.1) and is subsequently increased
-   by MAX_STREAM_ID frames (see Section 19.7).
+   An endpoint limits the number of concurrently active incoming
+   streams.  An initial value is set in the transport parameters (see
+   Section 18.1) and is subsequently increased by MAX_STREAMS frames
+   (see Section 19.7).  Separate limits apply to bidirectional and
+   unidirectional streams.
 
    As with stream and connection flow control, this document leaves when
-   and how many streams to make available to a peer via MAX_STREAM_ID to
-   implementations, but offers a few considerations.  MAX_STREAM_ID
-   frames constitute minimal overhead, while withholding MAX_STREAM_ID
-   frames can prevent the peer from using the available parallelism.
+   and how many streams to make available to a peer via MAX_STREAMS to
+   implementations.  Implementations might choose to increase limits as
+   streams close to keep the number of streams available to peers
+   roughly consistent.
 
-   The STREAM_ID_BLOCKED frame (Section 19.11) can be used to signal a
-   shortage of available streams.  Implementations will likely want to
-   increase the maximum stream ID as peer-initiated streams close.
+   The STREAMS_BLOCKED frame (Section 19.11) signals that a new stream
+   could not be created.  Implementations can use this as a signal to
+   the peer to send a MAX_STREAMS frame with a larger limit.
 
 5.  Connections
 
@@ -1336,8 +1338,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Connection IDs are independently selected by endpoints; each endpoint
    selects the connection IDs that its peer uses.
 
-   The primary function of a connection ID is to ensure that changes in
-   addressing at lower protocol layers (UDP, IP, and below) don't cause
 
 
 
@@ -1346,6 +1346,8 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 24]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   The primary function of a connection ID is to ensure that changes in
+   addressing at lower protocol layers (UDP, IP, and below) don't cause
    packets for a QUIC connection to be delivered to the wrong endpoint.
    Each endpoint selects connection IDs using an implementation-specific
    (and perhaps deployment-specific) method which will allow packets
@@ -1388,12 +1390,10 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    IDs are supplied by the endpoint using the NEW_CONNECTION_ID frame
    (Section 19.12).
 
-5.1.1.  Issuing Connection IDs
 
-   Each Connection ID has an associated sequence number to assist in
-   deduplicating messages.  The initial connection ID issued by an
-   endpoint is sent in the Source Connection ID field of the long packet
-   header (Section 17.2) during the handshake.  The sequence number of
+
+
+
 
 
 
@@ -1402,6 +1402,12 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 25]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+5.1.1.  Issuing Connection IDs
+
+   Each Connection ID has an associated sequence number to assist in
+   deduplicating messages.  The initial connection ID issued by an
+   endpoint is sent in the Source Connection ID field of the long packet
+   header (Section 17.2) during the handshake.  The sequence number of
    the initial connection ID is 0.  If the preferred_address transport
    parameter is sent, the sequence number of the supplied connection ID
    is 1.
@@ -1444,12 +1450,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    might bring a new connection ID into circulation using the
    NEW_CONNECTION_ID frame.
 
-   An endpoint that retires a connection ID can retain knowledge of that
-   connection ID for a period of time after sending the
-   RETIRE_CONNECTION_ID frame, or until that frame is acknowledged.
-
-   As discussed in Section 9.5, each connection ID MUST be used on
-   packets sent from only one local address.  An endpoint that migrates
 
 
 
@@ -1458,6 +1458,12 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 26]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   An endpoint that retires a connection ID can retain knowledge of that
+   connection ID for a period of time after sending the
+   RETIRE_CONNECTION_ID frame, or until that frame is acknowledged.
+
+   As discussed in Section 9.5, each connection ID MUST be used on
+   packets sent from only one local address.  An endpoint that migrates
    away from a local address SHOULD retire all connection IDs used on
    that address once it no longer plans to use that address.
 
@@ -1501,18 +1507,15 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Clients MAY drop these packets, or MAY buffer them in anticipation of
    later packets that allow it to compute the key.
 
-   If a client receives a packet that has an unsupported version, it
-   MUST discard that packet.
-
-
-
-
 
 
 Iyengar & Thomson          Expires May 4, 2019                 [Page 27]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   If a client receives a packet that has an unsupported version, it
+   MUST discard that packet.
 
 5.2.2.  Server Packet Handling
 
@@ -1557,9 +1560,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 5.3.  Life of a QUIC Connection
 
    TBD.
-
-
-
 
 
 
@@ -1966,15 +1966,15 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    0-RTT data.  In particular, a server that accepts 0-RTT data MUST NOT
    set values for initial_max_data, initial_max_stream_data_bidi_local,
    initial_max_stream_data_bidi_remote, initial_max_stream_data_uni,
-   initial_max_bidi_streams, or initial_max_uni_streams (Section 18.1)
+   initial_max_streams_bidi, or initial_max_streams_uni (Section 18.1)
    that are smaller than the remembered value of those parameters.
 
    Omitting or setting a zero value for certain transport parameters can
    result in 0-RTT data being enabled, but not usable.  The applicable
    subset of transport parameters that permit sending of application
    data SHOULD be set to non-zero values for 0-RTT.  This includes
-   initial_max_data and either initial_max_bidi_streams and
-   initial_max_stream_data_bidi_remote, or initial_max_uni_streams and
+   initial_max_data and either initial_max_streams_bidi and
+   initial_max_stream_data_bidi_remote, or initial_max_streams_uni and
    initial_max_stream_data_uni.
 
    The value of the server's previous preferred_address MUST NOT be used
@@ -3601,15 +3601,11 @@ Internet-Draft           QUIC Transport Protocol            October 2018
           |             |                      |               |
           | 0x05        | MAX_STREAM_DATA      | Section 19.6  |
           |             |                      |               |
-          | 0x06        | MAX_STREAM_ID        | Section 19.7  |
-          |             |                      |               |
           | 0x07        | PING                 | Section 19.8  |
           |             |                      |               |
-          | 0x08        | BLOCKED              | Section 19.9  |
+          | 0x08        | DATA_BLOCKED         | Section 19.9  |
           |             |                      |               |
-          | 0x09        | STREAM_BLOCKED       | Section 19.10 |
-          |             |                      |               |
-          | 0x0a        | STREAM_ID_BLOCKED    | Section 19.11 |
+          | 0x09        | STREAM_DATA_BLOCKED  | Section 19.10 |
           |             |                      |               |
           | 0x0b        | NEW_CONNECTION_ID    | Section 19.12 |
           |             |                      |               |
@@ -3628,6 +3624,10 @@ Internet-Draft           QUIC Transport Protocol            October 2018
           | 0x19        | NEW_TOKEN            | Section 19.18 |
           |             |                      |               |
           | 0x1a - 0x1b | ACK                  | Section 19.15 |
+          |             |                      |               |
+          | 0x1c - 0x1d | MAX_STREAMS          | Section 19.7  |
+          |             |                      |               |
+          | 0x1e - 0x1f | STREAMS_BLOCKED      | Section 19.11 |
           +-------------+----------------------+---------------+
 
                            Table 3: Frame Types
@@ -3849,15 +3849,15 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       MAX_STREAM_DATA frames when the receive stream enters a "Size
       Known" state.
 
-   o  The maximum stream ID for a stream of a given type is sent in
-      MAX_STREAM_ID frames.  Like MAX_DATA, an updated value is sent
-      when a packet containing the most recent MAX_STREAM_ID for a
-      stream type frame is declared lost or when the limit is updated,
-      with care taken to prevent the frame from being sent too often.
+   o  The limit on streams of a given type is sent in MAX_STREAMS
+      frames.  Like MAX_DATA, an updated value is sent when a packet
+      containing the most recent MAX_STREAMS for a stream type frame is
+      declared lost or when the limit is updated, with care taken to
+      prevent the frame from being sent too often.
 
-   o  Blocked signals are carried in BLOCKED, STREAM_BLOCKED, and
-      STREAM_ID_BLOCKED frames.  BLOCKED streams have connection scope,
-      STREAM_BLOCKED frames have stream scope, and STREAM_ID_BLOCKED
+   o  Blocked signals are carried in DATA_BLOCKED, STREAM_DATA_BLOCKED,
+      and STREAMS_BLOCKED frames.  DATA_BLOCKED streams have connection
+      scope, STREAM_DATA_BLOCKED frames have stream scope, and
 
 
 
@@ -3866,11 +3866,11 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 69]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-      frames are scoped to a specific stream type.  New frames are sent
-      if packets containing the most recent frame for a scope is lost,
-      but only while the endpoint is blocked on the corresponding limit.
-      These frames always include the limit that is causing blocking at
-      the time that they are transmitted.
+      STREAMS_BLOCKED frames are scoped to a specific stream type.  New
+      frames are sent if packets containing the most recent frame for a
+      scope is lost, but only while the endpoint is blocked on the
+      corresponding limit.  These frames always include the limit that
+      is causing blocking at the time that they are transmitted.
 
    o  A liveness or path validation check using PATH_CHALLENGE frames is
       sent periodically until a matching PATH_RESPONSE frame is received
@@ -5047,13 +5047,13 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       enum {
          initial_max_stream_data_bidi_local(0),
          initial_max_data(1),
-         initial_max_bidi_streams(2),
+         initial_max_streams_bidi(2),
          idle_timeout(3),
          preferred_address(4),
          max_packet_size(5),
          stateless_reset_token(6),
          ack_delay_exponent(7),
-         initial_max_uni_streams(8),
+         initial_max_streams_uni(8),
          disable_migration(9),
          initial_max_stream_data_bidi_remote(10),
          initial_max_stream_data_uni(11),
@@ -5194,14 +5194,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       after completing the handshake.  If the transport parameter is
       absent, the connection starts with a flow control limit of 0.
 
-   initial_max_bidi_streams (0x0002):  The initial maximum bidirectional
+   initial_max_streams_bidi (0x0002):  The initial maximum bidirectional
       streams parameter contains the initial maximum number of
       bidirectional streams the peer may initiate, encoded as an
-      unsigned 16-bit integer.  If this parameter is absent or zero,
-      bidirectional streams cannot be created until a MAX_STREAM_ID
-      frame is sent.  Setting this parameter is equivalent to sending a
-      MAX_STREAM_ID (Section 19.7) immediately after completing the
-      handshake containing the corresponding Stream ID.  For example, a
+      unsigned 16-bit integer.  If this parameter is absent or zero, the
+      peer cannot open bidirectional streams until a MAX_STREAMS frame
+      is sent.  Setting this parameter is equivalent to sending a
+      MAX_STREAMS (Section 19.7) of the corresponding type with the same
+      value.
 
 
 
@@ -5210,21 +5210,14 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 93]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-      value of 0x05 would be equivalent to receiving a MAX_STREAM_ID
-      containing 16 when received by a client or 17 when received by a
-      server.
-
-   initial_max_uni_streams (0x0008):  The initial maximum unidirectional
+   initial_max_streams_uni (0x0008):  The initial maximum unidirectional
       streams parameter contains the initial maximum number of
       unidirectional streams the peer may initiate, encoded as an
-      unsigned 16-bit integer.  If this parameter is absent or zero,
-      unidirectional streams cannot be created until a MAX_STREAM_ID
-      frame is sent.  Setting this parameter is equivalent to sending a
-      MAX_STREAM_ID (Section 19.7) immediately after completing the
-      handshake containing the corresponding Stream ID.  For example, a
-      value of 0x05 would be equivalent to receiving a MAX_STREAM_ID
-      containing 18 when received by a client or 19 when received by a
-      server.
+      unsigned 16-bit integer.  If this parameter is absent or zero, the
+      peer cannot open unidirectional streams until a MAX_STREAMS frame
+      is sent.  Setting this parameter is equivalent to sending a
+      MAX_STREAMS (Section 19.7) of the corresponding type with the same
+      value.
 
    A server MUST include the following transport parameter if it sent a
    Retry packet:
@@ -5254,18 +5247,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    This section describes the format and semantics of the core QUIC
    frame types.
 
-
-
-
-
-
-
-
-Iyengar & Thomson          Expires May 4, 2019                 [Page 94]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
-
 19.1.  PADDING Frame
 
    The PADDING frame (type=0x00) has no semantic value.  PADDING frames
@@ -5275,6 +5256,15 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    A PADDING frame has no content.  That is, a PADDING frame consists of
    the single byte that identifies the frame as a PADDING frame.
+
+
+
+
+
+Iyengar & Thomson          Expires May 4, 2019                 [Page 94]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
 
 19.2.  RST_STREAM Frame
 
@@ -5314,14 +5304,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       offset of the end of data written on this stream by the RST_STREAM
       sender.
 
-
-
-
-Iyengar & Thomson          Expires May 4, 2019                 [Page 95]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
-
 19.3.  CONNECTION_CLOSE frame
 
    An endpoint sends a CONNECTION_CLOSE frame (type=0x02) to notify its
@@ -5331,6 +5313,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    If there are open streams that haven't been explicitly closed, they
    are implicitly closed when the connection is closed.
+
+
+
+
+Iyengar & Thomson          Expires May 4, 2019                 [Page 95]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
 
    The CONNECTION_CLOSE frame is as follows:
 
@@ -5367,6 +5357,16 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       give details beyond the Error Code.  This SHOULD be a UTF-8
       encoded string [RFC3629].
 
+19.4.  APPLICATION_CLOSE frame
+
+   An APPLICATION_CLOSE frame (type=0x03) is used to signal an error
+   with the protocol that uses QUIC.
+
+   The APPLICATION_CLOSE frame is as follows:
+
+
+
+
 
 
 
@@ -5377,13 +5377,6 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 96]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
-
-19.4.  APPLICATION_CLOSE frame
-
-   An APPLICATION_CLOSE frame (type=0x03) is used to signal an error
-   with the protocol that uses QUIC.
-
-   The APPLICATION_CLOSE frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -5426,6 +5419,13 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    |                        Maximum Data (i)                     ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
+   The fields in the MAX_DATA frame are as follows:
+
+   Maximum Data:  A variable-length integer indicating the maximum
+      amount of data that can be sent on the entire connection, in units
+      of bytes.
+
+
 
 
 
@@ -5433,12 +5433,6 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 97]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
-
-   The fields in the MAX_DATA frame are as follows:
-
-   Maximum Data:  A variable-length integer indicating the maximum
-      amount of data that can be sent on the entire connection, in units
-      of bytes.
 
    All data sent in STREAM frames counts toward this limit.  The sum of
    the largest received offsets on all streams - including streams in
@@ -5483,6 +5477,12 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       maximum amount of data that can be sent on the identified stream,
       in units of bytes.
 
+   When counting data toward this limit, an endpoint accounts for the
+   largest received offset of data that is sent or received on the
+   stream.  Loss or reordering can mean that the largest received offset
+   on a stream can be greater than the total size of data received on
+
+
 
 
 Iyengar & Thomson          Expires May 4, 2019                 [Page 98]
@@ -5490,10 +5490,6 @@ Iyengar & Thomson          Expires May 4, 2019                 [Page 98]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-   When counting data toward this limit, an endpoint accounts for the
-   largest received offset of data that is sent or received on the
-   stream.  Loss or reordering can mean that the largest received offset
-   on a stream can be greater than the total size of data received on
    that stream.  Receiving STREAM frames might not increase the largest
    received offset.
 
@@ -5504,38 +5500,42 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    affected stream, unless this is a result of a change in the initial
    limits (see Section 7.3.1).
 
-19.7.  MAX_STREAM_ID Frame
+19.7.  MAX_STREAMS Frame
 
-   The MAX_STREAM_ID frame (type=0x06) informs the peer of the maximum
-   stream ID that they are permitted to open.
+   The MAX_STREAMS frame (type=0x1c and 0x1d) informs the peer of the
+   number of streams it is permitted to open.  A MAX_STREAMS frame with
+   a type of 0x1c applies to bidirectional streams; a MAX_STREAMS frame
+   with a type of 0x1d applies to unidirectional streams.
 
    The frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                    Maximum Stream ID (i)                    ...
+   |                     Maximum Streams (i)                     ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-   The fields in the MAX_STREAM_ID frame are as follows:
+   The fields in the MAX_STREAMS frame are as follows:
 
-   Maximum Stream ID:  ID of the maximum unidirectional or bidirectional
-      peer-initiated stream ID for the connection encoded as a variable-
-      length integer.  The limit applies to unidirectional steams if the
-      second least signification bit of the stream ID is 1, and applies
-      to bidirectional streams if it is 0.
+   Maximum Streams:  A count of the total number of streams of the
+      corresponding type that can be opened.
 
-   Loss or reordering can mean that a MAX_STREAM_ID frame can be
-   received which states a lower stream limit than the client has
-   previously received.  MAX_STREAM_ID frames which do not increase the
-   maximum stream ID MUST be ignored.
+   Loss or reordering can cause a MAX_STREAMS frame to be received which
+   states a lower stream limit than an endpoint has previously received.
+   MAX_STREAMS frames which do not increase the stream limit MUST be
+   ignored.
 
-   A peer MUST NOT initiate a stream with a higher stream ID than the
-   greatest maximum stream ID it has received.  An endpoint MUST
-   terminate a connection with a STREAM_ID_ERROR error if a peer
-   initiates a stream with a higher stream ID than it has sent, unless
-   this is a result of a change in the initial limits (see
-   Section 7.3.1).
+   An endpoint MUST NOT open more streams than permitted by the current
+   stream limit set by its peer.  For instance, a server that receives a
+   unidirectional stream limit of 3 is permitted to open stream 3, 7,
+   and 11, but not stream 15.  An endpoint MUST terminate a connection
+   with a STREAM_LIMIT_ERROR error if a peer opens more streams than was
+   permitted.
+
+   Note that these frames (and the corresponding transport parameters)
+   do not describe the number of streams that can be opened
+   concurrently.  The limit includes streams that have been closed as
+   well as those that are open.
 
 
 
@@ -5572,25 +5572,25 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    15 to 30 seconds is necessary to prevent the majority of middleboxes
    from losing state for UDP flows.
 
-19.9.  BLOCKED Frame
+19.9.  DATA_BLOCKED Frame
 
-   A sender SHOULD send a BLOCKED frame (type=0x08) when it wishes to
-   send data, but is unable to due to connection-level flow control (see
-   Section 4).  BLOCKED frames can be used as input to tuning of flow
-   control algorithms (see Section 4.2).
+   A sender SHOULD send a DATA_BLOCKED frame (type=0x08) when it wishes
+   to send data, but is unable to due to connection-level flow control
+   (see Section 4).  DATA_BLOCKED frames can be used as input to tuning
+   of flow control algorithms (see Section 4.2).
 
-   The BLOCKED frame is as follows:
+   The DATA_BLOCKED frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                         Offset (i)                         ...
+   |                       Data Limit (i)                        ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-   The BLOCKED frame contains a single field.
+   The DATA_BLOCKED frame contains a single field.
 
-   Offset:  A variable-length integer indicating the connection-level
-      offset at which the blocking occurred.
+   Data Limit:  A variable-length integer indicating the connection-
+      level limit at which blocking occurred.
 
 
 
@@ -5602,53 +5602,53 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 100]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
-19.10.  STREAM_BLOCKED Frame
+19.10.  STREAM_DATA_BLOCKED Frame
 
-   A sender SHOULD send a STREAM_BLOCKED frame (type=0x09) when it
+   A sender SHOULD send a STREAM_DATA_BLOCKED frame (type=0x09) when it
    wishes to send data, but is unable to due to stream-level flow
-   control.  This frame is analogous to BLOCKED (Section 19.9).
+   control.  This frame is analogous to DATA_BLOCKED (Section 19.9).
 
-   An endpoint that receives a STREAM_BLOCKED frame for a send-only
+   An endpoint that receives a STREAM_DATA_BLOCKED frame for a send-only
    stream MUST terminate the connection with error PROTOCOL_VIOLATION.
 
-   The STREAM_BLOCKED frame is as follows:
+   The STREAM_DATA_BLOCKED frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                        Stream ID (i)                        ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                         Offset (i)                          ...
+   |                    Stream Data Limit (i)                    ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-   The STREAM_BLOCKED frame contains two fields:
+   The STREAM_DATA_BLOCKED frame contains two fields:
 
    Stream ID:  A variable-length integer indicating the stream which is
       flow control blocked.
 
-   Offset:  A variable-length integer indicating the offset of the
-      stream at which the blocking occurred.
+   Stream Data Limit:  A variable-length integer indicating the offset
+      of the stream at which the blocking occurred.
 
-19.11.  STREAM_ID_BLOCKED Frame
+19.11.  STREAMS_BLOCKED Frame
 
-   A sender SHOULD send a STREAM_ID_BLOCKED frame (type=0x0a) when it
-   wishes to open a stream, but is unable to due to the maximum stream
-   ID limit set by its peer (see Section 19.7).  This does not open the
-   stream, but informs the peer that a new stream was needed, but the
-   stream limit prevented the creation of the stream.
+   A sender SHOULD send a STREAMS_BLOCKED frame (type=0x1e or 0x1f) when
+   it wishes to open a stream, but is unable to due to the maximum
+   stream limit set by its peer (see Section 19.7).  A STREAMS_BLOCKED
+   frame of type 0x1e is used to indicate reaching the bidirectional
+   stream limit; a STREAMS_BLOCKED frame of type 0x1f indicates reaching
+   the unidirectional stream limit.
 
-   The STREAM_ID_BLOCKED frame is as follows:
+   A STREAMS_BLOCKED frame does not open the stream, but informs the
+   peer that a new stream was needed and the stream limit prevented the
+   creation of the stream.
+
+   The STREAMS_BLOCKED frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                        Stream ID (i)                        ...
+   |                        Stream Limit (i)                     ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   The STREAM_ID_BLOCKED frame contains a single field.
-
-   Stream ID:  A variable-length integer indicating the highest stream
-      ID that the sender was permitted to open.
 
 
 
@@ -5657,6 +5657,11 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 101]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   The STREAMS_BLOCKED frame contains a single field.
+
+   Stream Limit:  A variable-length integer indicating the stream limit
+      at the time the frame was sent.
 
 19.12.  NEW_CONNECTION_ID Frame
 
@@ -5701,11 +5706,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    An endpoint MUST NOT send this frame if it currently requires that
    its peer send packets with a zero-length Destination Connection ID.
    Changing the length of a connection ID to or from zero-length makes
-   it difficult to identify when the value of the connection ID changed.
-   An endpoint that is sending packets with a zero-length Destination
-   Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a
-   connection error of type PROTOCOL_VIOLATION.
-
 
 
 
@@ -5713,6 +5713,11 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 102]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   it difficult to identify when the value of the connection ID changed.
+   An endpoint that is sending packets with a zero-length Destination
+   Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a
+   connection error of type PROTOCOL_VIOLATION.
 
    Transmission errors, timeouts and retransmissions might cause the
    same NEW_CONNECTION_ID frame to be received multiple times.  Receipt
@@ -5757,11 +5762,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    An endpoint cannot send this frame if it was provided with a zero-
    length connection ID by its peer.  An endpoint that provides a zero-
-   length connection ID MUST treat receipt of a RETIRE_CONNECTION_ID
-   frame as a connection error of type PROTOCOL_VIOLATION.
-
-
-
 
 
 
@@ -5769,6 +5769,9 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 103]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   length connection ID MUST treat receipt of a RETIRE_CONNECTION_ID
+   frame as a connection error of type PROTOCOL_VIOLATION.
 
 19.14.  STOP_SENDING Frame
 
@@ -5816,9 +5819,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    remains acknowledged, even if it does not appear in a future ACK
    frame.  This is unlike TCP SACKs ([RFC2018]).
 
-   It is expected that a sender will reuse the same packet number across
-   different packet number spaces.  ACK frames only acknowledge the
-
 
 
 Iyengar & Thomson          Expires May 4, 2019                [Page 104]
@@ -5826,6 +5826,8 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 104]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   It is expected that a sender will reuse the same packet number across
+   different packet number spaces.  ACK frames only acknowledge the
    packet numbers that were transmitted by the sender in the same packet
    number space of the packet that the ACK was received in.
 
@@ -5871,8 +5873,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
       allows for a larger range of values with a shorter encoding at the
       cost of lower resolution.
 
-   ACK Block Count:  A variable-length integer specifying the number of
-      Additional ACK Block (and Gap) fields after the First ACK Block.
 
 
 
@@ -5881,6 +5881,9 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 105]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   ACK Block Count:  A variable-length integer specifying the number of
+      Additional ACK Block (and Gap) fields after the First ACK Block.
 
    ACK Blocks:  Contains one or more blocks of packet numbers which have
       been successfully received, see Section 19.15.1.
@@ -5927,9 +5930,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
                        Figure 17: ACK Block Section
 
-   Each ACK Block acknowledges a contiguous range of packets by
-   indicating the number of acknowledged packets that precede the
-   largest packet number in that block.  A value of zero indicates that
 
 
 
@@ -5938,6 +5938,9 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 106]
 Internet-Draft           QUIC Transport Protocol            October 2018
 
 
+   Each ACK Block acknowledges a contiguous range of packets by
+   indicating the number of acknowledged packets that precede the
+   largest packet number in that block.  A value of zero indicates that
    only the largest packet number is acknowledged.  Larger ACK Block
    values indicate a larger range, with corresponding lower values for
    the smallest packet number in the range.  Thus, given a largest
@@ -5981,9 +5984,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    Additional ACK Block (repeated):  A variable-length integer
       indicating the number of contiguous acknowledged packets preceding
       the largest packet number, as determined by the preceding Gap.
-
-
-
 
 
 
@@ -6264,8 +6264,8 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    FLOW_CONTROL_ERROR (0x3):  An endpoint received more data than it
       permitted in its advertised data limits (see Section 4).
 
-   STREAM_ID_ERROR (0x4):  An endpoint received a frame for a stream
-      identifier that exceeded its advertised maximum stream ID.
+
+
 
 
 
@@ -6273,6 +6273,10 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 112]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+   STREAM_LIMIT_ERROR (0x4):  An endpoint received a frame for a stream
+      identifier that exceeded its advertised stream limit for the
+      corresponding stream type.
 
    STREAM_STATE_ERROR (0x5):  An endpoint received a frame for a stream
       that was not in a state that permitted that frame (see Section 3).
@@ -6315,13 +6319,9 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    See Section 22.3 for details of registering new error codes.
 
-20.1.  Application Protocol Error Codes
 
-   Application protocol error codes are 16-bit unsigned integers, but
-   the management of application error codes are left to application
-   protocols.  Application protocol error codes are used for the
-   RST_STREAM (Section 19.2) and APPLICATION_CLOSE (Section 19.4)
-   frames.
+
+
 
 
 
@@ -6329,6 +6329,14 @@ Iyengar & Thomson          Expires May 4, 2019                [Page 113]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
 
+
+20.1.  Application Protocol Error Codes
+
+   Application protocol error codes are 16-bit unsigned integers, but
+   the management of application error codes are left to application
+   protocols.  Application protocol error codes are used for the
+   RST_STREAM (Section 19.2) and APPLICATION_CLOSE (Section 19.4)
+   frames.
 
 21.  Security Considerations
 
@@ -6370,6 +6378,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
    These protections are not intended to be effective against an
    attacker that is able to receive QUIC packets prior to the connection
+
+
+
+Iyengar & Thomson          Expires May 4, 2019                [Page 114]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
    being established.  Such an attacker can potentially send packets
    that will be accepted by QUIC endpoints.  This version of QUIC
    attempts to detect this sort of attack, but it expects that endpoints
@@ -6378,13 +6394,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    responsible for detecting tampering during the handshake, though
    additional validation is required for version negotiation (see
    Section 7.3.3).
-
-
-
-Iyengar & Thomson          Expires May 4, 2019                [Page 114]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
 
    Endpoints are permitted to use other methods to detect and attempt to
    recover from interference with the handshake.  Invalid packets may be
@@ -6425,6 +6434,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    An endpoint that acknowledges packets it has not received might cause
    a congestion controller to permit sending at rates beyond what the
    network supports.  An endpoint MAY skip packet numbers when sending
+
+
+
+Iyengar & Thomson          Expires May 4, 2019                [Page 115]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
    packets to detect this behavior.  An endpoint can then immediately
    close the connection with a connection error of type
    PROTOCOL_VIOLATION (see Section 10.3).
@@ -6434,14 +6451,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    The attacks commonly known as Slowloris [SLOWLORIS] try to keep many
    connections to the target endpoint open and hold them open as long as
    possible.  These attacks can be executed against a QUIC endpoint by
-
-
-
-Iyengar & Thomson          Expires May 4, 2019                [Page 115]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
-
    generating the minimum amount of activity necessary to avoid being
    closed for inactivity.  This might involve sending small amounts of
    data, gradually opening flow control windows in order to control the
@@ -6478,6 +6487,17 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    delaying reassembly of STREAM frames, implementing heuristics based
    on the age and duration of reassembly holes, or some combination.
 
+
+
+
+
+
+
+Iyengar & Thomson          Expires May 4, 2019                [Page 116]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
 21.6.  Stream Commitment Attack
 
    An adversarial endpoint can open lots of streams, exhausting state on
@@ -6490,14 +6510,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    intervals, transmission error may cause STREAM DATA frames opening
    streams to be received out of sequence.  A receiver is obligated to
    open intervening streams if a higher-numbered stream ID is received.
-
-
-
-Iyengar & Thomson          Expires May 4, 2019                [Page 116]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
-
    Thus, on a new connection, opening stream 2000001 opens 1 million
    streams, as required by the specification.
 
@@ -6534,6 +6546,14 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    can cause the server to send a stateless reset.  To defend against
    this style of denial service, endpoints that share a static key for
    stateless reset (see Section 10.4.2) MUST be arranged so that packets
+
+
+
+Iyengar & Thomson          Expires May 4, 2019                [Page 117]
+
+Internet-Draft           QUIC Transport Protocol            October 2018
+
+
    with a given connection ID always arrive at an instance that has
    connection state, unless that connection is no longer active.
 
@@ -6546,13 +6566,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    correct instance, it is better to send a stateless reset than wait
    for connections to time out.  However, this is acceptable only if the
    routing cannot be influenced by an attacker.
-
-
-
-Iyengar & Thomson          Expires May 4, 2019                [Page 117]
-
-Internet-Draft           QUIC Transport Protocol            October 2018
-
 
 22.  IANA Considerations
 
@@ -6592,19 +6605,6 @@ Internet-Draft           QUIC Transport Protocol            October 2018
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 Iyengar & Thomson          Expires May 4, 2019                [Page 118]
 
 Internet-Draft           QUIC Transport Protocol            October 2018
@@ -6617,7 +6617,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
      |        |                                     |               |
      | 0x0001 | initial_max_data                    | Section 18.1  |
      |        |                                     |               |
-     | 0x0002 | initial_max_bidi_streams            | Section 18.1  |
+     | 0x0002 | initial_max_streams_bidi            | Section 18.1  |
      |        |                                     |               |
      | 0x0003 | idle_timeout                        | Section 18.1  |
      |        |                                     |               |
@@ -6629,7 +6629,7 @@ Internet-Draft           QUIC Transport Protocol            October 2018
      |        |                                     |               |
      | 0x0007 | ack_delay_exponent                  | Section 18.1  |
      |        |                                     |               |
-     | 0x0008 | initial_max_uni_streams             | Section 18.1  |
+     | 0x0008 | initial_max_streams_uni             | Section 18.1  |
      |        |                                     |               |
      | 0x0009 | disable_migration                   | Section 18.1  |
      |        |                                     |               |
@@ -6793,8 +6793,8 @@ Internet-Draft           QUIC Transport Protocol            October 2018
    | 0x3  | FLOW_CONTROL_ERROR        | Flow control   | Section 20    |
    |      |                           | error          |               |
    |      |                           |                |               |
-   | 0x4  | STREAM_ID_ERROR           | Invalid stream | Section 20    |
-   |      |                           | ID             |               |
+   | 0x4  | STREAM_LIMIT_ERROR        | Too many       | Section 20    |
+   |      |                           | streams opened |               |
    |      |                           |                |               |
    | 0x5  | STREAM_STATE_ERROR        | Frame received | Section 20    |
    |      |                           | in invalid     |               |
