@@ -289,7 +289,7 @@ ul.toc li {
 <link href="#rfc.section.2.1" rel="Chapter" title="2.1 Stream Types and Identifiers">
 <link href="#rfc.section.2.2" rel="Chapter" title="2.2 Sending and Receiving Data">
 <link href="#rfc.section.2.3" rel="Chapter" title="2.3 Stream Prioritization">
-<link href="#rfc.section.3" rel="Chapter" title="3 Stream States: Life of a Stream">
+<link href="#rfc.section.3" rel="Chapter" title="3 Stream States">
 <link href="#rfc.section.3.1" rel="Chapter" title="3.1 Send Stream States">
 <link href="#rfc.section.3.2" rel="Chapter" title="3.2 Receive Stream States">
 <link href="#rfc.section.3.3" rel="Chapter" title="3.3 Permitted Frame Types">
@@ -529,7 +529,7 @@ ul.toc li {
 </li>
 <li>2.3.   <a href="#rfc.section.2.3">Stream Prioritization</a>
 </li>
-</ul><li>3.   <a href="#rfc.section.3">Stream States: Life of a Stream</a>
+</ul><li>3.   <a href="#rfc.section.3">Stream States</a>
 </li>
 <ul><li>3.1.   <a href="#rfc.section.3.1">Send Stream States</a>
 </li>
@@ -973,17 +973,17 @@ ul.toc li {
 <a href="#rfc.section.2">2.</a> <a href="#streams" id="streams">Streams</a>
 </h1>
 <p id="rfc.section.2.p.1">Streams in QUIC provide a lightweight, ordered byte-stream abstraction to an application. An alternative view of QUIC streams is as an elastic &#8220;message&#8221; abstraction, similar to the way ephemeral streams are used in SST <a href="#SST" class="xref">[SST]</a>, which may be a more appealing description for some applications.</p>
-<p id="rfc.section.2.p.2">QUIC does not provide any means of ensuring ordering between octets on different streams.</p>
-<p id="rfc.section.2.p.3">Streams can be created by sending data. Other processes associated with stream management - ending, cancelling, and managing flow control - are all designed to impose minimal overheads. For instance, a single STREAM frame (<a href="#frame-stream" class="xref">Section 19.18</a>) can open, carry data for, and close a stream. Streams can also be long-lived and can last the entire duration of a connection.</p>
+<p id="rfc.section.2.p.2">Streams can be created by sending data. Other processes associated with stream management - ending, cancelling, and managing flow control - are all designed to impose minimal overheads. For instance, a single STREAM frame (<a href="#frame-stream" class="xref">Section 19.18</a>) can open, carry data for, and close a stream. Streams can also be long-lived and can last the entire duration of a connection.</p>
+<p id="rfc.section.2.p.3">Streams can be created by either endpoint, can concurrently send data interleaved with other streams, and can be cancelled.  Any stream can be initiated by either endpoint.  QUIC does not provide any means of ensuring ordering between bytes on different streams.</p>
 <p id="rfc.section.2.p.4">QUIC allows for an arbitrary number of streams to operate concurrently and for an arbitrary amount of data to be sent on any stream, subject to flow control constraints (see <a href="#flow-control" class="xref">Section 4</a>).</p>
 <h2 id="rfc.section.2.1">
 <a href="#rfc.section.2.1">2.1.</a> <a href="#stream-id" id="stream-id">Stream Types and Identifiers</a>
 </h2>
-<p id="rfc.section.2.1.p.1">Streams can be unidirectional or bidirectional.  Unidirectional streams carry data in one direction: from the initiator of the stream to its peer.  Bidirectional streams allow for data to be sent in both directions.  Streams can be created by either endpoint, can concurrently send data interleaved with other streams, and can be cancelled.  Any stream can be initiated by either enndpoint.</p>
-<p id="rfc.section.2.1.p.2">Streams are identified within a connection by a numeric value, referred to as the Stream ID.  Stream IDs are unique to a stream: a QUIC endpoint MUST NOT reuse a Stream ID within a connection.  Stream IDs are encoded as a variable-length integer (see <a href="#integer-encoding" class="xref">Section 16</a>).</p>
-<p id="rfc.section.2.1.p.3">The least significant bit (0x1) of the Stream ID identifies the initiator of the stream.  Client-initiated streams have even-numbered Stream IDs (with the bit set to 0), and server-initiated streams have odd-numbered Stream IDs (with the bit set to 1).</p>
-<p id="rfc.section.2.1.p.4">The second least significant bit (0x2) of the Stream ID distinguishes between bidirectional streams (with the bit set to 0) and unidirectional streams (with the bit set to 1).</p>
-<p id="rfc.section.2.1.p.5">The least significant two bits from a Stream ID therefore identify a stream as one of four types, as summarized in <a href="#stream-id-types" class="xref">Table 1</a>.</p>
+<p id="rfc.section.2.1.p.1">Streams can be unidirectional or bidirectional.  Unidirectional streams carry data in one direction: from the initiator of the stream to its peer.  Bidirectional streams allow for data to be sent in both directions.</p>
+<p id="rfc.section.2.1.p.2">Streams are identified within a connection by a numeric value, referred to as the stream ID.  Stream IDs are unique to a stream. A QUIC endpoint MUST NOT reuse a stream ID within a connection.  Stream IDs are encoded as a variable-length integer (see <a href="#integer-encoding" class="xref">Section 16</a>).</p>
+<p id="rfc.section.2.1.p.3">The least significant bit (0x1) of the stream ID identifies the initiator of the stream.  Client-initiated streams have even-numbered stream IDs (with the bit set to 0), and server-initiated streams have odd-numbered stream IDs (with the bit set to 1).</p>
+<p id="rfc.section.2.1.p.4">The second least significant bit (0x2) of the stream ID distinguishes between bidirectional streams (with the bit set to 0) and unidirectional streams (with the bit set to 1).</p>
+<p id="rfc.section.2.1.p.5">The least significant two bits from a stream ID therefore identify a stream as one of four types, as summarized in <a href="#stream-id-types" class="xref">Table 1</a>.</p>
 <div id="rfc.table.1"></div>
 <div id="stream-id-types"></div>
 <table cellpadding="3" cellspacing="0" class="tt full center">
@@ -1011,15 +1011,15 @@ ul.toc li {
 </tr>
 </tbody>
 </table>
-<p id="rfc.section.2.1.p.6">Within each type, streams are expected to be created with numerically increasing Stream IDs.  A Stream ID that is used out of order results in all streams of that type with lower-numbered stream IDs also being opened.</p>
-<p id="rfc.section.2.1.p.7">The first bidirectional stream opened by the client has a Stream ID of 0.</p>
+<p id="rfc.section.2.1.p.6">Within each type, streams are created with numerically increasing stream IDs.  A stream ID that is used out of order results in all streams of that type with lower-numbered stream IDs also being opened.</p>
+<p id="rfc.section.2.1.p.7">The first bidirectional stream opened by the client has a stream ID of 0.</p>
 <h2 id="rfc.section.2.2">
 <a href="#rfc.section.2.2">2.2.</a> <a href="#sending-and-receiving-data" id="sending-and-receiving-data">Sending and Receiving Data</a>
 </h2>
-<p id="rfc.section.2.2.p.1">Endpoints use STREAM frames to encapsulate data sent by an application on a stream (<a href="#frame-stream" class="xref">Section 19.18</a>). An endpoint uses the stream ID and offset fields in a received STREAM frame to place the contained data in order within the stream.</p>
+<p id="rfc.section.2.2.p.1">STREAM frames (<a href="#frame-stream" class="xref">Section 19.18</a>) encapsulate data sent by an application. An endpoint uses the Stream ID and Offset fields in STREAM frames to place data in order.</p>
 <p id="rfc.section.2.2.p.2">Endpoints MUST be able to deliver stream data to an application as an ordered byte-stream.  Delivering an ordered byte-stream requires that an endpoint buffer any data that is received out of order, up to the advertised flow control limit.</p>
 <p id="rfc.section.2.2.p.3">QUIC makes no specific allowances for delivery of stream data out of order. However, implementations MAY choose to offer the ability to deliver data out of order to a receiving application.</p>
-<p id="rfc.section.2.2.p.4">An endpoint could receive data for a stream at the same stream offset multiple times; data that has already been received can be discarded.  The data at a given offset MUST NOT change if it is sent multiple times; an endpoint MAY treat receipt of different data at the same offset within a stream as a connection error of type PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.2.2.p.4">An endpoint could receive data for a stream at the same stream offset multiple times.  Data that has already been received can be discarded.  The data at a given offset MUST NOT change if it is sent multiple times; an endpoint MAY treat receipt of different data at the same offset within a stream as a connection error of type PROTOCOL_VIOLATION.</p>
 <p id="rfc.section.2.2.p.5">Streams are an ordered byte-stream abstraction with no other structure that is visible to QUIC. STREAM frame boundaries are not expected to be preserved when data is transmitted, when data is retransmitted after packet loss, or when data is delivered to the application at a receiver.</p>
 <p id="rfc.section.2.2.p.6">An endpoint MUST NOT send data on any stream without ensuring that it is within the flow control limits set by its peer.  Flow control is described in detail in <a href="#flow-control" class="xref">Section 4</a>.</p>
 <h2 id="rfc.section.2.3">
@@ -1027,13 +1027,13 @@ ul.toc li {
 </h2>
 <p id="rfc.section.2.3.p.1">Stream multiplexing can have a significant effect on application performance if resources allocated to streams are correctly prioritized.</p>
 <p id="rfc.section.2.3.p.2">QUIC does not provide frames for exchanging prioritization information.  Instead it relies on receiving priority information from the application that uses QUIC.</p>
-<p id="rfc.section.2.3.p.3">A QUIC implementation SHOULD provide ways in which an application can indicate the relative priority of streams.  When deciding which streams to dedicate resources to, the implementation SHOULD use the information provided by the application.  Failure to account for priority of streams can result in suboptimal application performance.</p>
+<p id="rfc.section.2.3.p.3">A QUIC implementation SHOULD provide ways in which an application can indicate the relative priority of streams.  When deciding which streams to dedicate resources to, the implementation SHOULD use the information provided by the application.</p>
 <h1 id="rfc.section.3">
-<a href="#rfc.section.3">3.</a> <a href="#stream-states" id="stream-states">Stream States: Life of a Stream</a>
+<a href="#rfc.section.3">3.</a> <a href="#stream-states" id="stream-states">Stream States</a>
 </h1>
 <p id="rfc.section.3.p.1">This section describes streams in terms of their send or receive components.  Two state machines are described: one for the streams on which an endpoint transmits data (<a href="#stream-send-states" class="xref">Section 3.1</a>), and another for streams on which an endpoint receives data (<a href="#stream-recv-states" class="xref">Section 3.2</a>).</p>
 <p id="rfc.section.3.p.2">Unidirectional streams use the applicable state machine directly.  Bidirectional streams use both state machines.  For the most part, the use of these state machines is the same whether the stream is unidirectional or bidirectional.  The conditions for opening a stream are slightly more complex for a bidirectional stream because the opening of either send or receive sides causes the stream to open in both directions.</p>
-<p id="rfc.section.3.p.3">An endpoint can open streams up to its maximum stream limit in any order of stream ID. However, within each type, endpoints SHOULD open the send side of streams in numerically increasing order of stream ID.</p>
+<p id="rfc.section.3.p.3">An endpoint MUST open streams of the same type in increasing order of stream ID.</p>
 <p></p>
 
 <dl>
@@ -1083,7 +1083,7 @@ ul.toc li {
 </pre>
 <p class="figure">Figure 1: States for Send Streams</p>
 <p id="rfc.section.3.1.p.2">The sending part of stream that the endpoint initiates (types 0 and 2 for clients, 1 and 3 for servers) is opened by the application.  The &#8220;Ready&#8221; state represents a newly created stream that is able to accept data from the application.  Stream data might be buffered in this state in preparation for sending.</p>
-<p id="rfc.section.3.1.p.3">Sending the first STREAM or STREAM_DATA_BLOCKED frame causes a send stream to enter the &#8220;Send&#8221; state.  An implementation might choose to defer allocating a Stream ID to a send stream until it sends the first frame and enters this state, which can allow for better stream prioritization.</p>
+<p id="rfc.section.3.1.p.3">Sending the first STREAM or STREAM_DATA_BLOCKED frame causes a send stream to enter the &#8220;Send&#8221; state.  An implementation might choose to defer allocating a stream ID to a send stream until it sends the first frame and enters this state, which can allow for better stream prioritization.</p>
 <p id="rfc.section.3.1.p.4">The sending part of a bidirectional stream initiated by a peer (type 0 for a server, type 1 for a client) enters the &#8220;Ready&#8221; state then immediately transitions to the &#8220;Send&#8221; state if the receiving part enters the &#8220;Recv&#8221; state (<a href="#stream-recv-states" class="xref">Section 3.2</a>).</p>
 <p id="rfc.section.3.1.p.5">In the &#8220;Send&#8221; state, an endpoint transmits - and retransmits as necessary - stream data in STREAM frames.  The endpoint respects the flow control limits set by its peer, and continues to accept and process MAX_STREAM_DATA frames.  An endpoint in the &#8220;Send&#8221; state generates STREAM_DATA_BLOCKED frames if it is blocked from sending by stream or connection flow control limits <a href="#data-flow-control" class="xref">Section 4.1</a>.</p>
 <p id="rfc.section.3.1.p.6">After the application indicates that all stream data has been sent and a STREAM frame containing the FIN bit is sent, the send stream enters the &#8220;Data Sent&#8221; state.  From this state, the endpoint only retransmits stream data as necessary.  The endpoint does not need to check flow control limits or send STREAM_DATA_BLOCKED frames for a send stream in this state.  MAX_STREAM_DATA frames might be received until the peer receives the final stream offset. The endpoint can safely ignore any MAX_STREAM_DATA frames it receives from its peer for a stream in this state.</p>
@@ -1134,7 +1134,7 @@ ul.toc li {
 <p id="rfc.section.3.2.p.2">The receiving part of a stream initiated by a peer (types 1 and 3 for a client, or 0 and 2 for a server) is created when the first STREAM, STREAM_DATA_BLOCKED, RST_STREAM, or MAX_STREAM_DATA (bidirectional only, see below) is received for that stream.  The initial state for a receive stream is &#8220;Recv&#8221;.</p>
 <p id="rfc.section.3.2.p.3">The receive stream enters the &#8220;Recv&#8221; state when the sending part of a bidirectional stream initiated by the endpoint (type 0 for a client, type 1 for a server) enters the &#8220;Ready&#8221; state.</p>
 <p id="rfc.section.3.2.p.4">An endpoint opens a bidirectional stream when a MAX_STREAM_DATA frame is received from the peer for that stream.  Receiving a MAX_STREAM_DATA frame for an unopened stream indicates that the remote peer has opened the stream and is providing flow control credit.  A MAX_STREAM_DATA frame might arrive before a STREAM or STREAM_DATA_BLOCKED frame if packets are lost or reordered.</p>
-<p id="rfc.section.3.2.p.5">Before creating a stream, all streams of the same type with lower-numbered stream IDs MUST be created.  This means that receipt of a frame that would open a stream causes all streams of the same type with lower-numbered stream IDs to be opened in numeric order.  This ensures that the creation order for streams is consistent on both endpoints.</p>
+<p id="rfc.section.3.2.p.5">Before creating a stream, all streams of the same type with lower-numbered stream IDs MUST be created.  This ensures that the creation order for streams is consistent on both endpoints.</p>
 <p id="rfc.section.3.2.p.6">In the &#8220;Recv&#8221; state, the endpoint receives STREAM and STREAM_DATA_BLOCKED frames.  Incoming data is buffered and can be reassembled into the correct order for delivery to the application.  As data is consumed by the application and buffer space becomes available, the endpoint sends MAX_STREAM_DATA frames to allow the peer to send more data.</p>
 <p id="rfc.section.3.2.p.7">When a STREAM frame with a FIN bit is received, the final offset is known (see <a href="#final-offset" class="xref">Section 4.4</a>).  The receive stream enters the &#8220;Size Known&#8221; state.  In this state, the endpoint no longer needs to send MAX_STREAM_DATA frames, it only receives any retransmissions of stream data.</p>
 <p id="rfc.section.3.2.p.8">Once all data for the stream has been received, the receive stream enters the &#8220;Data Recvd&#8221; state.  This might happen as a result of receiving the same STREAM frame that causes the transition to &#8220;Size Known&#8221;.  In this state, the endpoint has all stream data.  Any STREAM or STREAM_DATA_BLOCKED frames it receives for the stream can be discarded.</p>
@@ -1146,11 +1146,9 @@ ul.toc li {
 <a href="#rfc.section.3.3">3.3.</a> <a href="#permitted-frame-types" id="permitted-frame-types">Permitted Frame Types</a>
 </h2>
 <p id="rfc.section.3.3.p.1">The sender of a stream sends just three frame types that affect the state of a stream at either sender or receiver: STREAM (<a href="#frame-stream" class="xref">Section 19.18</a>), STREAM_DATA_BLOCKED (<a href="#frame-stream-data-blocked" class="xref">Section 19.9</a>), and RST_STREAM (<a href="#frame-rst-stream" class="xref">Section 19.2</a>).</p>
-<p id="rfc.section.3.3.p.2">A sender MUST NOT send any of these frames from a terminal state (&#8220;Data Recvd&#8221; or &#8220;Reset Recvd&#8221;).  A sender MUST NOT send STREAM or STREAM_DATA_BLOCKED after sending a RST_STREAM; that is, in the terminal states and in the &#8220;Reset Sent&#8221; state.</p>
-<p id="rfc.section.3.3.p.3">A receiver could receive any of these three frames in any state, due to the possibility of delayed delivery of packets carrying them.</p>
-<p id="rfc.section.3.3.p.4">The receiver of a stream sends MAX_STREAM_DATA (<a href="#frame-max-stream-data" class="xref">Section 19.5</a>) and STOP_SENDING frames (<a href="#frame-stop-sending" class="xref">Section 19.13</a>).</p>
-<p id="rfc.section.3.3.p.5">The receiver only sends MAX_STREAM_DATA in the &#8220;Recv&#8221; state.  A receiver can send STOP_SENDING in any state where it has not received a RST_STREAM frame; that is states other than &#8220;Reset Recvd&#8221; or &#8220;Reset Read&#8221;.  However there is little value in sending a STOP_SENDING frame in the &#8220;Data Recvd&#8221; state, since all stream data has been received.</p>
-<p id="rfc.section.3.3.p.6">A sender could receive either of these two frames in any state as a result of delayed delivery of packets.</p>
+<p id="rfc.section.3.3.p.2">A sender MUST NOT send any of these frames from a terminal state (&#8220;Data Recvd&#8221; or &#8220;Reset Recvd&#8221;).  A sender MUST NOT send STREAM or STREAM_DATA_BLOCKED after sending a RST_STREAM; that is, in the terminal states and in the &#8220;Reset Sent&#8221; state.  A receiver could receive any of these three frames in any state, due to the possibility of delayed delivery of packets carrying them.</p>
+<p id="rfc.section.3.3.p.3">The receiver of a stream sends MAX_STREAM_DATA (<a href="#frame-max-stream-data" class="xref">Section 19.5</a>) and STOP_SENDING frames (<a href="#frame-stop-sending" class="xref">Section 19.13</a>).</p>
+<p id="rfc.section.3.3.p.4">The receiver only sends MAX_STREAM_DATA in the &#8220;Recv&#8221; state.  A receiver can send STOP_SENDING in any state where it has not received a RST_STREAM frame; that is states other than &#8220;Reset Recvd&#8221; or &#8220;Reset Read&#8221;.  However there is little value in sending a STOP_SENDING frame in the &#8220;Data Recvd&#8221; state, since all stream data has been received.  A sender could receive either of these two frames in any state as a result of delayed delivery of packets.</p>
 <h2 id="rfc.section.3.4">
 <a href="#rfc.section.3.4">3.4.</a> <a href="#stream-bidi-states" id="stream-bidi-states">Bidirectional Stream States</a>
 </h2>
@@ -1242,7 +1240,7 @@ ul.toc li {
 <h1 id="rfc.section.4">
 <a href="#rfc.section.4">4.</a> <a href="#flow-control" id="flow-control">Flow Control</a>
 </h1>
-<p id="rfc.section.4.p.1">It is necessary to limit the amount of data that a receiver may have to buffer, so as to prevent a fast sender from overwhelming a slow receiver, or to prevent a malicious sender from consuming a large amount of memory at a receiver.  To enable a receiver to limit memory commitment to a connection and to apply back pressure on the sender, streams are flow controlled both individually and as an aggregate.  A QUIC receiver controls the maximum amount of data the sender can send on a stream at any time, as described in <a href="#data-flow-control" class="xref">Section 4.1</a> and <a href="#fc-credit" class="xref">Section 4.2</a></p>
+<p id="rfc.section.4.p.1">It is necessary to limit the amount of data that a receiver could buffer, to prevent a fast sender from overwhelming a slow receiver, or to prevent a malicious sender from consuming a large amount of memory at a receiver.  To enable a receiver to limit memory commitment to a connection and to apply back pressure on the sender, streams are flow controlled both individually and as an aggregate.  A QUIC receiver controls the maximum amount of data the sender can send on a stream at any time, as described in <a href="#data-flow-control" class="xref">Section 4.1</a> and <a href="#fc-credit" class="xref">Section 4.2</a></p>
 <p id="rfc.section.4.p.2">Similarly, to limit concurrency within a connection, a QUIC endpoint controls the maximum number of streams that its peer can initiate at any time, as described in <a href="#controlling-concurrency" class="xref">Section 4.5</a>.</p>
 <p id="rfc.section.4.p.3">Data sent in CRYPTO frames is not flow controlled in the same way as stream data.  QUIC relies on the cryptographic protocol implementation to avoid excessive buffering of data, see <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>.  The implementation SHOULD provide an interface to QUIC to tell it about its buffering limits so that there is not excessive buffering at multiple layers.</p>
 <h2 id="rfc.section.4.1">
@@ -1256,8 +1254,8 @@ ul.toc li {
 <li>Connection flow control, which prevents senders from exceeding a receiver&#8217;s buffer capacity for the connection, by limiting the total bytes of stream data sent in STREAM frames on all streams.</li>
 </ul>
 <p id="rfc.section.4.1.p.3">A receiver sets initial credits for all streams by sending transport parameters during the handshake (<a href="#transport-parameters" class="xref">Section 7.3</a>).  A receiver sends MAX_STREAM_DATA (<a href="#frame-max-stream-data" class="xref">Section 19.5</a>) or MAX_DATA (<a href="#frame-max-data" class="xref">Section 19.4</a>) frames to the sender to advertise additional credit.</p>
-<p id="rfc.section.4.1.p.4">A receiver advertises credit for a stream by sending a MAX_STREAM_DATA frame with the Stream ID set appropriately.  A MAX_STREAM_DATA frame indicates the maximum absolute byte offset of a stream.  A receiver could use the current offset of data consumed to determine the flow control offset to be advertised.  A receiver MAY send MAX_STREAM_DATA frames in multiple packets in order to make sure that the sender receives an update before running out of flow control credit, even if one of the packets is lost.</p>
-<p id="rfc.section.4.1.p.5">A receiver advertises credit for a connection by sending a MAX_DATA frame, which indicates the maximum of the sum of the absolute byte offsets of all streams.  A receiver maintains a cumulative sum of bytes received on all contributing streams, which is used to check for flow control violations. A receiver might use a sum of bytes consumed on all streams to determine the maximum data limit to be advertised.</p>
+<p id="rfc.section.4.1.p.4">A receiver advertises credit for a stream by sending a MAX_STREAM_DATA frame with the Stream ID field set appropriately.  A MAX_STREAM_DATA frame indicates the maximum absolute byte offset of a stream.  A receiver could use the current offset of data consumed to determine the flow control offset to be advertised.  A receiver MAY send MAX_STREAM_DATA frames in multiple packets in order to make sure that the sender receives an update before running out of flow control credit, even if one of the packets is lost.</p>
+<p id="rfc.section.4.1.p.5">A receiver advertises credit for a connection by sending a MAX_DATA frame, which indicates the maximum of the sum of the absolute byte offsets of all streams.  A receiver maintains a cumulative sum of bytes received on all streams, which is used to check for flow control violations. A receiver might use a sum of bytes consumed on all streams to determine the maximum data limit to be advertised.</p>
 <p id="rfc.section.4.1.p.6">A receiver can advertise a larger offset by sending MAX_STREAM_DATA or MAX_DATA frames at any time during the connection.  A receiver cannot renege on an advertisement however.  That is, once a receiver advertises an offset, advertising a smaller offset has no effect.  A sender MUST therefore ignore any MAX_STREAM_DATA or MAX_DATA frames that do not increase flow control limits.</p>
 <p id="rfc.section.4.1.p.7">A receiver MUST close the connection with a FLOW_CONTROL_ERROR error (<a href="#error-handling" class="xref">Section 11</a>) if the sender violates the advertised connection or stream data limits.</p>
 <p id="rfc.section.4.1.p.8">If a sender runs out of flow control credit, it will be unable to send new data and is considered blocked.  A sender SHOULD send STREAM_DATA_BLOCKED or DATA_BLOCKED frames to indicate it has data to write but is blocked by flow control limits.  These frames are expected to be sent infrequently in common cases, but they are considered useful for debugging and monitoring purposes.</p>
@@ -1266,13 +1264,13 @@ ul.toc li {
 <a href="#rfc.section.4.2">4.2.</a> <a href="#fc-credit" id="fc-credit">Flow Credit Increments</a>
 </h2>
 <p id="rfc.section.4.2.p.1">This document leaves when and how many bytes to advertise in a MAX_STREAM_DATA or MAX_DATA frame to implementations, but offers a few considerations.  These frames contribute to connection overhead.  Therefore frequently sending frames with small changes is undesirable.  At the same time, larger increments to limits are necessary to avoid blocking if updates are less frequent, requiring larger resource commitments at the receiver.  Thus there is a trade-off between resource commitment and overhead when determining how large a limit is advertised.</p>
-<p id="rfc.section.4.2.p.2">A receiver MAY use an autotuning mechanism to tune the frequency and amount of advertised additional credit.</p>
-<p id="rfc.section.4.2.p.3">If a sender runs out of flow control credit, it will be unable to send new data and is considered blocked.  It is generally considered best to not let the sender go into quiescence.  To avoid blocking a sender, and to reasonably account for the possibility of loss, a receiver should send a MAX_DATA or MAX_STREAM_DATA frame at least two round trips before it expects the sender to get blocked.</p>
+<p id="rfc.section.4.2.p.2">A receiver MAY use an autotuning mechanism to tune the frequency and amount of advertised additional credit based on a round-trip time estimate and the rate at which the receiving application consumes data, similar to common TCP implementations.</p>
+<p id="rfc.section.4.2.p.3">If a sender runs out of flow control credit, it will be unable to send new data and is considered blocked.  It is generally considered best to not let the sender become blocked.  To avoid blocking a sender, and to reasonably account for the possibility of loss, a receiver should send a MAX_DATA or MAX_STREAM_DATA frame at least two round trips before it expects the sender to get blocked.</p>
 <p id="rfc.section.4.2.p.4">A receiver MUST NOT wait for a STREAM_DATA_BLOCKED or DATA_BLOCKED frame before sending MAX_STREAM_DATA or MAX_DATA, since doing so will mean that a sender will be blocked for at least an entire round trip, and potentially for longer if the peer chooses to not send STREAM_DATA_BLOCKED or DATA_BLOCKED frames.</p>
 <h2 id="rfc.section.4.3">
 <a href="#rfc.section.4.3">4.3.</a> <a href="#stream-cancellation" id="stream-cancellation">Handling Stream Cancellation</a>
 </h2>
-<p id="rfc.section.4.3.p.1">Given enough time, both endpoints must agree on flow control state, to avoid flow control violations or deadlock.</p>
+<p id="rfc.section.4.3.p.1">Endpoints need to eventually agree on the amount of flow control credit that has been consumed, to avoid either exceeding flow control limits or deadlocking.</p>
 <p id="rfc.section.4.3.p.2">On receipt of a RST_STREAM frame, an endpoint will tear down state for the matching stream and ignore further data arriving on that stream.  If a RST_STREAM frame is reordered with stream data for the same stream, the receiver&#8217;s estimate of the number of octets received on that stream can be lower than the sender&#8217;s estimate of the number sent.  As a result, the two endpoints could disagree on the number of octets that count towards connection flow control.</p>
 <p id="rfc.section.4.3.p.3">To remedy this issue, a RST_STREAM frame (<a href="#frame-rst-stream" class="xref">Section 19.2</a>) includes the final offset of data sent on the stream.  On receiving a RST_STREAM frame, a receiver definitively knows how many bytes were sent on that stream before the RST_STREAM frame, and the receiver MUST use the final offset to account for all bytes sent on the stream in its connection level flow controller.</p>
 <p id="rfc.section.4.3.p.4">RST_STREAM terminates one direction of a stream abruptly.  For a bidirectional stream, RST_STREAM has no effect on data flow in the opposite direction.  Both endpoints MUST maintain flow control state for the stream in the unterminated direction until that direction enters a terminal state, or until one of the endpoints sends CONNECTION_CLOSE.</p>
@@ -2678,7 +2676,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 
 <dl>
 <dt>Stream ID:</dt>
-<dd style="margin-left: 8">A variable-length integer encoding of the Stream ID of the stream being terminated.</dd>
+<dd style="margin-left: 8">A variable-length integer encoding of the stream ID of the stream being terminated.</dd>
 <dt>Application Protocol Error Code:</dt>
 <dd style="margin-left: 8">A 16-bit application protocol error code (see <a href="#app-error-codes" class="xref">Section 20.1</a>) which indicates why the stream is being closed.</dd>
 <dt>Final Offset:</dt>
@@ -2759,7 +2757,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 
 <dl>
 <dt>Stream ID:</dt>
-<dd style="margin-left: 8">The Stream ID of the affected stream, encoded as a variable-length integer.</dd>
+<dd style="margin-left: 8">The stream ID of the affected stream, encoded as a variable-length integer.</dd>
 <dt>Maximum Stream Data:</dt>
 <dd style="margin-left: 8">A variable-length integer indicating the maximum amount of data that can be sent on the identified stream, in units of bytes.</dd>
 </dl>
@@ -2937,7 +2935,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 
 <dl>
 <dt>Stream ID:</dt>
-<dd style="margin-left: 8">A variable-length integer carrying the Stream ID of the stream being ignored.</dd>
+<dd style="margin-left: 8">A variable-length integer carrying the stream ID of the stream being ignored.</dd>
 <dt>Application Error Code:</dt>
 <dd style="margin-left: 8">A 16-bit, application-specified reason the sender is ignoring the stream (see <a href="#app-error-codes" class="xref">Section 20.1</a>).</dd>
 </dl>
@@ -3116,7 +3114,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p></p>
 
 <ul>
-<li>The OFF bit (0x04) in the frame type is set to indicate that there is an Offset field present.  When set to 1, the Offset field is present; when set to 0, the Offset field is absent and the Stream Data starts at an offset of 0 (that is, the frame contains the first bytes of the stream, or the end of a stream that includes no data).</li>
+<li>The OFF bit (0x04) in the frame type is set to indicate that there is an Offset field present.  When set to 1, the Offset field is present; when set to 0, the Offset field is absent and the stream data starts at an offset of 0 (that is, the frame contains the first bytes of the stream, or the end of a stream that includes no data).</li>
 <li>The LEN bit (0x02) in the frame type is set to indicate that there is a Length field present.  If this bit is set to 0, the Length field is absent and the Stream Data field extends to the end of the packet.  If this bit is set to 1, the Length field is present.</li>
 <li>The FIN bit (0x01) of the frame type is set only on frames that contain the final offset of the stream.  Setting this bit indicates that the frame marks the end of the stream.</li>
 </ul>
@@ -3152,7 +3150,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">The bytes from the designated stream to be delivered.</dd>
 </dl>
 <p id="rfc.section.19.18.p.7">When a Stream Data field has a length of 0, the offset in the STREAM frame is the offset of the next byte that would be sent.</p>
-<p id="rfc.section.19.18.p.8">When new data is to be sent on a stream, a sender MUST set the encapsulating STREAM frame&#8217;s offset field to the stream offset of the first byte of this new data.  The first byte in the stream has an offset of 0.  The largest offset delivered on a stream - the sum of the re-constructed offset and data length - MUST be less than 2^62.</p>
+<p id="rfc.section.19.18.p.8">When new data is to be sent on a stream, a sender MUST set the encapsulating STREAM frame&#8217;s offset field to the stream offset of the first byte of this new data.  The first byte in the stream has an offset of 0.  The largest offset delivered on a stream - the sum of the offset and data length - MUST be less than 2^62.</p>
 <h2 id="rfc.section.19.19">
 <a href="#rfc.section.19.19">19.19.</a> <a href="#frame-crypto" id="frame-crypto">CRYPTO Frame</a>
 </h2>
@@ -3184,7 +3182,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">The cryptographic message data.</dd>
 </dl>
 <p id="rfc.section.19.19.p.5">There is a separate flow of cryptographic handshake data in each encryption level, each of which starts at an offset of 0. This implies that each encryption level is treated as a separate CRYPTO stream of data.</p>
-<p id="rfc.section.19.19.p.6">Unlike STREAM frames, which include a Stream ID indicating to which stream the data belongs, the CRYPTO frame carries data for a single stream per encryption level. The stream does not have an explicit end, so CRYPTO frames do not have a FIN bit.</p>
+<p id="rfc.section.19.19.p.6">Unlike STREAM frames, which include a Stream ID field indicating to which stream the data belongs, the CRYPTO frame carries data for a single stream per encryption level. The stream does not have an explicit end, so CRYPTO frames do not have a FIN bit.</p>
 <h2 id="rfc.section.19.20">
 <a href="#rfc.section.19.20">19.20.</a> <a href="#extension-frames" id="extension-frames">Extension Frames</a>
 </h2>
