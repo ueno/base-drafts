@@ -14,9 +14,9 @@ Expires: May 7, 2019                                             Mozilla
 
 Abstract
 
-   This document describes the core of the QUIC transport protocol.
+   This document defines the core of the QUIC transport protocol.
    Accompanying documents describe QUIC's loss detection and congestion
-   control [QUIC-RECOVERY], and the use of TLS 1.3 for key negotiation
+   control [QUIC-RECOVERY] and the use of TLS 1.3 for key negotiation
    [QUIC-TLS].
 
 Note to Readers
@@ -75,18 +75,16 @@ Copyright Notice
 
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   6
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   5
      1.1.  Document Structure  . . . . . . . . . . . . . . . . . . .   6
-     1.2.  Conventions and Definitions . . . . . . . . . . . . . . .   7
-       1.2.1.  Keywords  . . . . . . . . . . . . . . . . . . . . . .   7
-       1.2.2.  Terms . . . . . . . . . . . . . . . . . . . . . . . .   8
-       1.2.3.  Notational Conventions  . . . . . . . . . . . . . . .   8
-   2.  Streams . . . . . . . . . . . . . . . . . . . . . . . . . . .   9
+     1.2.  Terms and Definitions . . . . . . . . . . . . . . . . . .   7
+     1.3.  Notational Conventions  . . . . . . . . . . . . . . . . .   8
+   2.  Streams . . . . . . . . . . . . . . . . . . . . . . . . . . .   8
      2.1.  Stream Identifiers  . . . . . . . . . . . . . . . . . . .   9
      2.2.  Stream Concurrency  . . . . . . . . . . . . . . . . . . .  10
      2.3.  Sending and Receiving Data  . . . . . . . . . . . . . . .  11
-     2.4.  Stream Prioritization . . . . . . . . . . . . . . . . . .  12
-   3.  Stream States: Life of a Stream . . . . . . . . . . . . . . .  13
+     2.4.  Stream Prioritization . . . . . . . . . . . . . . . . . .  11
+   3.  Stream States: Life of a Stream . . . . . . . . . . . . . . .  12
      3.1.  Send Stream States  . . . . . . . . . . . . . . . . . . .  13
      3.2.  Receive Stream States . . . . . . . . . . . . . . . . . .  15
      3.3.  Permitted Frame Types . . . . . . . . . . . . . . . . . .  18
@@ -106,6 +104,8 @@ Table of Contents
        5.2.1.  Client Packet Handling  . . . . . . . . . . . . . . .  27
        5.2.2.  Server Packet Handling  . . . . . . . . . . . . . . .  28
      5.3.  Life of a QUIC Connection . . . . . . . . . . . . . . . .  28
+   6.  Version Negotiation . . . . . . . . . . . . . . . . . . . . .  29
+     6.1.  Sending Version Negotiation Packets . . . . . . . . . . .  29
 
 
 
@@ -114,8 +114,6 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 2]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   6.  Version Negotiation . . . . . . . . . . . . . . . . . . . . .  29
-     6.1.  Sending Version Negotiation Packets . . . . . . . . . . .  29
      6.2.  Handling Version Negotiation Packets  . . . . . . . . . .  30
      6.3.  Using Reserved Versions . . . . . . . . . . . . . . . . .  30
    7.  Cryptographic and Transport Handshake . . . . . . . . . . . .  31
@@ -162,6 +160,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
      12.1.  Protected Packets  . . . . . . . . . . . . . . . . . . .  60
      12.2.  Coalescing Packets . . . . . . . . . . . . . . . . . . .  61
      12.3.  Packet Numbers . . . . . . . . . . . . . . . . . . . . .  62
+     12.4.  Frames and Frame Types . . . . . . . . . . . . . . . . .  63
+   13. Packetization and Reliability . . . . . . . . . . . . . . . .  66
 
 
 
@@ -170,8 +170,6 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 3]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-     12.4.  Frames and Frame Types . . . . . . . . . . . . . . . . .  63
-   13. Packetization and Reliability . . . . . . . . . . . . . . . .  66
      13.1.  Packet Processing and Acknowledgment . . . . . . . . . .  66
        13.1.1.  Sending ACK Frames . . . . . . . . . . . . . . . . .  67
        13.1.2.  ACK Frames and Packet Protection . . . . . . . . . .  68
@@ -218,6 +216,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
      19.15. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 107
      19.16. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 107
      19.17. NEW_TOKEN frame  . . . . . . . . . . . . . . . . . . . . 107
+     19.18. STREAM Frames  . . . . . . . . . . . . . . . . . . . . . 108
+     19.19. CRYPTO Frame . . . . . . . . . . . . . . . . . . . . . . 109
 
 
 
@@ -226,8 +226,6 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 4]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-     19.18. STREAM Frames  . . . . . . . . . . . . . . . . . . . . . 108
-     19.19. CRYPTO Frame . . . . . . . . . . . . . . . . . . . . . . 109
      19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 110
    20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 111
      20.1.  Application Protocol Error Codes . . . . . . . . . . . . 112
@@ -270,10 +268,12 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    Contributors  . . . . . . . . . . . . . . . . . . . . . . . . . . 136
    Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . . 136
 
+1.  Introduction
 
+   QUIC is a multiplexed and secure general-purpose transport protocol
+   that provides:
 
-
-
+   o  Stream multiplexing
 
 
 
@@ -281,13 +281,6 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 5]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-1.  Introduction
-
-   QUIC is a multiplexed and secure general-purpose transport protocol
-   that provides:
-
-   o  Stream multiplexing
 
    o  Stream and connection-level flow control
 
@@ -329,15 +322,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
       *  Section 9 describes how endpoints migrate a connection to a new
          network path,
 
-
-
-
-
-Iyengar & Thomson          Expires May 7, 2019                  [Page 6]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
       *  Section 10 lists the options for terminating an open
          connection, and
 
@@ -346,6 +330,13 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    o  Packets and frames are the basic unit used by QUIC to communicate.
 
       *  Section 12 describes concepts related to packets and frames,
+
+
+
+Iyengar & Thomson          Expires May 7, 2019                  [Page 6]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
 
       *  Section 13 defines models for the transmission, retransmission,
          and acknowledgement of packets and frames, and
@@ -374,27 +365,13 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    This document defines QUIC version 1, which conforms to the protocol
    invariants in [QUIC-INVARIANTS].
 
-1.2.  Conventions and Definitions
-
-1.2.1.  Keywords
+1.2.  Terms and Definitions
 
    The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
    "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
    "OPTIONAL" in this document are to be interpreted as described in BCP
    14 [RFC2119] [RFC8174] when, and only when, they appear in all
    capitals, as shown here.
-
-
-
-
-
-
-Iyengar & Thomson          Expires May 7, 2019                  [Page 7]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
-1.2.2.  Terms
 
    Commonly used terms in the document are described below.
 
@@ -406,8 +383,16 @@ Internet-Draft           QUIC Transport Protocol           November 2018
       single UDP datagram.
 
    Endpoint:  An entity that can participate in a QUIC conversation by
-      generating, receiving, and fully processing QUIC packets.  There
-      are only two types of endpoint in QUIC: client and server.
+      generating, receiving, and processing QUIC packets.  There are
+      only two types of endpoint in QUIC: client and server.
+
+
+
+
+Iyengar & Thomson          Expires May 7, 2019                  [Page 7]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
 
    Connection:  A conversation between two QUIC endpoints with a single
       encryption context.
@@ -426,7 +411,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    Application:  An entity that uses QUIC to send and receive data.
 
-1.2.3.  Notational Conventions
+1.3.  Notational Conventions
 
    Packet and frame diagrams in this document use the format described
    in Section 3.1 of [RFC2360], with the following additional
@@ -443,13 +428,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    x (*) ...:  Indicates that x is variable-length
 
-
-
-Iyengar & Thomson          Expires May 7, 2019                  [Page 8]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
 2.  Streams
 
    Streams in QUIC provide a lightweight, ordered byte-stream
@@ -462,6 +440,15 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    between unidirectional and bidirectional streams, as well as to
    create a separation between streams that are initiated by the client
    and server (see Section 2.1).
+
+
+
+
+
+Iyengar & Thomson          Expires May 7, 2019                  [Page 8]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
 
    Either type of stream can be created by either endpoint, can
    concurrently send data interleaved with other streams, and can be
@@ -498,14 +485,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    are used to identify the type of stream (unidirectional or
    bidirectional) and the initiator of the stream.
 
-
-
-
-Iyengar & Thomson          Expires May 7, 2019                  [Page 9]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
    The least significant bit (0x1) of the Stream ID identifies the
    initiator of the stream.  Clients initiate even-numbered streams
    (those with the least significant bit set to 0); servers initiate
@@ -517,6 +496,15 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    differentiates between unidirectional streams and bidirectional
    streams.  Unidirectional streams always have this bit set to 1 and
    bidirectional streams have this bit set to 0.
+
+
+
+
+
+Iyengar & Thomson          Expires May 7, 2019                  [Page 9]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
 
    The two type bits from a Stream ID therefore identify streams as
    summarized in Table 1.
@@ -553,15 +541,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    peer that receives the setting.  That is, the client limits the
    number of streams of each type the server can initiate, and the
    server limits the number of streams the client can initiate.  Each
-
-
-
-
-Iyengar & Thomson          Expires May 7, 2019                 [Page 10]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
    endpoint can respond on streams initiated by the other peer,
    regardless of whether it is permitted to initiate new streams.
 
@@ -574,6 +553,14 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    receiver advertises a stream limit using the MAX_STREAMS frame,
    advertising a smaller limit has no effect.  A receiver MUST ignore
    any MAX_STREAMS frame that does not increase the stream limit.
+
+
+
+
+Iyengar & Thomson          Expires May 7, 2019                 [Page 10]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
 
 2.3.  Sending and Receiving Data
 
@@ -609,15 +596,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    is within the data limits set by its peer.  Flow control is described
    in detail in Section 4.
 
-
-
-
-
-Iyengar & Thomson          Expires May 7, 2019                 [Page 11]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
 2.4.  Stream Prioritization
 
    Stream multiplexing has a significant effect on application
@@ -632,6 +610,14 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    able to define any prioritization scheme that suits their application
    semantics.  A protocol might define explicit messages for signaling
    priority, such as those defined in HTTP/2; it could define rules that
+
+
+
+Iyengar & Thomson          Expires May 7, 2019                 [Page 11]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
+
    allow an endpoint to determine priority based on context; or it could
    leave the determination to the application.
 
@@ -662,18 +648,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    allows the peer to consume already received data and free up the flow
    control window.
 
-
-
-
-
-
-
-
-Iyengar & Thomson          Expires May 7, 2019                 [Page 12]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
 3.  Stream States: Life of a Stream
 
    This section describes the two types of QUIC stream in terms of the
@@ -689,6 +663,16 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    are slightly more complex for a bidirectional stream because the
    opening of either send or receive sides causes the stream to open in
    both directions.
+
+
+
+
+
+
+Iyengar & Thomson          Expires May 7, 2019                 [Page 12]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
 
    An endpoint can open streams up to its maximum stream limit in any
    order, however endpoints SHOULD open the send side of streams for
@@ -708,6 +692,22 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    Figure 1 shows the states for the part of a stream that sends data to
    a peer.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
