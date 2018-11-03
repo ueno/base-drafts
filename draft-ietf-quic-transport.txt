@@ -14,10 +14,10 @@ Expires: May 7, 2019                                             Mozilla
 
 Abstract
 
-   This document defines the core of the QUIC transport protocol.  This
-   document describes connection establishment, packet format,
-   multiplexing, and reliability.  Accompanying documents describe the
-   cryptographic handshake and loss detection.
+   This document defines the core of the QUIC transport protocol.
+   Accompanying documents describe QUIC's loss detection and congestion
+   control [QUIC-RECOVERY] and the use of TLS 1.3 for key negotiation
+   [QUIC-TLS].
 
 Note to Readers
 
@@ -77,7 +77,7 @@ Table of Contents
 
    1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   5
      1.1.  Document Structure  . . . . . . . . . . . . . . . . . . .   6
-     1.2.  Conventions and Definitions . . . . . . . . . . . . . . .   7
+     1.2.  Terms and Definitions . . . . . . . . . . . . . . . . . .   7
      1.3.  Notational Conventions  . . . . . . . . . . . . . . . . .   8
    2.  Streams . . . . . . . . . . . . . . . . . . . . . . . . . . .   8
      2.1.  Stream Types and Identifiers  . . . . . . . . . . . . . .   9
@@ -269,10 +269,10 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
 1.  Introduction
 
-   QUIC is a multiplexed and secure transport protocol that runs on top
-   of UDP.  QUIC aims to provide a flexible set of features that allow
-   it to be a general-purpose secure transport for multiple
-   applications.
+   QUIC is a multiplexed and secure general-purpose transport protocol
+   that provides:
+
+   o  Stream multiplexing
 
 
 
@@ -282,30 +282,25 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 5]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   o  Version negotiation
+   o  Stream and connection-level flow control
 
    o  Low-latency connection establishment
 
-   o  Authenticated and encrypted header and payload
-
-   o  Stream multiplexing
-
-   o  Stream and connection-level flow control
-
    o  Connection migration and resilience to NAT rebinding
+
+   o  Authenticated and encrypted header and payload
 
    QUIC uses UDP as a substrate to avoid requiring changes in legacy
    client operating systems and middleboxes.  QUIC authenticates all of
    its headers and encrypts most of the data it exchanges, including its
-   signaling.  This allows the protocol to evolve without incurring a
-   dependency on upgrades to middleboxes.
+   signaling, to avoid incurring a dependency on middleboxes.
 
 1.1.  Document Structure
 
-   This document describes the core QUIC protocol, and is structured as
-   follows:
+   This document describes the core QUIC protocol and is structured as
+   follows.
 
-   o  Streams are the basic service abstraction that QUIC provides:
+   o  Streams are the basic service abstraction that QUIC provides.
 
       *  Section 2 describes core concepts related to streams,
 
@@ -313,7 +308,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
       *  Section 4 outlines the operation of flow control.
 
-   o  Connections are the context in which QUIC endpoints communicate:
+   o  Connections are the context in which QUIC endpoints communicate.
 
       *  Section 5 describes core concepts related to connections,
 
@@ -324,12 +319,17 @@ Internet-Draft           QUIC Transport Protocol           November 2018
       *  Section 8 specifies critical denial of service mitigation
          mechanisms,
 
-      *  Section 9 describes how endpoints migrate a connection to use a
-         new network paths,
+      *  Section 9 describes how endpoints migrate a connection to a new
+         network path,
 
       *  Section 10 lists the options for terminating an open
          connection, and
 
+      *  Section 11 provides general guidance for error handling.
+
+   o  Packets and frames are the basic unit used by QUIC to communicate.
+
+      *  Section 12 describes concepts related to packets and frames,
 
 
 
@@ -338,18 +338,13 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 6]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-      *  Section 11 provides general guidance for error handling.
-
-   o  Packets and frames are the basic unit used by QUIC to communicate:
-
-      *  Section 12 describes concepts related to packets and frames,
-
       *  Section 13 defines models for the transmission, retransmission,
-         and acknowledgement of information, and
+         and acknowledgement of data, and
 
-      *  Section 14 contains a rules for managing the size of packets.
+      *  Section 14 specifies rules for managing the size of packets.
 
-   o  Details of encoding of QUIC protocol elements is described in:
+   o  Finally, encoding details of QUIC protocol elements are described
+      in:
 
       *  Section 15 (Versions),
 
@@ -367,24 +362,29 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    control [QUIC-RECOVERY], and the use of TLS 1.3 for key negotiation
    [QUIC-TLS].
 
-   QUIC version 1 conforms to the protocol invariants in
-   [QUIC-INVARIANTS].
+   This document defines QUIC version 1, which conforms to the protocol
+   invariants in [QUIC-INVARIANTS].
 
-1.2.  Conventions and Definitions
+1.2.  Terms and Definitions
 
-   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
    "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
    "OPTIONAL" in this document are to be interpreted as described in BCP
    14 [RFC2119] [RFC8174] when, and only when, they appear in all
    capitals, as shown here.
 
-   Definitions of terms that are used in this document:
+   Commonly used terms in the document are described below.
 
-   Client:  The endpoint initiating a QUIC connection.
+   QUIC:  The transport protocol described by this document.  QUIC is a
+      name, not an acronym.
 
-   Server:  The endpoint accepting incoming QUIC connections.
+   QUIC packet:  The smallest unit of QUIC that can be encapsulated in a
+      UDP datagram.  Multiple QUIC packets can be encapsulated in a
+      single UDP datagram.
 
-   Endpoint:  The client or server end of a connection.
+   Endpoint:  An entity that can participate in a QUIC conversation by
+      generating, receiving, and processing QUIC packets.  There are
+      only two types of endpoint in QUIC: client and server.
 
 
 
@@ -394,36 +394,39 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 7]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   Stream:  A logical unidirectional or bidirectional channel of ordered
-      bytes within a QUIC connection.
-
    Connection:  A conversation between two QUIC endpoints with a single
-      encryption context that multiplexes streams within it.
+      encryption context.
+
+   Client:  The endpoint initiating a QUIC connection.
+
+   Server:  The endpoint accepting incoming QUIC connections.
 
    Connection ID:  An opaque identifier that is used to identify a QUIC
-      connection at an endpoint.  Each endpoint sets a value that its
-      peer includes in packets.
+      connection at an endpoint.  Each endpoint sets a value for its
+      peer to include in packets sent towards the endpoint.
 
-   QUIC packet:  The smallest unit of data that can be exchanged by QUIC
-      endpoints.
+   Stream:  A unidirectional or bidirectional channel of ordered bytes
+      within a QUIC connection.  A QUIC connection can carry multiple
+      simultaneous streams.
 
-   QUIC is a name, not an acronym.
+   Application:  An entity that uses QUIC to send and receive data.
 
 1.3.  Notational Conventions
 
-   Packet and frame diagrams use the format described in Section 3.1 of
-   [RFC2360], with the following additional conventions:
+   Packet and frame diagrams in this document use the format described
+   in Section 3.1 of [RFC2360], with the following additional
+   conventions:
 
-   [x]  Indicates that x is optional
+   [x]:  Indicates that x is optional
 
-   x (A)  Indicates that x is A bits long
+   x (A):  Indicates that x is A bits long
 
-   x (A/B/C) ...  Indicates that x is one of A, B, or C bits long
+   x (A/B/C) ...:  Indicates that x is one of A, B, or C bits long
 
-   x (i) ...  Indicates that x uses the variable-length encoding in
+   x (i) ...:  Indicates that x uses the variable-length encoding in
       Section 16
 
-   x (*) ...  Indicates that x is variable-length
+   x (*) ...:  Indicates that x is variable-length
 
 2.  Streams
 
@@ -438,10 +441,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    for, and close a stream.  Streams can also be long-lived and can last
    the entire duration of a connection.
 
-   Streams can be created by either endpoint, can concurrently send data
-   interleaved with other streams, and can be cancelled.  Any stream can
-   be initiated by either endpoint.  QUIC does not provide any means of
-   ensuring ordering between bytes on different streams.
+
 
 
 
@@ -449,6 +449,11 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 8]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   Streams can be created by either endpoint, can concurrently send data
+   interleaved with other streams, and can be cancelled.  Any stream can
+   be initiated by either endpoint.  QUIC does not provide any means of
+   ensuring ordering between bytes on different streams.
 
    QUIC allows for an arbitrary number of streams to operate
    concurrently and for an arbitrary amount of data to be sent on any
@@ -464,7 +469,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    Streams are identified within a connection by a numeric value,
    referred to as the stream ID.  Stream IDs are unique to a stream.  A
    QUIC endpoint MUST NOT reuse a stream ID within a connection.  Stream
-   IDs are encoded as a variable-length integer (see Section 16).
+   IDs are encoded as variable-length integers (see Section 16).
 
    The least significant bit (0x1) of the stream ID identifies the
    initiator of the stream.  Client-initiated streams have even-numbered
@@ -492,11 +497,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
                          Table 1: Stream ID Types
 
-   Within each type, streams are created with numerically increasing
-   stream IDs.  A stream ID that is used out of order results in all
-   streams of that type with lower-numbered stream IDs also being
-   opened.
-
 
 
 
@@ -505,6 +505,11 @@ Iyengar & Thomson          Expires May 7, 2019                  [Page 9]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   Within each type, streams are created with numerically increasing
+   stream IDs.  A stream ID that is used out of order results in all
+   streams of that type with lower-numbered stream IDs also being
+   opened.
 
    The first bidirectional stream opened by the client has a stream ID
    of 0.
@@ -547,12 +552,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    performance if resources allocated to streams are correctly
    prioritized.
 
-   QUIC does not provide frames for exchanging prioritization
-   information.  Instead it relies on receiving priority information
-   from the application that uses QUIC.
 
-   A QUIC implementation SHOULD provide ways in which an application can
-   indicate the relative priority of streams.  When deciding which
 
 
 
@@ -562,6 +562,12 @@ Iyengar & Thomson          Expires May 7, 2019                 [Page 10]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+   QUIC does not provide frames for exchanging prioritization
+   information.  Instead it relies on receiving priority information
+   from the application that uses QUIC.
+
+   A QUIC implementation SHOULD provide ways in which an application can
+   indicate the relative priority of streams.  When deciding which
    streams to dedicate resources to, the implementation SHOULD use the
    information provided by the application.
 
@@ -597,12 +603,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    Figure 1 shows the states for the part of a stream that sends data to
    a peer.
-
-
-
-
-
-
 
 
 
@@ -1134,10 +1134,10 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    On receipt of a RST_STREAM frame, an endpoint will tear down state
    for the matching stream and ignore further data arriving on that
    stream.  If a RST_STREAM frame is reordered with stream data for the
-   same stream, the receiver's estimate of the number of octets received
+   same stream, the receiver's estimate of the number of bytes received
    on that stream can be lower than the sender's estimate of the number
    sent.  As a result, the two endpoints could disagree on the number of
-   octets that count towards connection flow control.
+   bytes that count towards connection flow control.
 
    To remedy this issue, a RST_STREAM frame (Section 19.2) includes the
    final offset of data sent on the stream.  On receiving a RST_STREAM
@@ -2007,7 +2007,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    limit, servers only count the size of successfully processed packets.
 
    Clients MUST pad UDP datagrams that contain only Initial packets to
-   1200 octets.  Once a client has received an acknowledgment for a
+   1200 bytes.  Once a client has received an acknowledgment for a
    Handshake packet it MAY send smaller datagrams.  Sending padded
 
 
@@ -2929,7 +2929,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    +-+-+-+-+-+-+-+-+
    |0|K|1|1|0|0|0|0|
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                      Random Octets (160..)                  ...
+   |                      Random Bytes (160..)                   ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                                                               |
    +                                                               +
@@ -2950,7 +2950,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    number of random bytes, followed by a Stateless Reset Token.
 
    A stateless reset will be interpreted by a recipient as a packet with
-   a short header.  For the packet to appear as valid, the Random Octets
+   a short header.  For the packet to appear as valid, the Random Bytes
    field needs to include at least 20 bytes of random or unpredictable
    values.  This is intended to allow for a destination connection ID of
    the maximum length permitted, a packet number, and minimal payload.
