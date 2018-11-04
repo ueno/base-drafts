@@ -82,23 +82,23 @@ Table of Contents
    4.  Loss Detection  . . . . . . . . . . . . . . . . . . . . . . .   7
      4.1.  Computing the RTT estimate  . . . . . . . . . . . . . . .   7
      4.2.  Ack-based Detection . . . . . . . . . . . . . . . . . . .   7
-       4.2.1.  Fast Retransmit . . . . . . . . . . . . . . . . . . .   7
+       4.2.1.  Fast Retransmit . . . . . . . . . . . . . . . . . . .   8
        4.2.2.  Early Retransmit  . . . . . . . . . . . . . . . . . .   8
-     4.3.  Timer-based Detection . . . . . . . . . . . . . . . . . .   9
+     4.3.  Timeout Loss Detection  . . . . . . . . . . . . . . . . .   9
        4.3.1.  Crypto Retransmission Timeout . . . . . . . . . . . .   9
-       4.3.2.  Tail Loss Probe . . . . . . . . . . . . . . . . . . .  10
-       4.3.3.  Retransmission Timeout  . . . . . . . . . . . . . . .  11
-     4.4.  Generating Acknowledgements . . . . . . . . . . . . . . .  12
+       4.3.2.  Tail Loss Probe . . . . . . . . . . . . . . . . . . .  11
+       4.3.3.  Retransmission Timeout  . . . . . . . . . . . . . . .  12
+     4.4.  Generating Acknowledgements . . . . . . . . . . . . . . .  13
        4.4.1.  Crypto Handshake Data . . . . . . . . . . . . . . . .  13
-       4.4.2.  ACK Ranges  . . . . . . . . . . . . . . . . . . . . .  13
-       4.4.3.  Receiver Tracking of ACK Frames . . . . . . . . . . .  13
+       4.4.2.  ACK Ranges  . . . . . . . . . . . . . . . . . . . . .  14
+       4.4.3.  Receiver Tracking of ACK Frames . . . . . . . . . . .  14
      4.5.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  14
-       4.5.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  14
+       4.5.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  15
      4.6.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  15
        4.6.1.  Constants of interest . . . . . . . . . . . . . . . .  15
-       4.6.2.  Variables of interest . . . . . . . . . . . . . . . .  15
+       4.6.2.  Variables of interest . . . . . . . . . . . . . . . .  16
        4.6.3.  Initialization  . . . . . . . . . . . . . . . . . . .  17
-       4.6.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  17
+       4.6.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  18
        4.6.5.  On Receiving an Acknowledgment  . . . . . . . . . . .  18
        4.6.6.  On Packet Acknowledgment  . . . . . . . . . . . . . .  20
        4.6.7.  Setting the Loss Detection Timer  . . . . . . . . . .  20
@@ -284,25 +284,24 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
 3.1.2.  Monotonically Increasing Packet Numbers
 
-   TCP conflates transmission sequence number at the sender with
-   delivery sequence number at the receiver, which results in
-   retransmissions of the same data carrying the same sequence number,
-   and consequently to problems caused by "retransmission ambiguity".
-   QUIC separates the two: QUIC uses a packet number for transmissions,
-   and any application data is sent in one or more streams, with
-   delivery order determined by stream offsets encoded within STREAM
-   frames.
+   TCP conflates transmission order at the sender with delivery order at
+   the receiver, which results in retransmissions of the same data
+   carrying the same sequence number, and consequently leads to
+   "retransmission ambiguity".  QUIC separates the two: QUIC uses a
+   packet number to indicate transmission order, and any application
+   data is sent in one or more streams, with delivery order determined
+   by stream offsets encoded within STREAM frames.
 
-   QUIC's packet number is strictly increasing, and directly encodes
-   transmission order.  A higher QUIC packet number signifies that the
-   packet was sent later, and a lower QUIC packet number signifies that
-   the packet was sent earlier.  When a packet containing frames is
-   deemed lost, QUIC rebundles necessary frames in a new packet with a
-   new packet number, removing ambiguity about which packet is
-   acknowledged when an ACK is received.  Consequently, more accurate
-   RTT measurements can be made, spurious retransmissions are trivially
-   detected, and mechanisms such as Fast Retransmit can be applied
-   universally, based only on packet number.
+   QUIC's packet number is strictly increasing within a packet number
+   space, and directly encodes transmission order.  A higher packet
+   number signifies that the packet was sent later, and a lower packet
+   number signifies that the packet was sent earlier.  When a packet
+   containing retransmittable frames is detected lost, QUIC rebundles
+   necessary frames in a new packet with a new packet number, removing
+   ambiguity about which packet is acknowledged when an ACK is received.
+   Consequently, more accurate RTT measurements can be made, spurious
+   retransmissions are trivially detected, and mechanisms such as Fast
+   Retransmit can be applied universally, based only on packet number.
 
    This design point significantly simplifies loss detection mechanisms
    for QUIC.  Most TCP mechanisms implicitly attempt to infer
@@ -330,6 +329,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
    sent.  This allows the receiver of the ACK to adjust for receiver
    delays, specifically the delayed ack timer, when estimating the path
    RTT.  This mechanism also allows a receiver to measure and report the
+   delay from when a packet was received by the OS kernel, which is
 
 
 
@@ -338,7 +338,6 @@ Iyengar & Swett            Expires May 8, 2019                  [Page 6]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
-   delay from when a packet was received by the OS kernel, which is
    useful in receivers which may incur delays such as context-switch
    latency before a userspace QUIC receiver processes a received packet.
 
@@ -378,14 +377,15 @@ Internet-Draft             QUIC Loss Detection             November 2018
    Ack-based loss detection implements the spirit of TCP's Fast
    Retransmit [RFC5681], Early Retransmit [RFC5827], FACK, and SACK loss
    recovery [RFC6675].  This section provides an overview of how these
-   algorithms are implemented in QUIC.
+   algorithms are implemented in QUIC.  Though both time-based loss
+   detection and early retransmit use a timer, they are part of ack-
+   based detection because they do not use a timer to send probes, but
+   rather to declare packets lost.
 
-4.2.1.  Fast Retransmit
 
-   An unacknowledged packet is marked as lost when an acknowledgment is
-   received for a packet that was sent a threshold number of packets
-   (kReorderingThreshold) and/or a threshold amount of time after the
-   unacknowledged packet.  Receipt of the acknowledgement indicates that
+
+
+
 
 
 
@@ -394,32 +394,64 @@ Iyengar & Swett            Expires May 8, 2019                  [Page 7]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+4.2.1.  Fast Retransmit
+
+   An unacknowledged packet is marked as lost when an acknowledgment is
+   received for a packet that was sent a threshold number of packets
+   (kReorderingThreshold) and/or a threshold amount of time after the
+   unacknowledged packet.  Receipt of the acknowledgement indicates that
    a later packet was received, while the reordering threshold provides
    some tolerance for reordering of packets in the network.
+
+   Spuriously declaring packets lost leads to unnecessary
+   retransmissions and may result in degraded performance due to the
+   actions of the congestion controller upon detecting loss.
+   Implementations that detect spurious retransmissions and increase the
+   reordering threshold in packets or time MAY choose to start with
+   smaller initial reordering thresholds to minimize recovery latency.
+
+4.2.1.1.  Packet Threshold
 
    The RECOMMENDED initial value for kReorderingThreshold is 3, based on
    TCP loss recovery [RFC5681] [RFC6675].  Some networks may exhibit
    higher degrees of reordering, causing a sender to detect spurious
-   losses.  Spuriously declaring packets lost leads to unnecessary
-   retransmissions and may result in degraded performance due to the
-   actions of the congestion controller upon detecting loss.
-   Implementers MAY use algorithms developed for TCP, such as TCP-NCR
-   [RFC4653], to improve QUIC's reordering resilience.
+   losses.  Implementers MAY use algorithms developed for TCP, such as
+   TCP-NCR [RFC4653], to improve QUIC's reordering resilience.
 
-   QUIC implementations can use time-based loss detection to handle
-   reordering based on time elapsed since the packet was sent.  This may
-   be used either as a replacement for a packet reordering threshold or
-   in addition to it.  The RECOMMENDED time threshold, expressed as a
-   fraction of the round-trip time (kTimeReorderingFraction), is 1/8.
+4.2.1.2.  Time-based
+
+   Time-based loss detection uses a time threshold to determine how much
+   reordering to tolerate.  In this document, the threshold is expressed
+   as a fraction of an RTT, but implemenantations MAY experiment with
+   absolute thresholds.  This may be used either as a replacement for a
+   packet reordering threshold or in addition to it.
+
+   When a larger packet is acknowledged, if it was sent more than the
+   threshold after any in flight packets, those packets are immediately
+   declared lost.  Otherwise, a timer is set for the the reordering
+   threshold minus the time difference between the earliest in flight
+   packet and the largest newly acknowledged packet.  Note that in some
+   cases the timer could become longer when packets are acknowleged out
+   of order.  The RECOMMENDED time threshold, expressed as a fraction of
+   the round-trip time (kTimeReorderingFraction), is 1/8.
 
 4.2.2.  Early Retransmit
 
    Unacknowledged packets close to the tail may have fewer than
    kReorderingThreshold retransmittable packets sent after them.  Loss
-   of such packets cannot be detected via Fast Retransmit.  To enable
-   ack-based loss detection of such packets, receipt of an
-   acknowledgment for the last outstanding retransmittable packet
-   triggers the Early Retransmit process, as follows.
+   of such packets cannot be detected via Packet Threshold Fast
+   Retransmit.  To enable ack-based loss detection of such packets,
+
+
+
+
+Iyengar & Swett            Expires May 8, 2019                  [Page 8]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
+
+   receipt of an acknowledgment for the last outstanding retransmittable
+   packet triggers the Early Retransmit process, as follows.
 
    If there are unacknowledged in-flight packets still pending, they
    should be marked as lost.  To compensate for the reduced reordering
@@ -442,14 +474,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    The 1.125 multiplier increases reordering resilience.  Implementers
    MAY experiment with using other multipliers, bearing in mind that a
-
-
-
-Iyengar & Swett            Expires May 8, 2019                  [Page 8]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
    lower multiplier reduces reordering resilience and increases spurious
    retransmissions, and a higher multiplier increases loss recovery
    delay.
@@ -461,17 +485,26 @@ Internet-Draft             QUIC Loss Detection             November 2018
    TCP implementers to implement a timer for TCP as well, and this
    document incorporates this advancement.
 
-4.3.  Timer-based Detection
+4.3.  Timeout Loss Detection
 
-   Timer-based loss detection recovers from losses that cannot be
-   handled by ack-based loss detection.  It uses a single timer which
-   switches between a crypto retransmission timer, a Tail Loss Probe
-   timer and Retransmission Timeout mechanisms.
+   Timeout loss detection recovers from losses that cannot be handled by
+   ack-based loss detection.  It uses a single timer which switches
+   between a crypto retransmission timer, a Tail Loss Probe timer and
+   Retransmission Timeout mechanisms.
 
 4.3.1.  Crypto Retransmission Timeout
 
    Data in CRYPTO frames is critical to QUIC transport and crypto
    negotiation, so a more aggressive timeout is used to retransmit it.
+
+
+
+
+
+Iyengar & Swett            Expires May 8, 2019                  [Page 9]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
 
    The initial crypto retransmission timeout SHOULD be set to twice the
    initial RTT.
@@ -498,14 +531,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    Because the server could be blocked until more packets are received,
    the client MUST start the crypto retransmission timer even if there
    is no unacknowledged CRYPTO data.  If the timer expires and the
-
-
-
-Iyengar & Swett            Expires May 8, 2019                  [Page 9]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
    client has no CRYPTO data to retransmit and does not have Handshake
    keys, it SHOULD send an Initial packet in a UDP datagram of at least
    1200 bytes.  If the client has Handshake keys, it SHOULD send a
@@ -526,6 +551,16 @@ Internet-Draft             QUIC Loss Detection             November 2018
    Either packet indicates that the Initial was received but not
    processed.  Neither packet can be treated as an acknowledgment for
    the Initial, but they MAY be used to improve the RTT estimate.
+
+
+
+
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 10]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
 
 4.3.2.  Tail Loss Probe
 
@@ -553,15 +588,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    outstanding.  TCP's TLP assumes if at least 2 packets are
    outstanding, acks will not be delayed.
 
-
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 10]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
    A PTO value of at least 1.5*SRTT ensures that the ACK is overdue.
    The 1.5 is based on [TLP], but implementations MAY experiment with
    other constants.
@@ -584,6 +610,13 @@ Internet-Draft             QUIC Loss Detection             November 2018
    A sender may not know that a packet being sent is a tail packet.
    Consequently, a sender may have to arm or adjust the TLP timer on
    every sent retransmittable packet.
+
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 11]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
 
 4.3.3.  Retransmission Timeout
 
@@ -609,15 +642,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    subsequent consecutive RTO events.  Sending a single packet on an RTO
    event therefore makes the connection very sensitive to single packet
    loss.  Sending two packets instead of one significantly increases
-
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 11]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
    resilience to packet drop in both directions, thus reducing the
    probability of consecutive RTO events.
 
@@ -626,25 +650,32 @@ Internet-Draft             QUIC Loss Detection             November 2018
    does not result in an immediate change to congestion window or
    recovery state.  An RTO timer expires only when there's a prolonged
    period of network silence, which could be caused by a change in the
-   underlying network RTT.
+   network RTT.
 
    QUIC also diverges from TCP by including MaxAckDelay in the RTO
    period.  Since QUIC corrects for this delay in its SRTT and RTTVAR
    computations, it is necessary to add this delay explicitly in the TLP
    and RTO computation.
 
-   When an acknowledgment is received for a packet sent on an RTO event,
-   any unacknowledged packets with lower packet numbers than those
-   acknowledged MUST be marked as lost.  If an acknowledgement for a
-   packet sent on an RTO is received at the same time packets sent prior
-   to the first RTO are acknowledged, the RTO is considered spurious and
-   standard loss detection rules apply.
+   When an ACK is received that acknowledges only one or more packets
+   sent on an RTO event, all unacknowledged packets with lower packet
+   numbers MUST be marked as lost.  If packets sent prior to the first
+   RTO are acknowledged in the same ACK, the RTO is considered spurious
+   and standard loss detection rules apply.
 
    A packet sent when an RTO timer expires MAY carry new data if
    available or unacknowledged data to potentially reduce recovery time.
    Since this packet is sent as a probe into the network prior to
+
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 12]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
+
    establishing any packet loss, prior unacknowledged packets SHOULD NOT
-   be marked as lost.
+   be marked as lost when the timer expires.
 
    A packet sent on an RTO timer MUST NOT be blocked by the sender's
    congestion controller.  A sender MUST however count these packets as
@@ -654,25 +685,16 @@ Internet-Draft             QUIC Loss Detection             November 2018
 4.4.  Generating Acknowledgements
 
    QUIC SHOULD delay sending acknowledgements in response to packets,
-   but MUST NOT excessively delay acknowledgements of packets containing
-   frames other than ACK.  Specifically, implementations MUST attempt to
-   enforce a maximum ack delay to avoid causing the peer spurious
-   timeouts.  The maximum ack delay is communicated in the
-   "max_ack_delay" transport parameter and the default value is 25ms.
+   but MUST NOT excessively delay acknowledgements of retransmittable
+   packets.  Specifically, implementations MUST attempt to enforce a
+   maximum ack delay to avoid causing the peer spurious timeouts.  The
+   maximum ack delay is communicated in the "max_ack_delay" transport
+   parameter and the default value is 25ms.
 
    An acknowledgement SHOULD be sent immediately upon receipt of a
    second packet but the delay SHOULD NOT exceed the maximum ack delay.
    QUIC recovery algorithms do not assume the peer generates an
    acknowledgement immediately when receiving a second full-packet.
-
-
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 12]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
 
    Out-of-order packets SHOULD be acknowledged more quickly, in order to
    accelerate loss recovery.  The receiver SHOULD send an immediate ACK
@@ -695,6 +717,18 @@ Internet-Draft             QUIC Loss Detection             November 2018
    SHOULD use a very short ack delay, such as 1ms.  ACK frames MAY be
    sent immediately when the crypto stack indicates all data for that
    encryption level has been received.
+
+
+
+
+
+
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 13]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
 
 4.4.2.  ACK Ranges
 
@@ -721,21 +755,13 @@ Internet-Draft             QUIC Loss Detection             November 2018
    ACK frame.
 
    In cases without ACK frame loss, this algorithm allows for a minimum
-   of 1 RTT of reordering.  In cases with ACK frame loss, this approach
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 13]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
-   does not guarantee that every acknowledgement is seen by the sender
-   before it is no longer included in the ACK frame.  Packets could be
-   received out of order and all subsequent ACK frames containing them
-   could be lost.  In this case, the loss recovery algorithm may cause
-   spurious retransmits, but the sender will continue making forward
-   progress.
+   of 1 RTT of reordering.  In cases with ACK frame loss and reordering,
+   this approach does not guarantee that every acknowledgement is seen
+   by the sender before it is no longer included in the ACK frame.
+   Packets could be received out of order and all subsequent ACK frames
+   containing them could be lost.  In this case, the loss recovery
+   algorithm may cause spurious retransmits, but the sender will
+   continue making forward progress.
 
 4.5.  Tracking Sent Packets
 
@@ -752,6 +778,13 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    Sent packets are tracked for each packet number space, and ACK
    processing only applies to a single space.
+
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 14]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
 
 4.5.1.  Sent Packet Fields
 
@@ -775,16 +808,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
       UDP or IP overhead, but including QUIC framing overhead.
 
    time:  The time the packet was sent.
-
-
-
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 14]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
 
 4.6.  Pseudocode
 
@@ -812,6 +835,13 @@ Internet-Draft             QUIC Loss Detection             November 2018
    kMinTLPTimeout:  Minimum time in the future a tail loss probe timer
       may be set for.  The RECOMMENDED value is 10ms.
 
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 15]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
+
    kMinRTOTimeout:  Minimum time in the future an RTO timer may be set
       for.  The RECOMMENDED value is 200ms.
 
@@ -833,14 +863,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    tlp_count:  The number of times a tail loss probe has been sent
       without receiving an ack.
-
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 15]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
 
    rto_count:  The number of times an RTO has been sent without
       receiving an ack.
@@ -868,6 +890,14 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    rttvar:  The RTT variance, computed as described in [RFC6298]
 
+
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 16]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
+
    min_rtt:  The minimum RTT seen in the connection, ignoring ack delay.
 
    max_ack_delay:  The maximum amount of time by which the receiver
@@ -888,15 +918,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    sent_packets:  An association of packet numbers to information about
       them.  Described in detail above in Section 4.5.
-
-
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 16]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
 
 4.6.3.  Initialization
 
@@ -922,6 +943,17 @@ Internet-Draft             QUIC Loss Detection             November 2018
       time_of_last_sent_crypto_packet = 0
       largest_sent_packet = 0
 
+
+
+
+
+
+
+Iyengar & Swett            Expires May 8, 2019                 [Page 17]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
+
 4.6.4.  On Sending a Packet
 
    After a packet is sent, information about the packet is stored.  The
@@ -945,44 +977,12 @@ Internet-Draft             QUIC Loss Detection             November 2018
         sent_packets[packet_number].size = sent_bytes
         SetLossDetectionTimer()
 
-
-
-
-
-Iyengar & Swett            Expires May 8, 2019                 [Page 17]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
 4.6.5.  On Receiving an Acknowledgment
 
    When an ACK frame is received, it may newly acknowledge any number of
    packets.
 
    Pseudocode for OnAckReceived and UpdateRtt follow:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1068,18 +1068,13 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
 4.6.6.  On Packet Acknowledgment
 
-   When a packet is acked for the first time, the following
+   When a packet is acknowledged for the first time, the following
    OnPacketAcked function is called.  Note that a single ACK frame may
    newly acknowledge several packets.  OnPacketAcked must be called once
-   for each of these newly acked packets.
+   for each of these newly acknowledged packets.
 
    OnPacketAcked takes one parameter, acked_packet, which is the struct
-   of the newly acked packet.
-
-   If this is the first acknowledgement following RTO, check if the
-   smallest newly acknowledged packet is one sent by the RTO, and if so,
-   inform congestion control of a verified RTO, similar to F-RTO
-   [RFC5682].
+   detailed in Section 4.5.1.
 
    Pseudocode for OnPacketAcked follows:
 
@@ -1097,6 +1092,11 @@ Internet-Draft             QUIC Loss Detection             November 2018
    timer is set.
 
    Pseudocode for SetLossDetectionTimer follows:
+
+
+
+
+
 
 
 
@@ -1201,19 +1201,19 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
 4.6.9.  Detecting Lost Packets
 
-   Packets in QUIC are only considered lost once a larger packet number
-   in the same packet number space is acknowledged.  DetectLostPackets
-   is called every time an ack is received and operates on the
-   sent_packets for that packet number space.  If the loss detection
-   timer expires and the loss_time is set, the previous largest acked
-   packet is supplied.
+   DetectLostPackets is called every time an ACK is received and
+   operates on the sent_packets for that packet number space.  If the
+   loss detection timer expires and the loss_time is set, the previous
+   largest acknowledged packet is supplied.
 
-4.6.9.1.  Pseudocode
-
-   DetectLostPackets takes one parameter, acked, which is the largest
-   acked packet.
+   DetectLostPackets takes one parameter, largest_acked, which is the
+   largest acked packet.
 
    Pseudocode for DetectLostPackets follows:
+
+
+
+
 
 
 
@@ -1331,12 +1331,12 @@ Internet-Draft             QUIC Loss Detection             November 2018
 5.4.  Recovery Period
 
    Recovery is a period of time beginning with detection of a lost
-   packet or an increase in the ECN-CE counter.  Because QUIC
-   retransmits stream data and control frames, not packets, it defines
-   the end of recovery as a packet sent after the start of recovery
-   being acknowledged.  This is slightly different from TCP's definition
-   of recovery, which ends when the lost packet that started recovery is
-   acknowledged.
+   packet or an increase in the ECN-CE counter.  Because QUIC does not
+   retransmit packets, it defines the end of recovery as a packet sent
+   after the start of recovery being acknowledged.  This is slightly
+   different from TCP's definition of recovery, which ends when the lost
+   packet that started recovery is acknowledged.
+
 
 
 
@@ -1483,7 +1483,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
 5.8.5.  On Packet Acknowledgement
 
-   Invoked from loss detection's OnPacketAcked and is supplied with
+   Invoked from loss detection's OnPacketAcked and is supplied with the
    acked_packet from sent_packets.
 
       InRecovery(sent_time):
@@ -1517,7 +1517,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
 5.8.6.  On New Congestion Event
 
    Invoked from ProcessECN and OnPacketsLost when a new congestion event
-   is detected.  May starts a new recovery period and reduces the
+   is detected.  May start a new recovery period and reduces the
    congestion window.
 
       CongestionEvent(sent_time):

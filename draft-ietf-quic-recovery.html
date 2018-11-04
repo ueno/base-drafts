@@ -295,7 +295,7 @@ ul.toc li {
 <link href="#rfc.section.4.2" rel="Chapter" title="4.2 Ack-based Detection">
 <link href="#rfc.section.4.2.1" rel="Chapter" title="4.2.1 Fast Retransmit">
 <link href="#rfc.section.4.2.2" rel="Chapter" title="4.2.2 Early Retransmit">
-<link href="#rfc.section.4.3" rel="Chapter" title="4.3 Timer-based Detection">
+<link href="#rfc.section.4.3" rel="Chapter" title="4.3 Timeout Loss Detection">
 <link href="#rfc.section.4.3.1" rel="Chapter" title="4.3.1 Crypto Retransmission Timeout">
 <link href="#rfc.section.4.3.2" rel="Chapter" title="4.3.2 Tail Loss Probe">
 <link href="#rfc.section.4.3.3" rel="Chapter" title="4.3.3 Retransmission Timeout">
@@ -454,7 +454,7 @@ ul.toc li {
 </li>
 <li>4.2.2.   <a href="#rfc.section.4.2.2">Early Retransmit</a>
 </li>
-</ul><li>4.3.   <a href="#rfc.section.4.3">Timer-based Detection</a>
+</ul><li>4.3.   <a href="#rfc.section.4.3">Timeout Loss Detection</a>
 </li>
 <ul><li>4.3.1.   <a href="#rfc.section.4.3.1">Crypto Retransmission Timeout</a>
 </li>
@@ -638,8 +638,8 @@ ul.toc li {
 <h3 id="rfc.section.3.1.2">
 <a href="#rfc.section.3.1.2">3.1.2.</a> <a href="#monotonically-increasing-packet-numbers" id="monotonically-increasing-packet-numbers">Monotonically Increasing Packet Numbers</a>
 </h3>
-<p id="rfc.section.3.1.2.p.1">TCP conflates transmission sequence number at the sender with delivery sequence number at the receiver, which results in retransmissions of the same data carrying the same sequence number, and consequently to problems caused by &#8220;retransmission ambiguity&#8221;.  QUIC separates the two: QUIC uses a packet number for transmissions, and any application data is sent in one or more streams, with delivery order determined by stream offsets encoded within STREAM frames.</p>
-<p id="rfc.section.3.1.2.p.2">QUIC&#8217;s packet number is strictly increasing, and directly encodes transmission order.  A higher QUIC packet number signifies that the packet was sent later, and a lower QUIC packet number signifies that the packet was sent earlier.  When a packet containing frames is deemed lost, QUIC rebundles necessary frames in a new packet with a new packet number, removing ambiguity about which packet is acknowledged when an ACK is received.  Consequently, more accurate RTT measurements can be made, spurious retransmissions are trivially detected, and mechanisms such as Fast Retransmit can be applied universally, based only on packet number.</p>
+<p id="rfc.section.3.1.2.p.1">TCP conflates transmission order at the sender with delivery order at the receiver, which results in retransmissions of the same data carrying the same sequence number, and consequently leads to &#8220;retransmission ambiguity&#8221;.  QUIC separates the two: QUIC uses a packet number to indicate transmission order, and any application data is sent in one or more streams, with delivery order determined by stream offsets encoded within STREAM frames.</p>
+<p id="rfc.section.3.1.2.p.2">QUIC&#8217;s packet number is strictly increasing within a packet number space, and directly encodes transmission order.  A higher packet number signifies that the packet was sent later, and a lower packet number signifies that the packet was sent earlier.  When a packet containing retransmittable frames is detected lost, QUIC rebundles necessary frames in a new packet with a new packet number, removing ambiguity about which packet is acknowledged when an ACK is received.  Consequently, more accurate RTT measurements can be made, spurious retransmissions are trivially detected, and mechanisms such as Fast Retransmit can be applied universally, based only on packet number.</p>
 <p id="rfc.section.3.1.2.p.3">This design point significantly simplifies loss detection mechanisms for QUIC.  Most TCP mechanisms implicitly attempt to infer transmission ordering based on TCP sequence numbers - a non-trivial task, especially when TCP timestamps are not available.</p>
 <h3 id="rfc.section.3.1.3">
 <a href="#rfc.section.3.1.3">3.1.3.</a> <a href="#no-reneging" id="no-reneging">No Reneging</a>
@@ -667,17 +667,25 @@ ul.toc li {
 <h2 id="rfc.section.4.2">
 <a href="#rfc.section.4.2">4.2.</a> <a href="#ack-based-detection" id="ack-based-detection">Ack-based Detection</a>
 </h2>
-<p id="rfc.section.4.2.p.1">Ack-based loss detection implements the spirit of TCP&#8217;s Fast Retransmit <a href="#RFC5681" class="xref">[RFC5681]</a>, Early Retransmit <a href="#RFC5827" class="xref">[RFC5827]</a>, FACK, and SACK loss recovery <a href="#RFC6675" class="xref">[RFC6675]</a>. This section provides an overview of how these algorithms are implemented in QUIC.</p>
+<p id="rfc.section.4.2.p.1">Ack-based loss detection implements the spirit of TCP&#8217;s Fast Retransmit <a href="#RFC5681" class="xref">[RFC5681]</a>, Early Retransmit <a href="#RFC5827" class="xref">[RFC5827]</a>, FACK, and SACK loss recovery <a href="#RFC6675" class="xref">[RFC6675]</a>. This section provides an overview of how these algorithms are implemented in QUIC.  Though both time-based loss detection and early retransmit use a timer, they are part of ack-based detection because they do not use a timer to send probes, but rather to declare packets lost.</p>
 <h3 id="rfc.section.4.2.1">
 <a href="#rfc.section.4.2.1">4.2.1.</a> <a href="#fast-retransmit" id="fast-retransmit">Fast Retransmit</a>
 </h3>
 <p id="rfc.section.4.2.1.p.1">An unacknowledged packet is marked as lost when an acknowledgment is received for a packet that was sent a threshold number of packets (kReorderingThreshold) and/or a threshold amount of time after the unacknowledged packet. Receipt of the acknowledgement indicates that a later packet was received, while the reordering threshold provides some tolerance for reordering of packets in the network.</p>
-<p id="rfc.section.4.2.1.p.2">The RECOMMENDED initial value for kReorderingThreshold is 3, based on TCP loss recovery <a href="#RFC5681" class="xref">[RFC5681]</a> <a href="#RFC6675" class="xref">[RFC6675]</a>. Some networks may exhibit higher degrees of reordering, causing a sender to detect spurious losses. Spuriously declaring packets lost leads to unnecessary retransmissions and may result in degraded performance due to the actions of the congestion controller upon detecting loss. Implementers MAY use algorithms developed for TCP, such as TCP-NCR <a href="#RFC4653" class="xref">[RFC4653]</a>, to improve QUIC&#8217;s reordering resilience.</p>
-<p id="rfc.section.4.2.1.p.3">QUIC implementations can use time-based loss detection to handle reordering based on time elapsed since the packet was sent.  This may be used either as a replacement for a packet reordering threshold or in addition to it.  The RECOMMENDED time threshold, expressed as a fraction of the round-trip time (kTimeReorderingFraction), is 1/8.</p>
+<p id="rfc.section.4.2.1.p.2">Spuriously declaring packets lost leads to unnecessary retransmissions and may result in degraded performance due to the actions of the congestion controller upon detecting loss.  Implementations that detect spurious retransmissions and increase the reordering threshold in packets or time MAY choose to start with smaller initial reordering thresholds to minimize recovery latency.</p>
+<h4 id="rfc.section.4.2.1.1">
+<a href="#rfc.section.4.2.1.1">4.2.1.1.</a> <a href="#packet-threshold" id="packet-threshold">Packet Threshold</a>
+</h4>
+<p id="rfc.section.4.2.1.1.p.1">The RECOMMENDED initial value for kReorderingThreshold is 3, based on TCP loss recovery <a href="#RFC5681" class="xref">[RFC5681]</a> <a href="#RFC6675" class="xref">[RFC6675]</a>. Some networks may exhibit higher degrees of reordering, causing a sender to detect spurious losses.  Implementers MAY use algorithms developed for TCP, such as TCP-NCR <a href="#RFC4653" class="xref">[RFC4653]</a>, to improve QUIC&#8217;s reordering resilience.</p>
+<h4 id="rfc.section.4.2.1.2">
+<a href="#rfc.section.4.2.1.2">4.2.1.2.</a> <a href="#time-based" id="time-based">Time-based</a>
+</h4>
+<p id="rfc.section.4.2.1.2.p.1">Time-based loss detection uses a time threshold to determine how much reordering to tolerate.  In this document, the threshold is expressed as a fraction of an RTT, but implemenantations MAY experiment with absolute thresholds.  This may be used either as a replacement for a packet reordering threshold or in addition to it.</p>
+<p id="rfc.section.4.2.1.2.p.2">When a larger packet is acknowledged, if it was sent more than the threshold after any in flight packets, those packets are immediately declared lost.  Otherwise, a timer is set for the the reordering threshold minus the time difference between the earliest in flight packet and the largest newly acknowledged packet.  Note that in some cases the timer could become longer when packets are acknowleged out of order. The RECOMMENDED time threshold, expressed as a fraction of the round-trip time (kTimeReorderingFraction), is 1/8.</p>
 <h3 id="rfc.section.4.2.2">
 <a href="#rfc.section.4.2.2">4.2.2.</a> <a href="#early-retransmit" id="early-retransmit">Early Retransmit</a>
 </h3>
-<p id="rfc.section.4.2.2.p.1">Unacknowledged packets close to the tail may have fewer than kReorderingThreshold retransmittable packets sent after them.  Loss of such packets cannot be detected via Fast Retransmit. To enable ack-based loss detection of such packets, receipt of an acknowledgment for the last outstanding retransmittable packet triggers the Early Retransmit process, as follows.</p>
+<p id="rfc.section.4.2.2.p.1">Unacknowledged packets close to the tail may have fewer than kReorderingThreshold retransmittable packets sent after them.  Loss of such packets cannot be detected via Packet Threshold Fast Retransmit. To enable ack-based loss detection of such packets, receipt of an acknowledgment for the last outstanding retransmittable packet triggers the Early Retransmit process, as follows.</p>
 <p id="rfc.section.4.2.2.p.2">If there are unacknowledged in-flight packets still pending, they should be marked as lost. To compensate for the reduced reordering resilience, the sender SHOULD set a timer for a small period of time. If the unacknowledged in-flight packets are not acknowledged during this time, then these packets MUST be marked as lost.</p>
 <p id="rfc.section.4.2.2.p.3">An endpoint SHOULD set the timer such that a packet is marked as lost no earlier than 1.125 * max(SRTT, latest_RTT) since when it was sent.</p>
 <p id="rfc.section.4.2.2.p.4">Using max(SRTT, latest_RTT) protects from the two following cases:</p>
@@ -690,9 +698,9 @@ ul.toc li {
 <p id="rfc.section.4.2.2.p.6">The 1.125 multiplier increases reordering resilience. Implementers MAY experiment with using other multipliers, bearing in mind that a lower multiplier reduces reordering resilience and increases spurious retransmissions, and a higher multiplier increases loss recovery delay.</p>
 <p id="rfc.section.4.2.2.p.7">This mechanism is based on Early Retransmit for TCP <a href="#RFC5827" class="xref">[RFC5827]</a>. However, <a href="#RFC5827" class="xref">[RFC5827]</a> does not include the timer described above. Early Retransmit is prone to spurious retransmissions due to its reduced reordering resilence without the timer. This observation led Linux TCP implementers to implement a timer for TCP as well, and this document incorporates this advancement.</p>
 <h2 id="rfc.section.4.3">
-<a href="#rfc.section.4.3">4.3.</a> <a href="#timer-based-detection" id="timer-based-detection">Timer-based Detection</a>
+<a href="#rfc.section.4.3">4.3.</a> <a href="#timeout-loss-detection" id="timeout-loss-detection">Timeout Loss Detection</a>
 </h2>
-<p id="rfc.section.4.3.p.1">Timer-based loss detection recovers from losses that cannot be handled by ack-based loss detection.  It uses a single timer which switches between a crypto retransmission timer, a Tail Loss Probe timer and Retransmission Timeout mechanisms.</p>
+<p id="rfc.section.4.3.p.1">Timeout loss detection recovers from losses that cannot be handled by ack-based loss detection.  It uses a single timer which switches between a crypto retransmission timer, a Tail Loss Probe timer and Retransmission Timeout mechanisms.</p>
 <h3 id="rfc.section.4.3.1">
 <a href="#rfc.section.4.3.1">4.3.1.</a> <a href="#crypto-retransmission-timeout" id="crypto-retransmission-timeout">Crypto Retransmission Timeout</a>
 </h3>
@@ -739,15 +747,15 @@ ul.toc li {
 <li>When an RTO timer expires, the RTO period is doubled.</li>
 </ul>
 <p id="rfc.section.4.3.3.p.5">The sender typically has incurred a high latency penalty by the time an RTO timer expires, and this penalty increases exponentially in subsequent consecutive RTO events. Sending a single packet on an RTO event therefore makes the connection very sensitive to single packet loss. Sending two packets instead of one significantly increases resilience to packet drop in both directions, thus reducing the probability of consecutive RTO events.</p>
-<p id="rfc.section.4.3.3.p.6">QUIC&#8217;s RTO algorithm differs from TCP in that the firing of an RTO timer is not considered a strong enough signal of packet loss, so does not result in an immediate change to congestion window or recovery state. An RTO timer expires only when there&#8217;s a prolonged period of network silence, which could be caused by a change in the underlying network RTT.</p>
+<p id="rfc.section.4.3.3.p.6">QUIC&#8217;s RTO algorithm differs from TCP in that the firing of an RTO timer is not considered a strong enough signal of packet loss, so does not result in an immediate change to congestion window or recovery state. An RTO timer expires only when there&#8217;s a prolonged period of network silence, which could be caused by a change in the network RTT.</p>
 <p id="rfc.section.4.3.3.p.7">QUIC also diverges from TCP by including MaxAckDelay in the RTO period. Since QUIC corrects for this delay in its SRTT and RTTVAR computations, it is necessary to add this delay explicitly in the TLP and RTO computation.</p>
-<p id="rfc.section.4.3.3.p.8">When an acknowledgment is received for a packet sent on an RTO event, any unacknowledged packets with lower packet numbers than those acknowledged MUST be marked as lost.  If an acknowledgement for a packet sent on an RTO is received at the same time packets sent prior to the first RTO are acknowledged, the RTO is considered spurious and standard loss detection rules apply.</p>
-<p id="rfc.section.4.3.3.p.9">A packet sent when an RTO timer expires MAY carry new data if available or unacknowledged data to potentially reduce recovery time. Since this packet is sent as a probe into the network prior to establishing any packet loss, prior unacknowledged packets SHOULD NOT be marked as lost.</p>
+<p id="rfc.section.4.3.3.p.8">When an ACK is received that acknowledges only one or more packets sent on an RTO event, all unacknowledged packets with lower packet numbers MUST be marked as lost.  If packets sent prior to the first RTO are acknowledged in the same ACK, the RTO is considered spurious and standard loss detection rules apply.</p>
+<p id="rfc.section.4.3.3.p.9">A packet sent when an RTO timer expires MAY carry new data if available or unacknowledged data to potentially reduce recovery time. Since this packet is sent as a probe into the network prior to establishing any packet loss, prior unacknowledged packets SHOULD NOT be marked as lost when the timer expires.</p>
 <p id="rfc.section.4.3.3.p.10">A packet sent on an RTO timer MUST NOT be blocked by the sender&#8217;s congestion controller. A sender MUST however count these packets as being in flight, since this packet adds network load without establishing packet loss.</p>
 <h2 id="rfc.section.4.4">
 <a href="#rfc.section.4.4">4.4.</a> <a href="#generating-acknowledgements" id="generating-acknowledgements">Generating Acknowledgements</a>
 </h2>
-<p id="rfc.section.4.4.p.1">QUIC SHOULD delay sending acknowledgements in response to packets, but MUST NOT excessively delay acknowledgements of packets containing frames other than ACK.  Specifically, implementations MUST attempt to enforce a maximum ack delay to avoid causing the peer spurious timeouts.  The maximum ack delay is communicated in the <samp>max_ack_delay</samp> transport parameter and the default value is 25ms.</p>
+<p id="rfc.section.4.4.p.1">QUIC SHOULD delay sending acknowledgements in response to packets, but MUST NOT excessively delay acknowledgements of retransmittable packets. Specifically, implementations MUST attempt to enforce a maximum ack delay to avoid causing the peer spurious timeouts.  The maximum ack delay is communicated in the <samp>max_ack_delay</samp> transport parameter and the default value is 25ms.</p>
 <p id="rfc.section.4.4.p.2">An acknowledgement SHOULD be sent immediately upon receipt of a second packet but the delay SHOULD NOT exceed the maximum ack delay. QUIC recovery algorithms do not assume the peer generates an acknowledgement immediately when receiving a second full-packet.</p>
 <p id="rfc.section.4.4.p.3">Out-of-order packets SHOULD be acknowledged more quickly, in order to accelerate loss recovery.  The receiver SHOULD send an immediate ACK when it receives a new packet which is not one greater than the largest received packet number.</p>
 <p id="rfc.section.4.4.p.4">Similarly, packets marked with the ECN Congestion Experienced (CE) codepoint in the IP header SHOULD be acknowledged immediately, to reduce the peer&#8217;s response time to congestion events.</p>
@@ -766,7 +774,7 @@ ul.toc li {
 <a href="#rfc.section.4.4.3">4.4.3.</a> <a href="#receiver-tracking-of-ack-frames" id="receiver-tracking-of-ack-frames">Receiver Tracking of ACK Frames</a>
 </h3>
 <p id="rfc.section.4.4.3.p.1">When a packet containing an ACK frame is sent, the largest acknowledged in that frame may be saved.  When a packet containing an ACK frame is acknowledged, the receiver can stop acknowledging packets less than or equal to the largest acknowledged in the sent ACK frame.</p>
-<p id="rfc.section.4.4.3.p.2">In cases without ACK frame loss, this algorithm allows for a minimum of 1 RTT of reordering. In cases with ACK frame loss, this approach does not guarantee that every acknowledgement is seen by the sender before it is no longer included in the ACK frame. Packets could be received out of order and all subsequent ACK frames containing them could be lost. In this case, the loss recovery algorithm may cause spurious retransmits, but the sender will continue making forward progress.</p>
+<p id="rfc.section.4.4.3.p.2">In cases without ACK frame loss, this algorithm allows for a minimum of 1 RTT of reordering. In cases with ACK frame loss and reordering, this approach does not guarantee that every acknowledgement is seen by the sender before it is no longer included in the ACK frame. Packets could be received out of order and all subsequent ACK frames containing them could be lost. In this case, the loss recovery algorithm may cause spurious retransmits, but the sender will continue making forward progress.</p>
 <h2 id="rfc.section.4.5">
 <a href="#rfc.section.4.5">4.5.</a> <a href="#tracking-sent-packets" id="tracking-sent-packets">Tracking Sent Packets</a>
 </h2>
@@ -967,10 +975,9 @@ ul.toc li {
 <h3 id="rfc.section.4.6.6">
 <a href="#rfc.section.4.6.6">4.6.6.</a> <a href="#on-packet-acknowledgment" id="on-packet-acknowledgment">On Packet Acknowledgment</a>
 </h3>
-<p id="rfc.section.4.6.6.p.1">When a packet is acked for the first time, the following OnPacketAcked function is called.  Note that a single ACK frame may newly acknowledge several packets.  OnPacketAcked must be called once for each of these newly acked packets.</p>
-<p id="rfc.section.4.6.6.p.2">OnPacketAcked takes one parameter, acked_packet, which is the struct of the newly acked packet.</p>
-<p id="rfc.section.4.6.6.p.3">If this is the first acknowledgement following RTO, check if the smallest newly acknowledged packet is one sent by the RTO, and if so, inform congestion control of a verified RTO, similar to F-RTO <a href="#RFC5682" class="xref">[RFC5682]</a>.</p>
-<p id="rfc.section.4.6.6.p.4">Pseudocode for OnPacketAcked follows:</p>
+<p id="rfc.section.4.6.6.p.1">When a packet is acknowledged for the first time, the following OnPacketAcked function is called.  Note that a single ACK frame may newly acknowledge several packets. OnPacketAcked must be called once for each of these newly acknowledged packets.</p>
+<p id="rfc.section.4.6.6.p.2">OnPacketAcked takes one parameter, acked_packet, which is the struct detailed in <a href="#sent-packets-fields" class="xref">Section 4.5.1</a>.</p>
+<p id="rfc.section.4.6.6.p.3">Pseudocode for OnPacketAcked follows:</p>
 <pre>
    OnPacketAcked(acked_packet):
      if (acked_packet.retransmittable):
@@ -1051,12 +1058,9 @@ ul.toc li {
 <h3 id="rfc.section.4.6.9">
 <a href="#rfc.section.4.6.9">4.6.9.</a> <a href="#detecting-lost-packets" id="detecting-lost-packets">Detecting Lost Packets</a>
 </h3>
-<p id="rfc.section.4.6.9.p.1">Packets in QUIC are only considered lost once a larger packet number in the same packet number space is acknowledged.  DetectLostPackets is called every time an ack is received and operates on the sent_packets for that packet number space.  If the loss detection timer expires and the loss_time is set, the previous largest acked packet is supplied.</p>
-<h4 id="rfc.section.4.6.9.1">
-<a href="#rfc.section.4.6.9.1">4.6.9.1.</a> <a href="#pseudocode-1" id="pseudocode-1">Pseudocode</a>
-</h4>
-<p id="rfc.section.4.6.9.1.p.1">DetectLostPackets takes one parameter, acked, which is the largest acked packet.</p>
-<p id="rfc.section.4.6.9.1.p.2">Pseudocode for DetectLostPackets follows:</p>
+<p id="rfc.section.4.6.9.p.1">DetectLostPackets is called every time an ACK is received and operates on the sent_packets for that packet number space. If the loss detection timer expires and the loss_time is set, the previous largest acknowledged packet is supplied.</p>
+<p id="rfc.section.4.6.9.p.2">DetectLostPackets takes one parameter, largest_acked, which is the largest acked packet.</p>
+<p id="rfc.section.4.6.9.p.3">Pseudocode for DetectLostPackets follows:</p>
 <pre>
 DetectLostPackets(largest_acked):
   loss_time = 0
@@ -1112,7 +1116,7 @@ DetectLostPackets(largest_acked):
 <h2 id="rfc.section.5.4">
 <a href="#rfc.section.5.4">5.4.</a> <a href="#recovery-period" id="recovery-period">Recovery Period</a>
 </h2>
-<p id="rfc.section.5.4.p.1">Recovery is a period of time beginning with detection of a lost packet or an increase in the ECN-CE counter. Because QUIC retransmits stream data and control frames, not packets, it defines the end of recovery as a packet sent after the start of recovery being acknowledged. This is slightly different from TCP&#8217;s definition of recovery, which ends when the lost packet that started recovery is acknowledged.</p>
+<p id="rfc.section.5.4.p.1">Recovery is a period of time beginning with detection of a lost packet or an increase in the ECN-CE counter. Because QUIC does not retransmit packets, it defines the end of recovery as a packet sent after the start of recovery being acknowledged. This is slightly different from TCP&#8217;s definition of recovery, which ends when the lost packet that started recovery is acknowledged.</p>
 <p id="rfc.section.5.4.p.2">The recovery period limits congestion window reduction to once per round trip.  During recovery, the congestion window remains unchanged irrespective of new losses or increases in the ECN-CE counter.</p>
 <h2 id="rfc.section.5.5">
 <a href="#rfc.section.5.5">5.5.</a> <a href="#tail-loss-probe" id="tail-loss-probe">Tail Loss Probe</a>
@@ -1130,7 +1134,7 @@ DetectLostPackets(largest_acked):
 <p id="rfc.section.5.7.p.2">An implementation should take care to architect its congestion controller to work well with a pacer.  For instance, a pacer might wrap the congestion controller and control the availability of the congestion window, or a pacer might pace out packets handed to it by the congestion controller. Timely delivery of ACK frames is important for efficient loss recovery. Packets containing only ACK frames should therefore not be paced, to avoid delaying their delivery to the peer.</p>
 <p id="rfc.section.5.7.p.3">As an example of a well-known and publicly available implementation of a flow pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc) in Linux (3.11 onwards).</p>
 <h2 id="rfc.section.5.8">
-<a href="#rfc.section.5.8">5.8.</a> <a href="#pseudocode-2" id="pseudocode-2">Pseudocode</a>
+<a href="#rfc.section.5.8">5.8.</a> <a href="#pseudocode-1" id="pseudocode-1">Pseudocode</a>
 </h2>
 <h3 id="rfc.section.5.8.1">
 <a href="#rfc.section.5.8.1">5.8.1.</a> <a href="#constants-of-interest-1" id="constants-of-interest-1">Constants of interest</a>
@@ -1188,7 +1192,7 @@ DetectLostPackets(largest_acked):
 <h3 id="rfc.section.5.8.5">
 <a href="#rfc.section.5.8.5">5.8.5.</a> <a href="#on-packet-acknowledgement" id="on-packet-acknowledgement">On Packet Acknowledgement</a>
 </h3>
-<p id="rfc.section.5.8.5.p.1">Invoked from loss detection&#8217;s OnPacketAcked and is supplied with acked_packet from sent_packets.</p>
+<p id="rfc.section.5.8.5.p.1">Invoked from loss detection&#8217;s OnPacketAcked and is supplied with the acked_packet from sent_packets.</p>
 <pre>
    InRecovery(sent_time):
      return sent_time &lt;= recovery_start_time
@@ -1210,7 +1214,7 @@ DetectLostPackets(largest_acked):
 <h3 id="rfc.section.5.8.6">
 <a href="#rfc.section.5.8.6">5.8.6.</a> <a href="#on-new-congestion-event" id="on-new-congestion-event">On New Congestion Event</a>
 </h3>
-<p id="rfc.section.5.8.6.p.1">Invoked from ProcessECN and OnPacketsLost when a new congestion event is detected. May starts a new recovery period and reduces the congestion window.</p>
+<p id="rfc.section.5.8.6.p.1">Invoked from ProcessECN and OnPacketsLost when a new congestion event is detected. May start a new recovery period and reduces the congestion window.</p>
 <pre>
    CongestionEvent(sent_time):
      // Start a new congestion event if the sent time is larger
