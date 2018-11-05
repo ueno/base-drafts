@@ -89,7 +89,7 @@ Table of Contents
        4.3.2.  Tail Loss Probe . . . . . . . . . . . . . . . . . . .  11
        4.3.3.  Retransmission Timeout  . . . . . . . . . . . . . . .  12
      4.4.  Generating Acknowledgements . . . . . . . . . . . . . . .  13
-       4.4.1.  Crypto Handshake Data . . . . . . . . . . . . . . . .  13
+       4.4.1.  Crypto Handshake Data . . . . . . . . . . . . . . . .  14
        4.4.2.  ACK Ranges  . . . . . . . . . . . . . . . . . . . . .  14
        4.4.3.  Receiver Tracking of ACK Frames . . . . . . . . . . .  14
      4.5.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  14
@@ -618,8 +618,9 @@ Iyengar & Swett            Expires May 9, 2019                 [Page 11]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
-   lost in a timely manner, potentially preventing a deadlock if all in
-   flight packets contain no data that needs to be retransmission.
+   lost in a timely manner.  Otherwise, a deadlock results if there is
+   no available congestion window and all in flight packets contain no
+   data that can be retransmitted.
 
    A sender may not know that a packet being sent is a tail packet.
    Consequently, a sender may have to arm or adjust the TLP timer on
@@ -664,8 +665,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
    computations, it is necessary to add this delay explicitly in the TLP
    and RTO computation.
 
-   When an ACK is received that acknowledges only one or more packets
-   sent on an RTO event, all unacknowledged packets with lower packet
+
 
 
 
@@ -674,6 +674,8 @@ Iyengar & Swett            Expires May 9, 2019                 [Page 12]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+   When an ACK is received that acknowledges only one or more packets
+   sent on an RTO event, all unacknowledged packets with lower packet
    numbers MUST be marked as lost.  If packets sent prior to the first
    RTO are acknowledged in the same ACK, the RTO is considered spurious
    and standard loss detection rules apply.
@@ -717,11 +719,9 @@ Internet-Draft             QUIC Loss Detection             November 2018
    whether an immediate or delayed acknowledgement should be generated
    after processing incoming packets.
 
-4.4.1.  Crypto Handshake Data
 
-   In order to quickly complete the handshake and avoid spurious
-   retransmissions due to crypto retransmission timeouts, crypto packets
-   SHOULD use a very short ack delay, such as 1ms.  ACK frames MAY be
+
+
 
 
 
@@ -730,6 +730,11 @@ Iyengar & Swett            Expires May 9, 2019                 [Page 13]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+4.4.1.  Crypto Handshake Data
+
+   In order to quickly complete the handshake and avoid spurious
+   retransmissions due to crypto retransmission timeouts, crypto packets
+   SHOULD use a very short ack delay, such as 1ms.  ACK frames MAY be
    sent immediately when the crypto stack indicates all data for that
    encryption level has been received.
 
@@ -772,12 +777,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
    retransmittable packet until the packet is acknowledged or lost.  It
    is expected that implementations will be able to access this
    information by packet number and crypto context and store the per-
-   packet fields (Section 4.5.1) for loss recovery and congestion
-   control.
 
-   After a packet is declared lost, it SHOULD be tracked for an amount
-   of time comparable to the maximum expected packet reordering, such as
-   1 RTT.  This allows for detection of spurious retransmissions.
 
 
 
@@ -785,6 +785,13 @@ Iyengar & Swett            Expires May 9, 2019                 [Page 14]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   packet fields (Section 4.5.1) for loss recovery and congestion
+   control.
+
+   After a packet is declared lost, it SHOULD be tracked for an amount
+   of time comparable to the maximum expected packet reordering, such as
+   1 RTT.  This allows for detection of spurious retransmissions.
 
    Sent packets are tracked for each packet number space, and ACK
    processing only applies to a single space.
@@ -827,13 +834,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
       before FACK style loss detection considers a packet lost.  The
       RECOMMENDED value is 3.
 
-   kTimeReorderingFraction:  Maximum reordering in time space before
-      time based loss detection considers a packet lost.  In fraction of
-      an RTT.  The RECOMMENDED value is 1/8.
-
-   kUsingTimeLossDetection:  Whether time based loss detection is in
-      use.  If false, uses FACK style loss detection.  The RECOMMENDED
-      value is false.
 
 
 
@@ -841,6 +841,14 @@ Iyengar & Swett            Expires May 9, 2019                 [Page 15]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   kTimeReorderingFraction:  Maximum reordering in time space before
+      time based loss detection considers a packet lost.  In fraction of
+      an RTT.  The RECOMMENDED value is 1/8.
+
+   kUsingTimeLossDetection:  Whether time based loss detection is in
+      use.  If false, uses FACK style loss detection.  The RECOMMENDED
+      value is false.
 
    kMinTLPTimeout:  Minimum time in the future a tail loss probe timer
       may be set for.  The RECOMMENDED value is 10ms.
@@ -882,6 +890,14 @@ Internet-Draft             QUIC Loss Detection             November 2018
    largest_sent_packet:  The packet number of the most recently sent
       packet.
 
+
+
+
+Iyengar & Swett            Expires May 9, 2019                 [Page 16]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
+
    largest_acked_packet:  The largest packet number acknowledged in an
       ACK frame.
 
@@ -890,13 +906,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    smoothed_rtt:  The smoothed RTT of the connection, computed as
       described in [RFC6298]
-
-
-
-Iyengar & Swett            Expires May 9, 2019                 [Page 16]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
 
    rttvar:  The RTT variance, computed as described in [RFC6298]
 
@@ -926,6 +935,25 @@ Internet-Draft             QUIC Loss Detection             November 2018
    At the beginning of the connection, initialize the loss detection
    variables as follows:
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Iyengar & Swett            Expires May 9, 2019                 [Page 17]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
+
       loss_detection_timer.reset()
       crypto_count = 0
       tlp_count = 0
@@ -944,15 +972,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
       time_of_last_sent_retransmittable_packet = 0
       time_of_last_sent_crypto_packet = 0
       largest_sent_packet = 0
-
-
-
-
-
-Iyengar & Swett            Expires May 9, 2019                 [Page 17]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
 
 4.6.4.  On Sending a Packet
 
@@ -983,25 +1002,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    packets.
 
    Pseudocode for OnAckReceived and UpdateRtt follow:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
