@@ -424,22 +424,22 @@ Internet-Draft             QUIC Loss Detection             November 2018
    Time threshold loss detection uses a time threshold to determine how
    much reordering to tolerate.  In this document, the threshold is
    expressed as a fraction of an RTT, but implemenantations MAY
-   experiment with absolute thresholds.  This may be used either as a
-   replacement for a packet reordering threshold or in addition to it.
+   experiment with absolute thresholds.  It is recommended this is is
+   used in conjunction with packet threshold fast retransmit.  The
+   RECOMMENDED time threshold, expressed as a fraction of the round-trip
+   time (kTimeReorderingFraction), is 1/8.
 
-   When a larger packet is acknowledged, if it was sent more than the
-   threshold after any in flight packets, those packets are immediately
-   declared lost.  Otherwise, a timer is set for the the reordering
-   threshold minus the time difference between the earliest in flight
-   packet and the largest newly acknowledged packet.  Note that in some
-   cases the timer could become longer when packets are acknowleged out
-   of order.  The RECOMMENDED time threshold, expressed as a fraction of
-   the round-trip time (kTimeReorderingFraction), is 1/8.
-
-   An endpoint SHOULD set the timer such that a packet is marked as lost
-   no earlier than 1.125 * max(SRTT, latest_RTT) since when it was sent.
+   An endpoint SHOULD declare packets lost no earlier than 1.125 *
+   max(SRTT, latest_RTT) after when they were sent.  If packets sent
+   prior to the largest acknowledged packet cannot yet be declared lost,
+   then a timer SHOULD be set for the remainint time.
 
    Using max(SRTT, latest_RTT) protects from the two following cases:
+
+   o  the latest RTT sample is lower than the SRTT, perhaps due to
+      reordering where packet whose ack triggered the Early Retransit
+      process encountered a shorter path;
+
 
 
 
@@ -449,10 +449,6 @@ Iyengar & Swett           Expires May 11, 2019                  [Page 8]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-   o  the latest RTT sample is lower than the SRTT, perhaps due to
-      reordering where packet whose ack triggered the Early Retransit
-      process encountered a shorter path;
 
    o  the latest RTT sample is higher than the SRTT, perhaps due to a
       sustained increase in the actual RTT, but the smoothed SRTT has
@@ -498,6 +494,10 @@ Internet-Draft             QUIC Loss Detection             November 2018
    retransmitted.  If no data can be sent, then no alarm should be armed
    until data has been received from the client.
 
+   Because the server could be blocked until more packets are received,
+   the client MUST start the crypto retransmission timer even if there
+   is no unacknowledged CRYPTO data.  If the timer expires and the
+   client has no CRYPTO data to retransmit and does not have Handshake
 
 
 
@@ -506,10 +506,6 @@ Iyengar & Swett           Expires May 11, 2019                  [Page 9]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
-   Because the server could be blocked until more packets are received,
-   the client MUST start the crypto retransmission timer even if there
-   is no unacknowledged CRYPTO data.  If the timer expires and the
-   client has no CRYPTO data to retransmit and does not have Handshake
    keys, it SHOULD send an Initial packet in a UDP datagram of at least
    1200 bytes.  If the client has Handshake keys, it SHOULD send a
    Handshake packet.
@@ -553,6 +549,10 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    QUIC includes MaxAckDelay in all probe timeouts, because it assumes
    the ack delay may come into play, regardless of the number of packets
+   outstanding.  TCP's TLP assumes if at least 2 packets are
+   outstanding, acks will not be delayed.
+
+
 
 
 
@@ -561,9 +561,6 @@ Iyengar & Swett           Expires May 11, 2019                 [Page 10]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-   outstanding.  TCP's TLP assumes if at least 2 packets are
-   outstanding, acks will not be delayed.
 
    A PTO value of at least 1.5*SRTT ensures that the ACK is overdue.
    The 1.5 is based on [TLP], but implementations MAY experiment with
@@ -610,6 +607,9 @@ Internet-Draft             QUIC Loss Detection             November 2018
    The sender typically has incurred a high latency penalty by the time
    an RTO timer expires, and this penalty increases exponentially in
    subsequent consecutive RTO events.  Sending a single packet on an RTO
+   event therefore makes the connection very sensitive to single packet
+   loss.  Sending two packets instead of one significantly increases
+
 
 
 
@@ -618,8 +618,6 @@ Iyengar & Swett           Expires May 11, 2019                 [Page 11]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
-   event therefore makes the connection very sensitive to single packet
-   loss.  Sending two packets instead of one significantly increases
    resilience to packet drop in both directions, thus reducing the
    probability of consecutive RTO events.
 
@@ -666,6 +664,8 @@ Internet-Draft             QUIC Loss Detection             November 2018
    QUIC recovery algorithms do not assume the peer generates an
    acknowledgement immediately when receiving a second full-packet.
 
+   Out-of-order packets SHOULD be acknowledged more quickly, in order to
+   accelerate loss recovery.  The receiver SHOULD send an immediate ACK
 
 
 
@@ -674,8 +674,6 @@ Iyengar & Swett           Expires May 11, 2019                 [Page 12]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
-   Out-of-order packets SHOULD be acknowledged more quickly, in order to
-   accelerate loss recovery.  The receiver SHOULD send an immediate ACK
    when it receives a new packet which is not one greater than the
    largest received packet number.
 
@@ -722,6 +720,8 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    In cases without ACK frame loss, this algorithm allows for a minimum
    of 1 RTT of reordering.  In cases with ACK frame loss and reordering,
+   this approach does not guarantee that every acknowledgement is seen
+   by the sender before it is no longer included in the ACK frame.
 
 
 
@@ -730,8 +730,6 @@ Iyengar & Swett           Expires May 11, 2019                 [Page 13]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
-   this approach does not guarantee that every acknowledgement is seen
-   by the sender before it is no longer included in the ACK frame.
    Packets could be received out of order and all subsequent ACK frames
    containing them could be lost.  In this case, the loss recovery
    algorithm may cause spurious retransmits, but the sender will
@@ -775,6 +773,8 @@ Internet-Draft             QUIC Loss Detection             November 2018
       UDP or IP overhead, but including QUIC framing overhead.
 
    time:  The time the packet was sent.
+
+
 
 
 
