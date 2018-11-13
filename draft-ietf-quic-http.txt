@@ -127,7 +127,7 @@ Internet-Draft                   HTTP/3                    November 2018
    8.  Error Handling  . . . . . . . . . . . . . . . . . . . . . . .  29
      8.1.  HTTP/3 Error Codes  . . . . . . . . . . . . . . . . . . .  30
    9.  Security Considerations . . . . . . . . . . . . . . . . . . .  31
-   10. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  31
+   10. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  32
      10.1.  Registration of HTTP/3 Identification String . . . . . .  32
      10.2.  Registration of QUIC Version Hint Alt-Svc Parameter  . .  32
      10.3.  Frame Types  . . . . . . . . . . . . . . . . . . . . . .  32
@@ -138,7 +138,7 @@ Internet-Draft                   HTTP/3                    November 2018
      11.1.  Normative References . . . . . . . . . . . . . . . . . .  38
      11.2.  Informative References . . . . . . . . . . . . . . . . .  39
      11.3.  URIs . . . . . . . . . . . . . . . . . . . . . . . . . .  39
-   Appendix A.  Considerations for Transitioning from HTTP/2 . . . .  39
+   Appendix A.  Considerations for Transitioning from HTTP/2 . . . .  40
      A.1.  Streams . . . . . . . . . . . . . . . . . . . . . . . . .  40
      A.2.  HTTP Frame Types  . . . . . . . . . . . . . . . . . . . .  40
      A.3.  HTTP/2 SETTINGS Parameters  . . . . . . . . . . . . . . .  42
@@ -151,7 +151,7 @@ Internet-Draft                   HTTP/3                    November 2018
      B.5.  Since draft-ietf-quic-http-12 . . . . . . . . . . . . . .  45
      B.6.  Since draft-ietf-quic-http-11 . . . . . . . . . . . . . .  45
      B.7.  Since draft-ietf-quic-http-10 . . . . . . . . . . . . . .  45
-     B.8.  Since draft-ietf-quic-http-09 . . . . . . . . . . . . . .  45
+     B.8.  Since draft-ietf-quic-http-09 . . . . . . . . . . . . . .  46
      B.9.  Since draft-ietf-quic-http-08 . . . . . . . . . . . . . .  46
      B.10. Since draft-ietf-quic-http-07 . . . . . . . . . . . . . .  46
      B.11. Since draft-ietf-quic-http-06 . . . . . . . . . . . . . .  46
@@ -849,7 +849,7 @@ Internet-Draft                   HTTP/3                    November 2018
    SETTINGS frame on a different stream, the endpoint MUST respond with
    a connection error of type HTTP_WRONG_STREAM.  If an endpoint
    receives a second SETTINGS frame, the endpoint MUST respond with a
-   connection error of type HTTP_MALFORMED_FRAME.
+   connection error of type HTTP_UNEXPECTED_FRAME.
 
    The SETTINGS frame affects connection state.  A badly formed or
    incomplete SETTINGS frame MUST be treated as a connection error
@@ -991,13 +991,13 @@ Internet-Draft                   HTTP/3                    November 2018
 
    Clients do not need to send GOAWAY to initiate a graceful shutdown;
    they simply stop making new requests.  A server MUST treat receipt of
-   a GOAWAY frame as a connection error (Section 8) of type
-   HTTP_UNEXPECTED_GOAWAY.
+   a GOAWAY frame on any stream as a connection error (Section 8) of
+   type HTTP_UNEXPECTED_FRAME.
 
-   The GOAWAY frame applies to the connection, not a specific stream.
-   An endpoint MUST treat a GOAWAY frame on a stream other than the
-   control stream as a connection error (Section 8) of type
-   HTTP_WRONG_STREAM.
+   The GOAWAY frame applies to the connection, not a specific stream.  A
+   client MUST treat a GOAWAY frame on a stream other than the control
+   stream as a connection error (Section 8) of type
+   HTTP_UNEXPECTED_FRAME.
 
    See Section 6.2 for more information on the use of the GOAWAY frame.
 
@@ -1698,6 +1698,9 @@ Internet-Draft                   HTTP/3                    November 2018
    HTTP_MISSING_SETTINGS (0x0012):  No SETTINGS frame was received at
       the beginning of the control stream.
 
+   HTTP_UNEXPECTED_FRAME (0x0013):  A frame was received which was not
+      permitted in the current state.
+
    HTTP_GENERAL_PROTOCOL_ERROR (0x00FF):  Peer violated protocol
       requirements in a way which doesn't match a more specific error
       code, or endpoint declines to use the more specific error code.
@@ -1725,9 +1728,6 @@ Internet-Draft                   HTTP/3                    November 2018
    implementer.  An implementation MUST ensure that the length of a
    frame exactly matches the length of the fields it contains.
 
-10.  IANA Considerations
-
-
 
 
 
@@ -1737,6 +1737,8 @@ Bishop                    Expires May 17, 2019                 [Page 31]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+10.  IANA Considerations
 
 10.1.  Registration of HTTP/3 Identification String
 
@@ -1783,9 +1785,7 @@ Internet-Draft                   HTTP/3                    November 2018
 
    Code:  The 8-bit code assigned to the frame type.
 
-   Specification:  A reference to a specification that includes a
-      description of the frame layout and its semantics, including any
-      parts of the frame that are conditionally present.
+
 
 
 
@@ -1793,6 +1793,10 @@ Bishop                    Expires May 17, 2019                 [Page 32]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+   Specification:  A reference to a specification that includes a
+      description of the frame layout and its semantics, including any
+      parts of the frame that are conditionally present.
 
    The entries in the following table are registered by this document.
 
@@ -1838,10 +1842,6 @@ Internet-Draft                   HTTP/3                    November 2018
    Settings" registry operates under the "Expert Review" policy
    [RFC8126] for values in the range from 0x0000 to 0xefff, with values
    between and 0xf000 and 0xffff being reserved for Experimental Use.
-   The designated experts are the same as those for the "HTTP/2
-   Settings" registry defined in [RFC7540].
-
-
 
 
 
@@ -1849,6 +1849,9 @@ Bishop                    Expires May 17, 2019                 [Page 33]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+   The designated experts are the same as those for the "HTTP/2
+   Settings" registry defined in [RFC7540].
 
    While this registry is separate from the "HTTP/2 Settings" registry
    defined in [RFC7540], it is preferable that the assignments parallel
@@ -1894,9 +1897,6 @@ Internet-Draft                   HTTP/3                    November 2018
 
    This document establishes a registry for HTTP/3 error codes.  The
    "HTTP/3 Error Code" registry manages a 16-bit space.  The "HTTP/3
-   Error Code" registry operates under the "Expert Review" policy
-   [RFC8126].
-
 
 
 
@@ -1905,6 +1905,9 @@ Bishop                    Expires May 17, 2019                 [Page 34]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+   Error Code" registry operates under the "Expert Review" policy
+   [RFC8126].
 
    Registrations for error codes are required to include a description
    of the error code.  An expert reviewer is advised to examine new
@@ -1951,9 +1954,6 @@ Internet-Draft                   HTTP/3                    November 2018
    | HTTP_INCOMPLETE_REQUEST   | 0x000 | Stream        | Section 8.1   |
    |                           | 6     | terminated    |               |
    |                           |       | early         |               |
-   |                           |       |               |               |
-   | HTTP_CONNECT_ERROR        | 0x000 | TCP reset or  | Section 8.1   |
-   |                           | 7     | error on      |               |
 
 
 
@@ -1962,6 +1962,9 @@ Bishop                    Expires May 17, 2019                 [Page 35]
 Internet-Draft                   HTTP/3                    November 2018
 
 
+   |                           |       |               |               |
+   | HTTP_CONNECT_ERROR        | 0x000 | TCP reset or  | Section 8.1   |
+   |                           | 7     | error on      |               |
    |                           |       | CONNECT       |               |
    |                           |       | request       |               |
    |                           |       |               |               |
@@ -2007,9 +2010,6 @@ Internet-Draft                   HTTP/3                    November 2018
    |                           |       | needed        |               |
    |                           |       |               |               |
    | HTTP_MISSING_SETTINGS     | 0x001 | No SETTINGS   | Section 8.1   |
-   |                           | 2     | frame         |               |
-   |                           |       | received      |               |
-   |                           |       |               |               |
 
 
 
@@ -2018,10 +2018,17 @@ Bishop                    Expires May 17, 2019                 [Page 36]
 Internet-Draft                   HTTP/3                    November 2018
 
 
+   |                           | 2     | frame         |               |
+   |                           |       | received      |               |
+   |                           |       |               |               |
+   | HTTP_UNEXPECTED_FRAME     | 0x001 | Frame not     | Section 8.1   |
+   |                           | 3     | permitted in  |               |
+   |                           |       | the current   |               |
+   |                           |       | state         |               |
+   |                           |       |               |               |
    | HTTP_MALFORMED_FRAME      | 0x01X | Error in      | Section 8.1   |
    |                           | X     | frame         |               |
-   |                           |       | formatting or |               |
-   |                           |       | use           |               |
+   |                           |       | formatting    |               |
    +---------------------------+-------+---------------+---------------+
 
 10.6.  Stream Types
@@ -2058,6 +2065,15 @@ Internet-Draft                   HTTP/3                    November 2018
 
    Additionally, for each code of the format "0x1f * N" for values of N
    in the range (0..8) (that is, "0x00", "0x1f", "0x3e", "0x5d", "0x7c",
+
+
+
+
+Bishop                    Expires May 17, 2019                 [Page 37]
+
+Internet-Draft                   HTTP/3                    November 2018
+
+
    "0x9b", "0xba", "0xd9", "0xf8"), the following values should be
    registered:
 
@@ -2066,13 +2082,6 @@ Internet-Draft                   HTTP/3                    November 2018
    Specification:  Section 3.2.3
 
    Sender:  Both
-
-
-
-Bishop                    Expires May 17, 2019                 [Page 37]
-
-Internet-Draft                   HTTP/3                    November 2018
-
 
 11.  References
 
@@ -2110,15 +2119,6 @@ Internet-Draft                   HTTP/3                    November 2018
               DOI 10.17487/RFC6066, January 2011,
               <https://www.rfc-editor.org/info/rfc6066>.
 
-   [RFC7230]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
-              Protocol (HTTP/1.1): Message Syntax and Routing",
-              RFC 7230, DOI 10.17487/RFC7230, June 2014,
-              <https://www.rfc-editor.org/info/rfc7230>.
-
-   [RFC7231]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
-              Protocol (HTTP/1.1): Semantics and Content", RFC 7231,
-              DOI 10.17487/RFC7231, June 2014,
-              <https://www.rfc-editor.org/info/rfc7231>.
 
 
 
@@ -2129,6 +2129,16 @@ Bishop                    Expires May 17, 2019                 [Page 38]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+   [RFC7230]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
+              Protocol (HTTP/1.1): Message Syntax and Routing",
+              RFC 7230, DOI 10.17487/RFC7230, June 2014,
+              <https://www.rfc-editor.org/info/rfc7230>.
+
+   [RFC7231]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
+              Protocol (HTTP/1.1): Semantics and Content", RFC 7231,
+              DOI 10.17487/RFC7231, June 2014,
+              <https://www.rfc-editor.org/info/rfc7231>.
 
    [RFC7540]  Belshe, M., Peon, R., and M. Thomson, Ed., "Hypertext
               Transfer Protocol Version 2 (HTTP/2)", RFC 7540,
@@ -2165,6 +2175,17 @@ Internet-Draft                   HTTP/3                    November 2018
 
    [4] https://www.iana.org/assignments/message-headers
 
+
+
+
+
+
+
+Bishop                    Expires May 17, 2019                 [Page 39]
+
+Internet-Draft                   HTTP/3                    November 2018
+
+
 Appendix A.  Considerations for Transitioning from HTTP/2
 
    HTTP/3 is strongly informed by HTTP/2, and bears many similarities.
@@ -2177,15 +2198,6 @@ Appendix A.  Considerations for Transitioning from HTTP/2
    primarily where necessary to accommodate the differences in behavior
    between QUIC and TCP (lack of ordering, support for streams).  We
    intend to avoid gratuitous changes which make it difficult or
-
-
-
-
-Bishop                    Expires May 17, 2019                 [Page 39]
-
-Internet-Draft                   HTTP/3                    November 2018
-
-
    impossible to build extensions with the same semantics applicable to
    both protocols at once.
 
@@ -2222,6 +2234,14 @@ A.2.  HTTP Frame Types
    Many of the differences arise from the fact that HTTP/2 provides an
    absolute ordering between frames across all streams, while QUIC
    provides this guarantee on each stream only.  As a result, if a frame
+
+
+
+Bishop                    Expires May 17, 2019                 [Page 40]
+
+Internet-Draft                   HTTP/3                    November 2018
+
+
    type makes assumptions that frames from different streams will still
    be received in the order sent, HTTP/3 will break them.
 
@@ -2233,15 +2253,6 @@ A.2.  HTTP Frame Types
    consistent view of the stream dependency tree.  HTTP/2 specifies
    priority assignments in PRIORITY frames and (optionally) in HEADERS
    frames.  To achieve in-order delivery of priority changes in HTTP/3,
-
-
-
-
-Bishop                    Expires May 17, 2019                 [Page 40]
-
-Internet-Draft                   HTTP/3                    November 2018
-
-
    PRIORITY frames are sent on the control stream and the PRIORITY
    section is removed from the HEADERS frame.
 
@@ -2279,6 +2290,14 @@ Internet-Draft                   HTTP/3                    November 2018
       not supported.  A separate PRIORITY frame MUST be used.  Padding
       is not defined in HTTP/3 frames.  See Section 4.2.2.
 
+
+
+
+Bishop                    Expires May 17, 2019                 [Page 41]
+
+Internet-Draft                   HTTP/3                    November 2018
+
+
    PRIORITY (0x2):  As described above, the PRIORITY frame is sent on
       the control stream and can reference a variety of identifiers.
       See Section 4.2.3.
@@ -2289,14 +2308,6 @@ Internet-Draft                   HTTP/3                    November 2018
 
    SETTINGS (0x4):  SETTINGS frames are sent only at the beginning of
       the connection.  See Section 4.2.5 and Appendix A.3.
-
-
-
-
-Bishop                    Expires May 17, 2019                 [Page 41]
-
-Internet-Draft                   HTTP/3                    November 2018
-
 
    PUSH_PROMISE (0x5):  The PUSH_PROMISE does not reference a stream;
       instead the push stream references the PUSH_PROMISE frame using a
@@ -2336,6 +2347,13 @@ A.3.  HTTP/2 SETTINGS Parameters
    SETTINGS_ENABLE_PUSH:  This is removed in favor of the MAX_PUSH_ID
       which provides a more granular control over server push.
 
+
+
+Bishop                    Expires May 17, 2019                 [Page 42]
+
+Internet-Draft                   HTTP/3                    November 2018
+
+
    SETTINGS_MAX_CONCURRENT_STREAMS:  QUIC controls the largest open
       Stream ID as part of its flow control logic.  Specifying
       SETTINGS_MAX_CONCURRENT_STREAMS in the SETTINGS frame is an error.
@@ -2344,15 +2362,6 @@ A.3.  HTTP/2 SETTINGS Parameters
       connection flow control window sizes to be specified in the
       initial transport handshake.  Specifying
       SETTINGS_INITIAL_WINDOW_SIZE in the SETTINGS frame is an error.
-
-
-
-
-
-Bishop                    Expires May 17, 2019                 [Page 42]
-
-Internet-Draft                   HTTP/3                    November 2018
-
 
    SETTINGS_MAX_FRAME_SIZE:  This setting has no equivalent in HTTP/3.
       Specifying it in the SETTINGS frame is an error.
@@ -2393,6 +2402,14 @@ A.4.  HTTP/2 Error Codes
    SETTINGS_TIMEOUT (0x4):  Not applicable, since no acknowledgement of
       SETTINGS is defined.
 
+
+
+
+Bishop                    Expires May 17, 2019                 [Page 43]
+
+Internet-Draft                   HTTP/3                    November 2018
+
+
    STREAM_CLOSED (0x5):  Not applicable, since QUIC handles stream
       management.  Would provoke a QUIC_STREAM_DATA_AFTER_TERMINATION
       from the QUIC layer.
@@ -2402,13 +2419,6 @@ A.4.  HTTP/2 Error Codes
 
    REFUSED_STREAM (0x7):  Not applicable, since QUIC handles stream
       management.  Would provoke a STREAM_ID_ERROR from the QUIC layer.
-
-
-
-Bishop                    Expires May 17, 2019                 [Page 43]
-
-Internet-Draft                   HTTP/3                    November 2018
-
 
    CANCEL (0x8):  HTTP_REQUEST_CANCELLED in Section 8.1.
 
@@ -2447,16 +2457,6 @@ B.3.  Since draft-ietf-quic-http-14
 
    o  Define error for missing SETTINGS frame (#1697,#1808)
 
-   o  Setting values are variable-length integers (#1556,#1807) and do
-      not have separate maximum values (#1820)
-
-   o  Expanded discussion of connection closure (#1599,#1717,#1712)
-
-   o  HTTP_VERSION_FALLBACK falls back to HTTP/1.1 (#1677,#1685)
-
-
-
-
 
 
 
@@ -2465,6 +2465,13 @@ Bishop                    Expires May 17, 2019                 [Page 44]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+   o  Setting values are variable-length integers (#1556,#1807) and do
+      not have separate maximum values (#1820)
+
+   o  Expanded discussion of connection closure (#1599,#1717,#1712)
+
+   o  HTTP_VERSION_FALLBACK falls back to HTTP/1.1 (#1677,#1685)
 
 B.4.  Since draft-ietf-quic-http-13
 
@@ -2506,6 +2513,15 @@ B.7.  Since draft-ietf-quic-http-10
    o  Settings need to be remembered when attempting and accepting 0-RTT
       (#1157, #1207)
 
+
+
+
+
+Bishop                    Expires May 17, 2019                 [Page 45]
+
+Internet-Draft                   HTTP/3                    November 2018
+
+
 B.8.  Since draft-ietf-quic-http-09
 
    o  Selected QCRAM for header compression (#228, #1117)
@@ -2514,13 +2530,6 @@ B.8.  Since draft-ietf-quic-http-09
 
    o  Specified handling of unsupported versions in Alt-Svc (#1093,
       #1097)
-
-
-
-Bishop                    Expires May 17, 2019                 [Page 45]
-
-Internet-Draft                   HTTP/3                    November 2018
-
 
 B.9.  Since draft-ietf-quic-http-08
 
@@ -2561,15 +2570,6 @@ B.13.  Since draft-ietf-quic-http-04
 
    o  Restored GOAWAY (#696)
 
-   o  Identify server push using Push ID rather than a stream ID
-      (#702,#281)
-
-   o  DATA frames cannot be empty (#700)
-
-
-
-
-
 
 
 
@@ -2577,6 +2577,11 @@ Bishop                    Expires May 17, 2019                 [Page 46]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+   o  Identify server push using Push ID rather than a stream ID
+      (#702,#281)
+
+   o  DATA frames cannot be empty (#700)
 
 B.14.  Since draft-ietf-quic-http-03
 
@@ -2622,17 +2627,17 @@ B.17.  Since draft-ietf-quic-http-00
    o  Adopted SETTINGS format from draft-bishop-httpbis-extended-
       settings-01
 
-   o  Reworked SETTINGS_ACK to account for indeterminate inter-stream
-      order (#75)
-
-   o  Described CONNECT pseudo-method (#95)
-
 
 
 Bishop                    Expires May 17, 2019                 [Page 47]
 
 Internet-Draft                   HTTP/3                    November 2018
 
+
+   o  Reworked SETTINGS_ACK to account for indeterminate inter-stream
+      order (#75)
+
+   o  Described CONNECT pseudo-method (#95)
 
    o  Updated ALPN token and Alt-Svc guidance (#13,#87)
 
@@ -2658,11 +2663,6 @@ Author's Address
    Akamai
 
    Email: mbishop@evequefou.be
-
-
-
-
-
 
 
 
