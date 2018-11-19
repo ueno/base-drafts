@@ -457,7 +457,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    QUIC allows for an arbitrary number of streams to operate
    concurrently and for an arbitrary amount of data to be sent on any
-   stream, subject to flow control constraints (see Section 4).
+   stream, subject to flow control constraints (see Section 4) and
+   stream limits.
 
 2.1.  Stream Types and Identifiers
 
@@ -496,7 +497,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
                 +------+----------------------------------+
 
                          Table 1: Stream ID Types
-
 
 
 
@@ -998,8 +998,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    on a stream at any time, as described in Section 4.1 and Section 4.2
 
    Similarly, to limit concurrency within a connection, a QUIC endpoint
-   controls the maximum number of streams that its peer can initiate at
-   any time, as described in Section 4.5.
+   controls the maximum cumulative number of streams that its peer can
+   initiate, as described in Section 4.5.
 
 
 
@@ -1189,11 +1189,12 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
 4.5.  Controlling Concurrency
 
-   An endpoint controls concurrency by limiting the total number of
-   incoming streams.  An initial value is set in the transport
-   parameters (see Section 18.1) and subsequently increments are
-   advertised using MAX_STREAMS frames (Section 19.11).  Separate limits
-   apply to unidirectional and bidirectional streams.
+   An endpoint limits the cumulative number of incoming streams a peer
+   can open.  Only steams with a stream id less than (max_stream * 4 +
+   initial_stream_id_for_type) can be opened.  Initial limits are set in
+   the transport parameters (see Section 18.1) and subsequently limits
+   are advertised using MAX_STREAMS frames (Section 19.11).  Separate
+   limits apply to unidirectional and bidirectional streams.
 
    Endpoints MUST NOT exceed the limit set by their peer.  An endpoint
    that receives a STREAM frame with a stream ID exceeding the limit it
@@ -1225,7 +1226,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    endpoints.  QUIC's connection establishment combines version
    negotiation with the cryptographic and transport handshakes to reduce
    connection establishment latency, as described in Section 7.  Once
-   established, a connection may migrate to a different IP or port at
 
 
 
@@ -1234,6 +1234,7 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 22]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+   established, a connection may migrate to a different IP or port at
    either endpoint as described in Section 9.  Finally, a connection may
    be terminated by either endpoint, as described in Section 10.
 
@@ -1281,7 +1282,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    selected a zero-length connection ID MUST continue to use a zero-
    length connection ID for the lifetime of the connection and MUST NOT
    send packets from any other local address.
-
 
 
 
@@ -5748,9 +5748,10 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 19.11.  MAX_STREAMS Frames
 
    The MAX_STREAMS frames (type=0x12 and 0x13) inform the peer of the
-   number of streams it is permitted to open.  A MAX_STREAMS frame with
-   a type of 0x12 applies to bidirectional streams, and a MAX_STREAMS
-   frame with a type of 0x13 applies to unidirectional streams.
+   cumulative number of streams of a given type it is permitted to open.
+   A MAX_STREAMS frame with a type of 0x12 applies to bidirectional
+   streams, and a MAX_STREAMS frame with a type of 0x13 applies to
+   unidirectional streams.
 
    The MAX_STREAMS frames are as follows:
 
@@ -5764,14 +5765,14 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
 
 
-
 Iyengar & Thomson         Expires May 23, 2019                [Page 103]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   Maximum Streams:  A count of the total number of streams of the
-      corresponding type that can be opened.
+   Maximum Streams:  A count of the cumulative number of streams of the
+      corresponding type that can be opened over the lifetime of the
+      connection.
 
    Loss or reordering can cause a MAX_STREAMS frame to be received which
    states a lower stream limit than an endpoint has previously received.
@@ -5816,8 +5817,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    wishes to send data, but is unable to due to stream-level flow
    control.  This frame is analogous to DATA_BLOCKED (Section 19.12).
 
-   An endpoint that receives a STREAM_DATA_BLOCKED frame for a send-only
-   stream MUST terminate the connection with error PROTOCOL_VIOLATION.
+
 
 
 
@@ -5825,6 +5825,9 @@ Iyengar & Thomson         Expires May 23, 2019                [Page 104]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   An endpoint that receives a STREAM_DATA_BLOCKED frame for a send-only
+   stream MUST terminate the connection with error PROTOCOL_VIOLATION.
 
    The STREAM_DATA_BLOCKED frame is as follows:
 
@@ -5869,9 +5872,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    Stream Limit:  A variable-length integer indicating the stream limit
       at the time the frame was sent.
-
-
-
 
 
 

@@ -974,7 +974,7 @@ ul.toc li {
 <p id="rfc.section.2.p.1">Streams in QUIC provide a lightweight, ordered byte-stream abstraction to an application. An alternative view of QUIC streams is as an elastic &#8220;message&#8221; abstraction.</p>
 <p id="rfc.section.2.p.2">Streams can be created by sending data. Other processes associated with stream management - ending, cancelling, and managing flow control - are all designed to impose minimal overheads. For instance, a single STREAM frame (<a href="#frame-stream" class="xref">Section 19.8</a>) can open, carry data for, and close a stream. Streams can also be long-lived and can last the entire duration of a connection.</p>
 <p id="rfc.section.2.p.3">Streams can be created by either endpoint, can concurrently send data interleaved with other streams, and can be cancelled.  Any stream can be initiated by either endpoint.  QUIC does not provide any means of ensuring ordering between bytes on different streams.</p>
-<p id="rfc.section.2.p.4">QUIC allows for an arbitrary number of streams to operate concurrently and for an arbitrary amount of data to be sent on any stream, subject to flow control constraints (see <a href="#flow-control" class="xref">Section 4</a>).</p>
+<p id="rfc.section.2.p.4">QUIC allows for an arbitrary number of streams to operate concurrently and for an arbitrary amount of data to be sent on any stream, subject to flow control constraints (see <a href="#flow-control" class="xref">Section 4</a>) and stream limits.</p>
 <h2 id="rfc.section.2.1">
 <a href="#rfc.section.2.1">2.1.</a> <a href="#stream-id" id="stream-id">Stream Types and Identifiers</a>
 </h2>
@@ -1240,7 +1240,7 @@ ul.toc li {
 <a href="#rfc.section.4">4.</a> <a href="#flow-control" id="flow-control">Flow Control</a>
 </h1>
 <p id="rfc.section.4.p.1">It is necessary to limit the amount of data that a receiver could buffer, to prevent a fast sender from overwhelming a slow receiver, or to prevent a malicious sender from consuming a large amount of memory at a receiver.  To enable a receiver to limit memory commitment to a connection and to apply back pressure on the sender, streams are flow controlled both individually and as an aggregate.  A QUIC receiver controls the maximum amount of data the sender can send on a stream at any time, as described in <a href="#data-flow-control" class="xref">Section 4.1</a> and <a href="#fc-credit" class="xref">Section 4.2</a></p>
-<p id="rfc.section.4.p.2">Similarly, to limit concurrency within a connection, a QUIC endpoint controls the maximum number of streams that its peer can initiate at any time, as described in <a href="#controlling-concurrency" class="xref">Section 4.5</a>.</p>
+<p id="rfc.section.4.p.2">Similarly, to limit concurrency within a connection, a QUIC endpoint controls the maximum cumulative number of streams that its peer can initiate, as described in <a href="#controlling-concurrency" class="xref">Section 4.5</a>.</p>
 <p id="rfc.section.4.p.3">Data sent in CRYPTO frames is not flow controlled in the same way as stream data.  QUIC relies on the cryptographic protocol implementation to avoid excessive buffering of data, see <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>.  The implementation SHOULD provide an interface to QUIC to tell it about its buffering limits so that there is not excessive buffering at multiple layers.</p>
 <h2 id="rfc.section.4.1">
 <a href="#rfc.section.4.1">4.1.</a> <a href="#data-flow-control" id="data-flow-control">Data Flow Control</a>
@@ -1283,7 +1283,7 @@ ul.toc li {
 <h2 id="rfc.section.4.5">
 <a href="#rfc.section.4.5">4.5.</a> <a href="#controlling-concurrency" id="controlling-concurrency">Controlling Concurrency</a>
 </h2>
-<p id="rfc.section.4.5.p.1">An endpoint controls concurrency by limiting the total number of incoming streams.  An initial value is set in the transport parameters (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) and subsequently increments are advertised using MAX_STREAMS frames (<a href="#frame-max-streams" class="xref">Section 19.11</a>).  Separate limits apply to unidirectional and bidirectional streams.</p>
+<p id="rfc.section.4.5.p.1">An endpoint limits the cumulative number of incoming streams a peer can open.  Only steams with a stream id less than (max_stream * 4 + initial_stream_id_for_type) can be opened.  Initial limits are set in the transport parameters (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) and subsequently limits are advertised using MAX_STREAMS frames (<a href="#frame-max-streams" class="xref">Section 19.11</a>). Separate limits apply to unidirectional and bidirectional streams.</p>
 <p id="rfc.section.4.5.p.2">Endpoints MUST NOT exceed the limit set by their peer.  An endpoint that receives a STREAM frame with a stream ID exceeding the limit it has sent MUST treat this as a stream error of type STREAM_LIMIT_ERROR (<a href="#error-handling" class="xref">Section 11</a>).</p>
 <p id="rfc.section.4.5.p.3">A receiver cannot renege on an advertisement. That is, once a receiver advertises a stream limit using the MAX_STREAMS frame, advertising a smaller limit has no effect.  A receiver MUST ignore any MAX_STREAMS frame that does not increase the stream limit.</p>
 <p id="rfc.section.4.5.p.4">As with stream and connection flow control, this document leaves when and how many streams to advertise to a peer via MAX_STREAMS to implementations.  Implementations might choose to increase limits as streams close to keep the number of streams available to peers roughly consistent.</p>
@@ -2965,7 +2965,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.19.11">
 <a href="#rfc.section.19.11">19.11.</a> <a href="#frame-max-streams" id="frame-max-streams">MAX_STREAMS Frames</a>
 </h2>
-<p id="rfc.section.19.11.p.1">The MAX_STREAMS frames (type=0x12 and 0x13) inform the peer of the number of streams it is permitted to open.  A MAX_STREAMS frame with a type of 0x12 applies to bidirectional streams, and a MAX_STREAMS frame with a type of 0x13 applies to unidirectional streams.</p>
+<p id="rfc.section.19.11.p.1">The MAX_STREAMS frames (type=0x12 and 0x13) inform the peer of the cumulative number of streams of a given type it is permitted to open.  A MAX_STREAMS frame with a type of 0x12 applies to bidirectional streams, and a MAX_STREAMS frame with a type of 0x13 applies to unidirectional streams.</p>
 <p id="rfc.section.19.11.p.2">The MAX_STREAMS frames are as follows:</p>
 <pre>
  0                   1                   2                   3
@@ -2979,7 +2979,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 
 <dl>
 <dt>Maximum Streams:</dt>
-<dd style="margin-left: 8">A count of the total number of streams of the corresponding type that can be opened.</dd>
+<dd style="margin-left: 8">A count of the cumulative number of streams of the corresponding type that can be opened over the lifetime of the connection.</dd>
 </dl>
 <p id="rfc.section.19.11.p.5">Loss or reordering can cause a MAX_STREAMS frame to be received which states a lower stream limit than an endpoint has previously received.  MAX_STREAMS frames which do not increase the stream limit MUST be ignored.</p>
 <p id="rfc.section.19.11.p.6">An endpoint MUST NOT open more streams than permitted by the current stream limit set by its peer.  For instance, a server that receives a unidirectional stream limit of 3 is permitted to open stream 3, 7, and 11, but not stream 15.  An endpoint MUST terminate a connection with a STREAM_LIMIT_ERROR error if a peer opens more streams than was permitted.</p>
