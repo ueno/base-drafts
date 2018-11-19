@@ -2922,9 +2922,10 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    A stateless reset is provided as an option of last resort for an
    endpoint that does not have access to the state of a connection.  A
    crash or outage might result in peers continuing to send data to an
-   endpoint that is unable to properly continue the connection.  An
-   endpoint that wishes to communicate a fatal connection error MUST use
-   a CONNECTION_CLOSE frame if it has sufficient state to do so.
+   endpoint that is unable to properly continue the connection.  A
+   stateless reset is not appropriate for signaling error conditions.
+   An endpoint that wishes to communicate a fatal connection error MUST
+   use a CONNECTION_CLOSE frame if it has sufficient state to do so.
 
    To support this process, a token is sent by endpoints.  The token is
    carried in the NEW_CONNECTION_ID frame sent by either peer, and
@@ -2960,7 +2961,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    This design ensures that a stateless reset packet is - to the extent
    possible - indistinguishable from a regular packet with a short
    header.
-
 
 
 
@@ -3032,10 +3032,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    Finally, the last 16 bytes of the packet are set to the value of the
    Stateless Reset Token.
 
-   A stateless reset is not appropriate for signaling error conditions.
-   An endpoint that wishes to communicate a fatal connection error MUST
-   use a CONNECTION_CLOSE frame if it has sufficient state to do so.
-
    This stateless reset design is specific to QUIC version 1.  An
    endpoint that supports multiple versions of QUIC needs to generate a
    stateless reset that will be accepted by peers that support any
@@ -3075,16 +3071,16 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    output of this function is truncated to 16 bytes to produce the
    Stateless Reset Token for that connection.
 
+   An endpoint that loses state can use the same method to generate a
+   valid Stateless Reset Token.  The connection ID comes from the packet
+   that the endpoint receives.
+
 
 
 Iyengar & Thomson         Expires May 23, 2019                 [Page 55]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   An endpoint that loses state can use the same method to generate a
-   valid Stateless Reset Token.  The connection ID comes from the packet
-   that the endpoint receives.
 
    This design relies on the peer always sending a connection ID in its
    packets so that the endpoint can use the connection ID from a packet
@@ -3130,6 +3126,10 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    Reducing the size of a Stateless Reset below the recommended minimum
    size of 37 bytes could mean that the packet could reveal to an
+   observer that it is a Stateless Reset.  Conversely, refusing to send
+   a Stateless Reset in response to a small packet might result in
+   Stateless Reset not being useful in detecting cases of broken
+
 
 
 
@@ -3138,9 +3138,6 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 56]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   observer that it is a Stateless Reset.  Conversely, refusing to send
-   a Stateless Reset in response to a small packet might result in
-   Stateless Reset not being useful in detecting cases of broken
    connections where only very small packets are sent; such failures
    might only be detected by other means, such as timers.
 
@@ -3185,6 +3182,9 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    endpoint SHOULD be prepared to retransmit a packet containing
    containing a CONNECTION_CLOSE frame if it receives more packets on a
    terminated connection.  Limiting the number of retransmissions and
+   the time over which this final packet is sent limits the effort
+   expended on terminated connections.
+
 
 
 
@@ -3193,9 +3193,6 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 57]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   the time over which this final packet is sent limits the effort
-   expended on terminated connections.
 
    An endpoint that chooses not to retransmit packets containing a
    CONNECTION_CLOSE frame risks a peer missing the first such packet.
@@ -3240,6 +3237,9 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    Version negotiation uses a packet with a special format (see
    Section 17.4).
+
+
+
 
 
 
