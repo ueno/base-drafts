@@ -95,7 +95,7 @@ Table of Contents
      4.3.  Handling Stream Cancellation  . . . . . . . . . . . . . .  21
      4.4.  Stream Final Offset . . . . . . . . . . . . . . . . . . .  21
      4.5.  Controlling Concurrency . . . . . . . . . . . . . . . . .  22
-   5.  Connections . . . . . . . . . . . . . . . . . . . . . . . . .  22
+   5.  Connections . . . . . . . . . . . . . . . . . . . . . . . . .  23
      5.1.  Connection ID . . . . . . . . . . . . . . . . . . . . . .  23
        5.1.1.  Issuing Connection IDs  . . . . . . . . . . . . . . .  24
        5.1.2.  Consuming and Retiring Connection IDs . . . . . . . .  25
@@ -733,7 +733,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
           o
           | Recv STREAM / STREAM_DATA_BLOCKED / RESET_STREAM
           | Create Bidirectional Stream (Sending)
-          | Recv MAX_STREAM_DATA
+          | Recv MAX_STREAM_DATA / STOP_SENDING (Bidirectional)
           | Create Higher-Numbered Stream
           v
       +-------+
@@ -766,18 +766,18 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    The receiving part of a stream initiated by a peer (types 1 and 3 for
    a client, or 0 and 2 for a server) is created when the first STREAM,
-   STREAM_DATA_BLOCKED, RESET_STREAM, or MAX_STREAM_DATA (bidirectional
-   only, see below) is received for that stream.  The initial state for
-   a receive stream is "Recv".
+   STREAM_DATA_BLOCKED, or RESET_STREAM is received for that stream.
+   For bidirectional streams initiated by a peer, receipt of a
+   MAX_STREAM_DATA or STOP_SENDING frame for the sending part of the
+   stream also creates the receiving part.  The initial state for a
+   receive stream is "Recv".
 
    The receive stream enters the "Recv" state when the sending part of a
    bidirectional stream initiated by the endpoint (type 0 for a client,
    type 1 for a server) enters the "Ready" state.
 
-   An endpoint opens a bidirectional stream when a MAX_STREAM_DATA frame
-   is received from the peer for that stream.  Receiving a
-   MAX_STREAM_DATA frame for an unopened stream indicates that the
-   remote peer has opened the stream and is providing flow control
+   An endpoint opens a bidirectional stream when a MAX_STREAM_DATA or
+   STOP_SENDING frame is received from the peer for that stream.
 
 
 
@@ -786,7 +786,11 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 14]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   credit.  A MAX_STREAM_DATA frame might arrive before a STREAM or
+   Receiving a MAX_STREAM_DATA frame for an unopened stream indicates
+   that the remote peer has opened the stream and is providing flow
+   control credit.  Receiving a STOP_SENDING frame for an unopened
+   stream indicates that the remote peer no longer wishes to receive
+   data on this stream.  Either frame might arrive before a STREAM or
    STREAM_DATA_BLOCKED frame if packets are lost or reordered.
 
    Before creating a stream, all streams of the same type with lower-
@@ -830,10 +834,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    however there is no requirement that stream data not be delivered if
    a RESET_STREAM is received.  An implementation MAY interrupt delivery
    of stream data, discard any data that was not consumed, and signal
-   the receipt of the RESET_STREAM immediately.  Alternatively, the
-   RESET_STREAM signal might be suppressed or withheld if stream data is
-   completely received and is buffered to be read by the application.
-
 
 
 
@@ -842,6 +842,9 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 15]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+   the receipt of the RESET_STREAM immediately.  Alternatively, the
+   RESET_STREAM signal might be suppressed or withheld if stream data is
+   completely received and is buffered to be read by the application.
    In the latter case, the receive stream transitions from "Reset Recvd"
    to "Data Recvd".
 
@@ -887,9 +890,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    that loosely correspond to the stream states in HTTP/2 [HTTP2].  This
    shows that multiple states on send or receive streams are mapped to
    the same composite state.  Note that this is just one possibility for
-   such a mapping; this mapping requires that data is acknowledged
-   before the transition to a "closed" or "half-closed" state.
-
 
 
 
@@ -897,6 +897,9 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 16]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   such a mapping; this mapping requires that data is acknowledged
+   before the transition to a "closed" or "half-closed" state.
 
    +-----------------------+---------------------+---------------------+
    | Send Stream           | Receive Stream      | Composite State     |
@@ -943,9 +946,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    a stream, it MAY send a STOP_SENDING frame identifying that stream to
    prompt closure of the stream in the opposite direction.  This
    typically indicates that the receiving application is no longer
-   reading data it receives from the stream, but it is not a guarantee
-   that incoming data will be ignored.
-
 
 
 
@@ -953,6 +953,9 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 17]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   reading data it receives from the stream, but it is not a guarantee
+   that incoming data will be ignored.
 
    STREAM frames received after sending STOP_SENDING are still counted
    toward connection and stream flow control, even though these frames
@@ -997,9 +1000,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    QUIC receiver controls the maximum amount of data the sender can send
    on a stream at any time, as described in Section 4.1 and Section 4.2
 
-   Similarly, to limit concurrency within a connection, a QUIC endpoint
-   controls the maximum cumulative number of streams that its peer can
-   initiate, as described in Section 4.5.
 
 
 
@@ -1009,6 +1009,10 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 18]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   Similarly, to limit concurrency within a connection, a QUIC endpoint
+   controls the maximum cumulative number of streams that its peer can
+   initiate, as described in Section 4.5.
 
    Data sent in CRYPTO frames is not flow controlled in the same way as
    stream data.  QUIC relies on the cryptographic protocol
@@ -1053,10 +1057,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    control violations.  A receiver might use a sum of bytes consumed on
    all streams to determine the maximum data limit to be advertised.
 
-   A receiver can advertise a larger offset by sending MAX_STREAM_DATA
-   or MAX_DATA frames at any time during the connection.  A receiver
-   cannot renege on an advertisement however.  That is, once a receiver
-   advertises an offset, advertising a smaller offset has no effect.  A
 
 
 
@@ -1066,6 +1066,10 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 19]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+   A receiver can advertise a larger offset by sending MAX_STREAM_DATA
+   or MAX_DATA frames at any time during the connection.  A receiver
+   cannot renege on an advertisement however.  That is, once a receiver
+   advertises an offset, advertising a smaller offset has no effect.  A
    sender MUST therefore ignore any MAX_STREAM_DATA or MAX_DATA frames
    that do not increase flow control limits.
 
@@ -1111,10 +1115,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    receiver should send a MAX_DATA or MAX_STREAM_DATA frame at least two
    round trips before it expects the sender to get blocked.
 
-   A receiver MUST NOT wait for a STREAM_DATA_BLOCKED or DATA_BLOCKED
-   frame before sending MAX_STREAM_DATA or MAX_DATA, since doing so will
-   mean that a sender will be blocked for at least an entire round trip,
-
 
 
 Iyengar & Thomson         Expires May 23, 2019                 [Page 20]
@@ -1122,6 +1122,9 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 20]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+   A receiver MUST NOT wait for a STREAM_DATA_BLOCKED or DATA_BLOCKED
+   frame before sending MAX_STREAM_DATA or MAX_DATA, since doing so will
+   mean that a sender will be blocked for at least an entire round trip,
    and potentially for longer if the peer chooses to not send
    STREAM_DATA_BLOCKED or DATA_BLOCKED frames.
 
@@ -1168,9 +1171,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    An endpoint MUST NOT send data on a stream at or beyond the final
    offset.
 
-   Once a final offset for a stream is known, it cannot change.  If a
-   RESET_STREAM or STREAM frame is received indicating a change in the
-
 
 
 Iyengar & Thomson         Expires May 23, 2019                 [Page 21]
@@ -1178,6 +1178,8 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 21]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+   Once a final offset for a stream is known, it cannot change.  If a
+   RESET_STREAM or STREAM frame is received indicating a change in the
    final offset for the stream, an endpoint SHOULD respond with a
    FINAL_OFFSET_ERROR error (see Section 11).  A receiver SHOULD treat
    receipt of data at or beyond the final offset as a FINAL_OFFSET_ERROR
@@ -1220,12 +1222,10 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    entire round trip, and potentially for longer if the peer chooses to
    not send STREAMS_BLOCKED frames.
 
-5.  Connections
 
-   A QUIC connection is a single conversation between two QUIC
-   endpoints.  QUIC's connection establishment combines version
-   negotiation with the cryptographic and transport handshakes to reduce
-   connection establishment latency, as described in Section 7.  Once
+
+
+
 
 
 
@@ -1234,6 +1234,12 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 22]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+5.  Connections
+
+   A QUIC connection is a single conversation between two QUIC
+   endpoints.  QUIC's connection establishment combines version
+   negotiation with the cryptographic and transport handshakes to reduce
+   connection establishment latency, as described in Section 7.  Once
    established, a connection may migrate to a different IP or port at
    either endpoint as described in Section 9.  Finally, a connection may
    be terminated by either endpoint, as described in Section 10.
@@ -1276,12 +1282,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    client and to allow the client to validate that the packet is in
    response to an Initial packet.
 
-   A zero-length connection ID MAY be used when the connection ID is not
-   needed for routing and the address/port tuple of packets is
-   sufficient to identify a connection.  An endpoint whose peer has
-   selected a zero-length connection ID MUST continue to use a zero-
-   length connection ID for the lifetime of the connection and MUST NOT
-   send packets from any other local address.
 
 
 
@@ -1289,6 +1289,13 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 23]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   A zero-length connection ID MAY be used when the connection ID is not
+   needed for routing and the address/port tuple of packets is
+   sufficient to identify a connection.  An endpoint whose peer has
+   selected a zero-length connection ID MUST continue to use a zero-
+   length connection ID for the lifetime of the connection and MUST NOT
+   send packets from any other local address.
 
    When an endpoint has requested a non-zero-length connection ID, it
    needs to ensure that the peer has a supply of connection IDs from
@@ -1331,13 +1338,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    SHOULD provide and maintain at least eight connection IDs.  The
    endpoint can do this by always supplying a new connection ID when a
    connection ID is retired by its peer or when the endpoint receives a
-   packet with a previously unused connection ID.  Endpoints that
-   initiate migration and require non-zero-length connection IDs SHOULD
-   provide their peers with new connection IDs before migration, or risk
-   the peer closing the connection.
-
-
-
 
 
 
@@ -1345,6 +1345,11 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 24]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   packet with a previously unused connection ID.  Endpoints that
+   initiate migration and require non-zero-length connection IDs SHOULD
+   provide their peers with new connection IDs before migration, or risk
+   the peer closing the connection.
 
 5.1.2.  Consuming and Retiring Connection IDs
 
@@ -1388,11 +1393,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    Connection ID fields if they do not correspond to a single
    connection.
 
-   Endpoints can send a Stateless Reset (Section 10.4) for any packets
-   that cannot be attributed to an existing connection.  A stateless
-   reset allows a peer to more quickly identify when a connection
-   becomes unusable.
-
 
 
 
@@ -1401,6 +1401,11 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 25]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   Endpoints can send a Stateless Reset (Section 10.4) for any packets
+   that cannot be attributed to an existing connection.  A stateless
+   reset allows a peer to more quickly identify when a connection
+   becomes unusable.
 
    Packets that are matched to an existing connection, but for which the
    endpoint cannot remove packet protection, are discarded.
@@ -1445,11 +1450,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    length connection IDs - the address tuple.  If the packet doesn't
    match an existing connection, the server continues below.
 
-   If the packet is an Initial packet fully conforming with the
-   specification, the server proceeds with the handshake (Section 7).
-   This commits the server to the version that the client selected.
-
-
 
 
 
@@ -1457,6 +1457,10 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 26]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   If the packet is an Initial packet fully conforming with the
+   specification, the server proceeds with the handshake (Section 7).
+   This commits the server to the version that the client selected.
 
    If a server isn't currently accepting any new connections, it SHOULD
    send an Initial packet containing a CONNECTION_CLOSE frame with error
@@ -1502,10 +1506,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    a server sends a Version Negotiation packet.  Clients that support
    multiple QUIC versions SHOULD pad the first packet they send to the
    largest of the minimum packet sizes across all versions they support.
-   This ensures that the server responds if there is a mutually
-   supported version.
-
-
 
 
 
@@ -1513,6 +1513,9 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 27]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   This ensures that the server responds if there is a mutually
+   supported version.
 
 6.1.  Sending Version Negotiation Packets
 
@@ -1558,9 +1561,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    receives a packet from the server which is not a Version Negotiation
    packet, it MUST discard other Version Negotiation packets on the same
    connection.  Similarly, a client MUST ignore a Version Negotiation
-   packet if it has already received and acted on a Version Negotiation
-   packet.
-
 
 
 
@@ -1569,6 +1569,9 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 28]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+   packet if it has already received and acted on a Version Negotiation
+   packet.
 
    A client MUST ignore a Version Negotiation packet that lists the
    client's chosen version.
@@ -1615,9 +1618,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    o  authenticated key exchange, where
 
-      *  a server is always authenticated,
-
-      *  a client is optionally authenticated,
 
 
 
@@ -1625,6 +1625,10 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 29]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
+
+      *  a server is always authenticated,
+
+      *  a client is optionally authenticated,
 
       *  every connection produces distinct and unrelated keys,
 
@@ -1669,11 +1673,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    Once any version negotiation and address validation exchanges are
    complete, the cryptographic handshake is used to agree on
-   cryptographic keys.  The cryptographic handshake is carried in
-   Initial (Section 17.5) and Handshake (Section 17.6) packets.
 
-   Figure 4 provides an overview of the 1-RTT handshake.  Each line
-   shows a QUIC packet with the packet type and packet number shown
 
 
 
@@ -1682,6 +1682,11 @@ Iyengar & Thomson         Expires May 23, 2019                 [Page 30]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
+   cryptographic keys.  The cryptographic handshake is carried in
+   Initial (Section 17.5) and Handshake (Section 17.6) packets.
+
+   Figure 4 provides an overview of the 1-RTT handshake.  Each line
+   shows a QUIC packet with the packet type and packet number shown
    first, followed by the frames that are typically contained in those
    packets.  So, for instance the first packet is of type Initial, with
    packet number 0, and contains a CRYPTO frame carrying the
@@ -1717,11 +1722,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    Section 12.3, the server acknowledges 0-RTT data at the 1-RTT
    encryption level, and the client sends 1-RTT packets in the same
    packet number space.
-
-
-
-
-
 
 
 
@@ -5463,13 +5463,13 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    incoming data is being discarded on receipt at application request.
    This signals a peer to abruptly terminate transmission on a stream.
 
-   Receipt of a STOP_SENDING frame is only valid for a send stream that
-   exists and is not in the "Ready" state (see Section 3.1).  Receiving
-   a STOP_SENDING frame for a send stream that is "Ready" or non-
-   existent MUST be treated as a connection error of type
-   PROTOCOL_VIOLATION.  An endpoint that receives a STOP_SENDING frame
-   for a receive-only stream MUST terminate the connection with error
-   PROTOCOL_VIOLATION.
+   Receipt of a STOP_SENDING frame is invalid for a locally-initiated
+   stream that has not yet been created or is in the "Ready" state (see
+   Section 3.1).  Receiving a STOP_SENDING frame for a locally-initiated
+   send stream that is "Ready" or non-existent MUST be treated as a
+   connection error of type PROTOCOL_VIOLATION.  An endpoint that
+   receives a STOP_SENDING frame for a receive-only stream MUST
+   terminate the connection with error PROTOCOL_VIOLATION.
 
    The STOP_SENDING frame is as follows:
 
