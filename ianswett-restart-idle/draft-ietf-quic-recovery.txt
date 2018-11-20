@@ -124,17 +124,17 @@ Internet-Draft             QUIC Loss Detection             November 2018
      5.8.  Restart after idle  . . . . . . . . . . . . . . . . . . .  26
      5.9.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  26
        5.9.1.  Constants of interest . . . . . . . . . . . . . . . .  26
-       5.9.2.  Variables of interest . . . . . . . . . . . . . . . .  27
+       5.9.2.  Variables of interest . . . . . . . . . . . . . . . .  26
        5.9.3.  Initialization  . . . . . . . . . . . . . . . . . . .  27
        5.9.4.  On Packet Sent  . . . . . . . . . . . . . . . . . . .  27
-       5.9.5.  On Packet Acknowledgement . . . . . . . . . . . . . .  28
+       5.9.5.  On Packet Acknowledgement . . . . . . . . . . . . . .  27
        5.9.6.  On New Congestion Event . . . . . . . . . . . . . . .  28
        5.9.7.  Process ECN Information . . . . . . . . . . . . . . .  28
        5.9.8.  On Packets Lost . . . . . . . . . . . . . . . . . . .  29
        5.9.9.  On Retransmission Timeout Verified  . . . . . . . . .  29
    6.  Security Considerations . . . . . . . . . . . . . . . . . . .  29
      6.1.  Congestion Signals  . . . . . . . . . . . . . . . . . . .  29
-     6.2.  Traffic Analysis  . . . . . . . . . . . . . . . . . . . .  30
+     6.2.  Traffic Analysis  . . . . . . . . . . . . . . . . . . . .  29
      6.3.  Misreporting ECN Markings . . . . . . . . . . . . . . . .  30
    7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  30
    8.  References  . . . . . . . . . . . . . . . . . . . . . . . . .  30
@@ -157,7 +157,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
      A.13. Since draft-ietf-quic-recovery-02 . . . . . . . . . . . .  34
      A.14. Since draft-ietf-quic-recovery-01 . . . . . . . . . . . .  34
      A.15. Since draft-ietf-quic-recovery-00 . . . . . . . . . . . .  34
-     A.16. Since draft-iyengar-quic-loss-recovery-01 . . . . . . . .  35
+     A.16. Since draft-iyengar-quic-loss-recovery-01 . . . . . . . .  34
    Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . .  35
    Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  35
 
@@ -1404,23 +1404,22 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
 5.8.  Restart after idle
 
-   A connection is idle if bytes in flight is 0 and there is nothing
-   retransmittable to send.  This occurs when the connection is
-   application limited and after a verified retransmission timeout.  In
-   order to limit the size of bursts sent into the network, the behavior
-   when restarting from idle depends upon whether pacing is used.
+   A connection is idle if there are no bytes in flight and there is no
+   pending retransmittable data to send.  This can occur when the
+   connection is application limited or after a retransmission timeout.
+   In order to limit the size of bursts sent into the network, the
+   behavior when restarting from idle depends upon whether pacing is
+   used.
 
-   If pacing is used, the connection should limit the initial burst of
-   packets to no more than the initial congestion window and subsequent
-   packets SHOULD be paced.  The congestion window does not change while
-   the connection is idle.
+   If the sender uses pacing, the connection should limit the initial
+   burst of packets to no more than the initial congestion window and
+   subsequent packets SHOULD be paced.  The congestion window does not
+   change while the connection is idle.
 
-   If pacing is not used, the congestion window SHOULD be reset to the
-   minimum of the current congestion window and the initial congestion
-   window.  If the slow start threshold is larger than the congestion
-   window, the congestion window will grow back to the congestion window
-   prior to idle via slow start.  This recommendation is based on
-   Section 4.1 of [RFC5681].
+   A sender that does not use pacing SHOULD reset its congestion window
+   to the minimum of the current congestion window and the initial
+   congestion window.  This recommendation is based on Section 4.1 of
+   [RFC5681].
 
 5.9.  Pseudocode
 
@@ -1446,9 +1445,10 @@ Internet-Draft             QUIC Loss Detection             November 2018
    kLossReductionFactor:  Reduction in congestion window when a new loss
       event is detected.  The RECOMMENDED value is 0.5.
 
+5.9.2.  Variables of interest
 
-
-
+   Variables required to implement the congestion control mechanisms are
+   described in this section.
 
 
 
@@ -1457,11 +1457,6 @@ Iyengar & Swett           Expires May 24, 2019                 [Page 26]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-5.9.2.  Variables of interest
-
-   Variables required to implement the congestion control mechanisms are
-   described in this section.
 
    ecn_ce_counter:  The highest value reported for the ECN-CE counter by
       the peer in an ACK frame.  This variable is used to detect
@@ -1505,6 +1500,11 @@ Internet-Draft             QUIC Loss Detection             November 2018
       OnPacketSentCC(bytes_sent):
         bytes_in_flight += bytes_sent
 
+5.9.5.  On Packet Acknowledgement
+
+   Invoked from loss detection's OnPacketAcked and is supplied with the
+   acked_packet from sent_packets.
+
 
 
 
@@ -1513,11 +1513,6 @@ Iyengar & Swett           Expires May 24, 2019                 [Page 27]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-5.9.5.  On Packet Acknowledgement
-
-   Invoked from loss detection's OnPacketAcked and is supplied with the
-   acked_packet from sent_packets.
 
       InRecovery(sent_time):
         return sent_time <= recovery_start_time
@@ -1556,20 +1551,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    Invoked when an ACK frame with an ECN section is received from the
    peer.
 
-
-
-
-
-
-
-
-
-
-Iyengar & Swett           Expires May 24, 2019                 [Page 28]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
       ProcessECN(ack):
         // If the ECN-CE counter reported by the peer has increased,
         // this could be a new congestion event.
@@ -1579,6 +1560,15 @@ Internet-Draft             QUIC Loss Detection             November 2018
           // packet was sent after the start of the previous
           // recovery epoch.
           CongestionEvent(sent_packets[ack.largest_acked].time)
+
+
+
+
+
+Iyengar & Swett           Expires May 24, 2019                 [Page 28]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
 
 5.9.8.  On Packets Lost
 
@@ -1619,13 +1609,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    cause endpoints to reduce their sending rate by dropping packets, or
    alter send rate by changing ECN codepoints.
 
-
-
-Iyengar & Swett           Expires May 24, 2019                 [Page 29]
-
-Internet-Draft             QUIC Loss Detection             November 2018
-
-
 6.2.  Traffic Analysis
 
    Packets that carry only ACK frames can be heuristically identified by
@@ -1633,6 +1616,15 @@ Internet-Draft             QUIC Loss Detection             November 2018
    information about link characteristics or application behavior.
    Endpoints can use PADDING frames or bundle acknowledgments with other
    frames to reduce leaked information.
+
+
+
+
+
+Iyengar & Swett           Expires May 24, 2019                 [Page 29]
+
+Internet-Draft             QUIC Loss Detection             November 2018
+
 
 6.3.  Misreporting ECN Markings
 
@@ -1675,16 +1667,20 @@ Internet-Draft             QUIC Loss Detection             November 2018
               DOI 10.17487/RFC2119, March 1997,
               <https://www.rfc-editor.org/info/rfc2119>.
 
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
+
+
+
+
+
 
 
 Iyengar & Swett           Expires May 24, 2019                 [Page 30]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
-              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
-              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
    [RFC8311]  Black, D., "Relaxing Restrictions on Explicit Congestion
               Notification (ECN) Experimentation", RFC 8311,
@@ -1728,7 +1724,11 @@ Internet-Draft             QUIC Loss Detection             November 2018
               RFC 6582, DOI 10.17487/RFC6582, April 2012,
               <https://www.rfc-editor.org/info/rfc6582>.
 
-
+   [RFC6675]  Blanton, E., Allman, M., Wang, L., Jarvinen, I., Kojo, M.,
+              and Y. Nishida, "A Conservative Loss Recovery Algorithm
+              Based on Selective Acknowledgment (SACK) for TCP",
+              RFC 6675, DOI 10.17487/RFC6675, August 2012,
+              <https://www.rfc-editor.org/info/rfc6675>.
 
 
 
@@ -1737,12 +1737,6 @@ Iyengar & Swett           Expires May 24, 2019                 [Page 31]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-   [RFC6675]  Blanton, E., Allman, M., Wang, L., Jarvinen, I., Kojo, M.,
-              and Y. Nishida, "A Conservative Loss Recovery Algorithm
-              Based on Selective Acknowledgment (SACK) for TCP",
-              RFC 6675, DOI 10.17487/RFC6675, August 2012,
-              <https://www.rfc-editor.org/info/rfc6675>.
 
    [RFC6928]  Chu, J., Dukkipati, N., Cheng, Y., and M. Mathis,
               "Increasing TCP's Initial Window", RFC 6928,
@@ -1785,6 +1779,12 @@ A.2.  Since draft-ietf-quic-recovery-13
 
    o  Considerations for ECN spoofing (#1426, #1626)
 
+   o  Clarifications for PADDING and congestion control (#837, #838,
+      #1517, #1531, #1540)
+
+   o  Reduce early retransmission timer to RTT/8 (#945, #1581)
+
+   o  Packets are declared lost after an RTO is verified (#935, #1582)
 
 
 
@@ -1793,13 +1793,6 @@ Iyengar & Swett           Expires May 24, 2019                 [Page 32]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-   o  Clarifications for PADDING and congestion control (#837, #838,
-      #1517, #1531, #1540)
-
-   o  Reduce early retransmission timer to RTT/8 (#945, #1581)
-
-   o  Packets are declared lost after an RTO is verified (#935, #1582)
 
 A.3.  Since draft-ietf-quic-recovery-12
 
@@ -1843,14 +1836,19 @@ A.8.  Since draft-ietf-quic-recovery-07
 
    o  Default RTT and Slow Start (#590)
 
+   o  Many editorial fixes.
+
+
+
+
+
+
 
 
 Iyengar & Swett           Expires May 24, 2019                 [Page 33]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-   o  Many editorial fixes.
 
 A.9.  Since draft-ietf-quic-recovery-06
 
@@ -1895,9 +1893,11 @@ A.15.  Since draft-ietf-quic-recovery-00
 
    o  Improved description of constants and ACK behavior
 
+A.16.  Since draft-iyengar-quic-loss-recovery-01
 
+   o  Adopted as base for draft-ietf-quic-recovery
 
-
+   o  Updated authors/editors list
 
 
 
@@ -1905,12 +1905,6 @@ Iyengar & Swett           Expires May 24, 2019                 [Page 34]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
-
-A.16.  Since draft-iyengar-quic-loss-recovery-01
-
-   o  Adopted as base for draft-ietf-quic-recovery
-
-   o  Updated authors/editors list
 
    o  Added table of contents
 
@@ -1928,6 +1922,12 @@ Authors' Addresses
    Google
 
    Email: ianswett@google.com
+
+
+
+
+
+
 
 
 
