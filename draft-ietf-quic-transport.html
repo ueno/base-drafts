@@ -1749,10 +1749,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <pre>
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+
-|0|K|1|1|0|0|0|0|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                      Random Bytes (160..)                   ...
+|0|1|                   Random Bytes (166..)                  ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                                                               +
@@ -1765,7 +1763,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </pre>
 <p class="figure">Figure 7: Stateless Reset Packet</p>
 <p id="rfc.section.10.4.p.4">This design ensures that a stateless reset packet is - to the extent possible - indistinguishable from a regular packet with a short header.</p>
-<p id="rfc.section.10.4.p.5">The message consists of a header byte, followed by an arbitrary number of random bytes, followed by a Stateless Reset Token.</p>
+<p id="rfc.section.10.4.p.5">A stateless reset uses an entire UDP datagram, starting with the first two bits of the packet header.  The remainder of the first byte and an an arbitrary number of random bytes following it are set to unpredictable values.  The last 16 bytes of the datagram contain a Stateless Reset Token.</p>
 <p id="rfc.section.10.4.p.6">A stateless reset will be interpreted by a recipient as a packet with a short header.  For the packet to appear as valid, the Random Bytes field needs to include at least 20 bytes of random or unpredictable values.  This is intended to allow for a destination connection ID of the maximum length permitted, a packet number, and minimal payload.  The Stateless Reset Token corresponds to the minimum expansion of the packet protection AEAD.  More random bytes might be necessary if the endpoint could have negotiated a packet protection scheme with a larger minimum AEAD expansion.</p>
 <p id="rfc.section.10.4.p.7">An endpoint SHOULD NOT send a stateless reset that is significantly larger than the packet it receives.  Endpoints MUST discard packets that are too small to be valid QUIC packets.  With the set of AEAD functions defined in <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>, packets less than 19 bytes long are never valid.</p>
 <p id="rfc.section.10.4.p.8">An endpoint MAY send a stateless reset in response to a packet with a long header.  This would not be effective if the stateless reset token was not yet available to a peer.  In this QUIC version, packets with a long header are only used during connection establishment.   Because the stateless reset token is not available until connection establishment is complete or near completion, ignoring an unknown packet with a long header might be more effective.</p>
@@ -2193,41 +2191,13 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.17.1">
 <a href="#rfc.section.17.1">17.1.</a> <a href="#packet-encoding" id="packet-encoding">Packet Number Encoding and Decoding</a>
 </h2>
-<p id="rfc.section.17.1.p.1">Packet numbers in long and short packet headers are encoded as follows.  The number of bits required to represent the packet number is first reduced by including only a variable number of the least significant bits of the packet number.  One or two of the most significant bits of the first byte are then used to represent how many bits of the packet number are provided, as shown in <a href="#pn-encodings" class="xref">Table 5</a>.</p>
-<div id="rfc.table.5"></div>
-<div id="pn-encodings"></div>
-<table cellpadding="3" cellspacing="0" class="tt full center">
-<caption>Packet Number Encodings for Packet Headers</caption>
-<thead><tr>
-<th class="left">First byte pattern</th>
-<th class="left">Encoded Length</th>
-<th class="left">Bits Present</th>
-</tr></thead>
-<tbody>
-<tr>
-<td class="left">0b0xxxxxxx</td>
-<td class="left">1 byte</td>
-<td class="left">7</td>
-</tr>
-<tr>
-<td class="left">0b10xxxxxx</td>
-<td class="left">2</td>
-<td class="left">14</td>
-</tr>
-<tr>
-<td class="left">0b11xxxxxx</td>
-<td class="left">4</td>
-<td class="left">30</td>
-</tr>
-</tbody>
-</table>
-<p id="rfc.section.17.1.p.2">Note that these encodings are similar to those in <a href="#integer-encoding" class="xref">Section 16</a>, but use different values.</p>
-<p id="rfc.section.17.1.p.3">Finally, the encoded packet number is protected as described in Section 5.3 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>.</p>
-<p id="rfc.section.17.1.p.4">The sender MUST use a packet number size able to represent more than twice as large a range than the difference between the largest acknowledged packet and packet number being sent.  A peer receiving the packet will then correctly decode the packet number, unless the packet is delayed in transit such that it arrives after many higher-numbered packets have been received.  An endpoint SHOULD use a large enough packet number encoding to allow the packet number to be recovered even if the packet arrives after packets that are sent afterwards.</p>
-<p id="rfc.section.17.1.p.5">As a result, the size of the packet number encoding is at least one more than the base 2 logarithm of the number of contiguous unacknowledged packet numbers, including the new packet.</p>
-<p id="rfc.section.17.1.p.6">For example, if an endpoint has received an acknowledgment for packet 0x6afa2f, sending a packet with a number of 0x6b2d79 requires a packet number encoding with 14 bits or more; whereas the 30-bit packet number encoding is needed to send a packet with a number of 0x6bc107.</p>
-<p id="rfc.section.17.1.p.7">At a receiver, protection of the packet number is removed prior to recovering the full packet number. The full packet number is then reconstructed based on the number of significant bits present, the value of those bits, and the largest packet number received on a successfully authenticated packet. Recovering the full packet number is necessary to successfully remove packet protection.</p>
-<p id="rfc.section.17.1.p.8">Once packet number protection is removed, the packet number is decoded by finding the packet number value that is closest to the next expected packet.  The next expected packet is the highest received packet number plus one.  For example, if the highest successfully authenticated packet had a packet number of 0xaa82f30e, then a packet containing a 14-bit value of 0x9b3 will be decoded as 0xaa8309b3.  Example pseudo-code for packet number decoding can be found in <a href="#sample-packet-number-decoding" class="xref">Appendix A</a>.</p>
+<p id="rfc.section.17.1.p.1">Packet numbers in long and short packet headers are encoded in 1 to 4 bytes.  The number of bits required to represent the packet number is reduced by including the least significant bits of the packet number.</p>
+<p id="rfc.section.17.1.p.2">The encoded packet number is protected as described in Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>.</p>
+<p id="rfc.section.17.1.p.3">The sender MUST use a packet number size able to represent more than twice as large a range than the difference between the largest acknowledged packet and packet number being sent.  A peer receiving the packet will then correctly decode the packet number, unless the packet is delayed in transit such that it arrives after many higher-numbered packets have been received.  An endpoint SHOULD use a large enough packet number encoding to allow the packet number to be recovered even if the packet arrives after packets that are sent afterwards.</p>
+<p id="rfc.section.17.1.p.4">As a result, the size of the packet number encoding is at least one bit more than the base-2 logarithm of the number of contiguous unacknowledged packet numbers, including the new packet.</p>
+<p id="rfc.section.17.1.p.5">For example, if an endpoint has received an acknowledgment for packet 0xabe8bc, sending a packet with a number of 0xac5c02 requires a packet number encoding with 16 bits or more; whereas the 24-bit packet number encoding is needed to send a packet with a number of 0xace8fe.</p>
+<p id="rfc.section.17.1.p.6">At a receiver, protection of the packet number is removed prior to recovering the full packet number. The full packet number is then reconstructed based on the number of significant bits present, the value of those bits, and the largest packet number received on a successfully authenticated packet. Recovering the full packet number is necessary to successfully remove packet protection.</p>
+<p id="rfc.section.17.1.p.7">Once header protection is removed, the packet number is decoded by finding the packet number value that is closest to the next expected packet.  The next expected packet is the highest received packet number plus one.  For example, if the highest successfully authenticated packet had a packet number of 0xa82f30ea, then a packet containing a 16-bit value of 0x9b32 will be decoded as 0xa8309b32.  Example pseudo-code for packet number decoding can be found in <a href="#sample-packet-number-decoding" class="xref">Appendix A</a>.</p>
 <h2 id="rfc.section.17.2">
 <a href="#rfc.section.17.2">17.2.</a> <a href="#long-header" id="long-header">Long Header Packet</a>
 </h2>
@@ -2237,7 +2207,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+
-|1|   Type (7)  |
+|1|1|T T|R R|P P|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2249,7 +2219,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                           Length (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Packet Number (8/16/32)                   |
+|                    Packet Number (8/16/24/32)               ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          Payload (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2261,10 +2231,16 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dl>
 <dt>Header Form:</dt>
 <dd style="margin-left: 8">The most significant bit (0x80) of byte 0 (the first byte) is set to 1 for long headers.</dd>
-<dt>Long Packet Type:</dt>
-<dd style="margin-left: 8">The remaining seven bits of byte 0 contain the packet type.  This field can indicate one of 128 packet types.  The types specified for this version are listed in <a href="#long-packet-types" class="xref">Table 6</a>.</dd>
+<dt>Fixed Bit:</dt>
+<dd style="margin-left: 8">The next bit (0x40) of byte 0 is set to 1.  Packets containing a zero value for this bit are not valid packets in this version and MUST be discarded.</dd>
+<dt>Long Packet Type (T):</dt>
+<dd style="margin-left: 8">The next two bits (those with a mask of 0x30) of byte 0 contain a packet type.  Packet types are listed in <a href="#long-packet-types" class="xref">Table 5</a>.</dd>
+<dt>Reserved Bits (R):</dt>
+<dd style="margin-left: 8">The next two bits (those with a mask of 0x0c) of byte 0 are reserved.  These bits are protected using header protection (see Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).  The value included prior to protection MUST be set to 0.  An endpoint MUST treat receipt of a packet that has a non-zero value for these bits after removing protection as a connection error of type PROTOCOL_VIOLATION.</dd>
+<dt>Packet Number Length (P):</dt>
+<dd style="margin-left: 8">The least significant two bits (those with a mask of 0x03) of byte 0 contain the length of the packet number, encoded as an unsigned, two-bit integer that is one less than the length of the packet number field in bytes.  That is, the length of the packet number field is the value of this field, plus one.  These bits are protected using header protection (see Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).</dd>
 <dt>Version:</dt>
-<dd style="margin-left: 8">The QUIC Version is a 32-bit field that follows the Type.  This field indicates which version of QUIC is in use and determines how the rest of the protocol fields are interpreted.</dd>
+<dd style="margin-left: 8">The QUIC Version is a 32-bit field that follows the first byte.  This field indicates which version of QUIC is in use and determines how the rest of the protocol fields are interpreted.</dd>
 <dt>DCIL and SCIL:</dt>
 <dd style="margin-left: 8">The byte following the version contains the lengths of the two connection ID fields that follow it.  These lengths are encoded as two 4-bit unsigned integers. The Destination Connection ID Length (DCIL) field occupies the 4 high bits of the byte and the Source Connection ID Length (SCIL) field occupies the 4 low bits of the byte.  An encoded length of 0 indicates that the connection ID is also 0 bytes in length.  Non-zero encoded lengths are increased by 3 to get the full length of the connection ID, producing a length between 4 and 18 bytes inclusive.  For example, an byte with the value 0x50 describes an 8-byte Destination Connection ID and a zero-length Source Connection ID.</dd>
 <dt>Destination Connection ID:</dt>
@@ -2274,46 +2250,46 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>Length:</dt>
 <dd style="margin-left: 8">The length of the remainder of the packet (that is, the Packet Number and Payload fields) in bytes, encoded as a variable-length integer (<a href="#integer-encoding" class="xref">Section 16</a>).</dd>
 <dt>Packet Number:</dt>
-<dd style="margin-left: 8">The packet number field is 1, 2, or 4 bytes long. The packet number has confidentiality protection separate from packet protection, as described in Section 5.3 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>. The length of the packet number field is encoded in the plaintext packet number. See <a href="#packet-encoding" class="xref">Section 17.1</a> for details.</dd>
+<dd style="margin-left: 8">The packet number field is 1 to 4 bytes long. The packet number has confidentiality protection separate from packet protection, as described in Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>. The length of the packet number field is encoded in the plaintext packet number. See <a href="#packet-encoding" class="xref">Section 17.1</a> for details.</dd>
 <dt>Payload:</dt>
 <dd style="margin-left: 8">The payload of the packet.</dd>
 </dl>
 <p id="rfc.section.17.2.p.3">The following packet types are defined:</p>
-<div id="rfc.table.6"></div>
+<div id="rfc.table.5"></div>
 <div id="long-packet-types"></div>
 <table cellpadding="3" cellspacing="0" class="tt full center">
 <caption>Long Header Packet Types</caption>
 <thead><tr>
-<th class="left">Type</th>
+<th class="right">Type</th>
 <th class="left">Name</th>
 <th class="left">Section</th>
 </tr></thead>
 <tbody>
 <tr>
-<td class="left">0x7F</td>
+<td class="right">0x0</td>
 <td class="left">Initial</td>
 <td class="left"><a href="#packet-initial" class="xref">Section 17.5</a></td>
 </tr>
 <tr>
-<td class="left">0x7E</td>
-<td class="left">Retry</td>
-<td class="left"><a href="#packet-retry" class="xref">Section 17.7</a></td>
+<td class="right">0x1</td>
+<td class="left">0-RTT Protected</td>
+<td class="left"><a href="#packet-protected" class="xref">Section 12.1</a></td>
 </tr>
 <tr>
-<td class="left">0x7D</td>
+<td class="right">0x2</td>
 <td class="left">Handshake</td>
 <td class="left"><a href="#packet-handshake" class="xref">Section 17.6</a></td>
 </tr>
 <tr>
-<td class="left">0x7C</td>
-<td class="left">0-RTT Protected</td>
-<td class="left"><a href="#packet-protected" class="xref">Section 12.1</a></td>
+<td class="right">0x3</td>
+<td class="left">Retry</td>
+<td class="left"><a href="#packet-retry" class="xref">Section 17.7</a></td>
 </tr>
 </tbody>
 </table>
-<p id="rfc.section.17.2.p.4">The header form, type, connection ID lengths byte, destination and source connection IDs, and version fields of a long header packet are version-independent. The packet number and values for packet types defined in <a href="#long-packet-types" class="xref">Table 6</a> are version-specific.  See <a href="#QUIC-INVARIANTS" class="xref">[QUIC-INVARIANTS]</a> for details on how packets from different versions of QUIC are interpreted.</p>
+<p id="rfc.section.17.2.p.4">The header form bit, connection ID lengths byte, Destination and Source Connection ID fields, and Version fields of a long header packet are version-independent. The other fields in the first byte, plus the Length and Packet Number fields are version-specific.  See <a href="#QUIC-INVARIANTS" class="xref">[QUIC-INVARIANTS]</a> for details on how packets from different versions of QUIC are interpreted.</p>
 <p id="rfc.section.17.2.p.5">The interpretation of the fields and the payload are specific to a version and packet type.  Type-specific semantics for this version are described in the following sections.</p>
-<p id="rfc.section.17.2.p.6">The end of the packet is determined by the Length field.  The Length field covers both the Packet Number and Payload fields, both of which are confidentiality protected and initially of unknown length.  The size of the Payload field is learned once the packet number protection is removed.  The Length field enables packet coalescing (<a href="#packet-coalesce" class="xref">Section 12.2</a>).</p>
+<p id="rfc.section.17.2.p.6">The end of the packet is determined by the Length field.  The Length field covers both the Packet Number and Payload fields, both of which are confidentiality protected and initially of unknown length.  The length of the Payload field is learned once header protection is removed.  The Length field enables packet coalescing (<a href="#packet-coalesce" class="xref">Section 12.2</a>).</p>
 <h2 id="rfc.section.17.3">
 <a href="#rfc.section.17.3">17.3.</a> <a href="#short-header" id="short-header">Short Header Packet</a>
 </h2>
@@ -2323,11 +2299,11 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+
-|0|K|1|1|0|S|R R|
+|0|1|S|R|R|K|P P|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                Destination Connection ID (0..144)           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                      Packet Number (8/16/32)                ...
+|                     Packet Number (8/16/24/32)              ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Protected Payload (*)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2339,41 +2315,24 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dl>
 <dt>Header Form:</dt>
 <dd style="margin-left: 8">The most significant bit (0x80) of byte 0 is set to 0 for the short header.</dd>
-<dt>Key Phase Bit:</dt>
-<dd style="margin-left: 8">The second bit (0x40) of byte 0 indicates the key phase, which allows a recipient of a packet to identify the packet protection keys that are used to protect the packet.  See <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a> for details.</dd>
-</dl>
-<p id="rfc.section.17.3.p.3">[[Editor&#8217;s Note: this section should be removed and the bit definitions changed before this draft goes to the IESG.]]</p>
-<p></p>
-
-<dl>
-<dt>Third Bit:</dt>
-<dd style="margin-left: 8">The third bit (0x20) of byte 0 is set to 1.</dd>
-</dl>
-<p id="rfc.section.17.3.p.5">[[Editor&#8217;s Note: this section should be removed and the bit definitions changed before this draft goes to the IESG.]]</p>
-<p></p>
-
-<dl>
-<dt>Fourth Bit:</dt>
-<dd style="margin-left: 8">The fourth bit (0x10) of byte 0 is set to 1.</dd>
-</dl>
-<p id="rfc.section.17.3.p.7">[[Editor&#8217;s Note: this section should be removed and the bit definitions changed before this draft goes to the IESG.]]</p>
-<p></p>
-
-<dl>
-<dt>Google QUIC Demultiplexing Bit:</dt>
-<dd style="margin-left: 8">The fifth bit (0x8) of byte 0 is set to 0. This allows implementations of Google QUIC to distinguish Google QUIC packets from short header packets sent by a client because Google QUIC servers expect the connection ID to always be present.  The special interpretation of this bit SHOULD be removed from this specification when Google QUIC has finished transitioning to the new header format.</dd>
-<dt>Spin Bit:</dt>
-<dd style="margin-left: 8">The sixth bit (0x4) of byte 0 is the Latency Spin Bit, set as described in <a href="#SPIN" class="xref">[SPIN]</a>.</dd>
-<dt>Reserved:</dt>
-<dd style="margin-left: 8">The seventh and eighth bits (0x3) of byte 0 are reserved for experimentation.  Endpoints MUST ignore these bits on packets they receive unless they are participating in an experiment that uses these bits.  An endpoint not actively using these bits SHOULD set the value randomly on packets they send to protect against unwanted inference about particular values.</dd>
+<dt>Fixed Bit:</dt>
+<dd style="margin-left: 8">The next bit (0x40) of byte 0 is set to 1.  Packets containing a zero value for this bit are not valid packets in this version and MUST be discarded.</dd>
+<dt>Spin Bit (S):</dt>
+<dd style="margin-left: 8">The sixth bit (0x20) of byte 0 is the Latency Spin Bit, set as described in <a href="#SPIN" class="xref">[SPIN]</a>.</dd>
+<dt>Reserved Bits (R):</dt>
+<dd style="margin-left: 8">The next two bits (those with a mask of 0x18) of byte 0 are reserved.  These bits are protected using header protection (see Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).  The value included prior to protection MUST be set to 0.  An endpoint MUST treat receipt of a packet that has a non-zero value for these bits after removing protection as a connection error of type PROTOCOL_VIOLATION.</dd>
+<dt>Key Phase (K):</dt>
+<dd style="margin-left: 8">The next bit (0x04) of byte 0 indicates the key phase, which allows a recipient of a packet to identify the packet protection keys that are used to protect the packet.  See <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a> for details.  This bit is protected using header protection (see Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).</dd>
+<dt>Packet Number Length (P):</dt>
+<dd style="margin-left: 8">The least significant two bits (those with a mask of 0x03) of byte 0 contain the length of the packet number, encoded as an unsigned, two-bit integer that is one less than the length of the packet number field in bytes.  That is, the length of the packet number field is the value of this field, plus one.  These bits are protected using header protection (see Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).</dd>
 <dt>Destination Connection ID:</dt>
 <dd style="margin-left: 8">The Destination Connection ID is a connection ID that is chosen by the intended recipient of the packet.  See <a href="#connection-id" class="xref">Section 5.1</a> for more details.</dd>
 <dt>Packet Number:</dt>
-<dd style="margin-left: 8">The packet number field is 1, 2, or 4 bytes long. The packet number has confidentiality protection separate from packet protection, as described in Section 5.3 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>. The length of the packet number field is encoded in the plaintext packet number. See <a href="#packet-encoding" class="xref">Section 17.1</a> for details.</dd>
+<dd style="margin-left: 8">The packet number field is 1 to 4 bytes long. The packet number has confidentiality protection separate from packet protection, as described in Section 5.4 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>. The length of the packet number field is encoded in Packet Number Length field. See <a href="#packet-encoding" class="xref">Section 17.1</a> for details.</dd>
 <dt>Protected Payload:</dt>
 <dd style="margin-left: 8">Packets with a short header always include a 1-RTT protected payload.</dd>
 </dl>
-<p id="rfc.section.17.3.p.9">The header form and connection ID field of a short header packet are version-independent.  The remaining fields are specific to the selected QUIC version.  See <a href="#QUIC-INVARIANTS" class="xref">[QUIC-INVARIANTS]</a> for details on how packets from different versions of QUIC are interpreted.</p>
+<p id="rfc.section.17.3.p.3">The header form bit and the connection ID field of a short header packet are version-independent.  The remaining fields are specific to the selected QUIC version.  See <a href="#QUIC-INVARIANTS" class="xref">[QUIC-INVARIANTS]</a> for details on how packets from different versions of QUIC are interpreted.</p>
 <h2 id="rfc.section.17.4">
 <a href="#rfc.section.17.4">17.4.</a> <a href="#packet-version" id="packet-version">Version Negotiation Packet</a>
 </h2>
@@ -2416,14 +2375,14 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.17.5">
 <a href="#rfc.section.17.5">17.5.</a> <a href="#packet-initial" id="packet-initial">Initial Packet</a>
 </h2>
-<p id="rfc.section.17.5.p.1">An Initial packet uses long headers with a type value of 0x7F.  It carries the first CRYPTO frames sent by the client and server to perform key exchange, and carries ACKs in either direction.</p>
+<p id="rfc.section.17.5.p.1">An Initial packet uses long headers with a type value of 0x0.  It carries the first CRYPTO frames sent by the client and server to perform key exchange, and carries ACKs in either direction.</p>
 <p id="rfc.section.17.5.p.2">In order to prevent tampering by version-unaware middleboxes, Initial packets are protected with connection- and version-specific keys (Initial keys) as described in <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>.  This protection does not provide confidentiality or integrity against on-path attackers, but provides some level of protection against off-path attackers.</p>
 <p id="rfc.section.17.5.p.3">An Initial packet (shown in <a href="#initial-format" class="xref">Figure 13</a>) has two additional header fields that are added to the Long Header before the Length field.</p>
 <div id="rfc.figure.13"></div>
 <div id="initial-format"></div>
 <pre>
 +-+-+-+-+-+-+-+-+
-|1|    0x7f     |
+|1|1| 0 |R R|P P|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2439,7 +2398,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                           Length (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                     Packet Number (8/16/32)                   |
+|                    Packet Number (8/16/24/32)               ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          Payload (*)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2474,7 +2433,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.17.6">
 <a href="#rfc.section.17.6">17.6.</a> <a href="#packet-handshake" id="packet-handshake">Handshake Packet</a>
 </h2>
-<p id="rfc.section.17.6.p.1">A Handshake packet uses long headers with a type value of 0x7D.  It is used to carry acknowledgments and cryptographic handshake messages from the server and client.</p>
+<p id="rfc.section.17.6.p.1">A Handshake packet uses long headers with a type value of 0x3.  It is used to carry acknowledgments and cryptographic handshake messages from the server and client.</p>
 <p id="rfc.section.17.6.p.2">Once a client has received a Handshake packet from a server, it uses Handshake packets to send subsequent cryptographic handshake messages and acknowledgments to the server.</p>
 <p id="rfc.section.17.6.p.3">The Destination Connection ID field in a Handshake packet contains a connection ID that is chosen by the recipient of the packet; the Source Connection ID includes the connection ID that the sender of the packet wishes to use (see <a href="#negotiating-connection-ids" class="xref">Section 7.2</a>).</p>
 <p id="rfc.section.17.6.p.4">The first Handshake packet sent by a server contains a packet number of 0.  Handshake packets are their own packet number space.  Packet numbers are incremented normally for other Handshake packets.</p>
@@ -2489,7 +2448,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+
-|1|    0x7e     |
+|1|1| 3 |ODCIL(4|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2499,7 +2458,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                 Source Connection ID (0/32..144)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|    ODCIL(8)   |      Original Destination Connection ID (*)   |
+|          Original Destination Connection ID (0/32..144)     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                        Retry Token (*)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2510,7 +2469,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 
 <dl>
 <dt>ODCIL:</dt>
-<dd style="margin-left: 8">The length of the Original Destination Connection ID field.  The length is encoded in the least significant 4 bits of the byte, using the same encoding as the DCIL and SCIL fields.  The most significant 4 bits of this byte are reserved.  Unless a use for these bits has been negotiated, endpoints SHOULD send randomized values and MUST ignore any value that it receives.</dd>
+<dd style="margin-left: 8">The four least-significant bits of the first byte of a Retry packet are not protected as they are for other packets with the long header, because Retry packets don&#8217;t contain a protected payload.  These bits instead encode the length of the Original Destination Connection ID field.  The length uses the same encoding as the DCIL and SCIL fields.</dd>
 <dt>Original Destination Connection ID:</dt>
 <dd style="margin-left: 8">The Original Destination Connection ID contains the value of the Destination Connection ID from the Initial packet that this Retry is in response to. The length of this field is given in ODCIL.</dd>
 <dt>Retry Token:</dt>
@@ -3286,8 +3245,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">A reference to a publicly available specification for the value.</dd>
 </dl>
 <p id="rfc.section.22.1.p.5">The nominated expert(s) verify that a specification exists and is readily accessible.  Expert(s) are encouraged to be biased towards approving registrations unless they are abusive, frivolous, or actively harmful (not merely aesthetically displeasing, or architecturally dubious).</p>
-<p id="rfc.section.22.1.p.6">The initial contents of this registry are shown in <a href="#iana-tp-table" class="xref">Table 7</a>.</p>
-<div id="rfc.table.7"></div>
+<p id="rfc.section.22.1.p.6">The initial contents of this registry are shown in <a href="#iana-tp-table" class="xref">Table 6</a>.</p>
+<div id="rfc.table.6"></div>
 <div id="iana-tp-table"></div>
 <table cellpadding="3" cellspacing="0" class="tt full center">
 <caption>Initial QUIC Transport Parameters Entries</caption>
@@ -3406,8 +3365,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>Specification:</dt>
 <dd style="margin-left: 8">A reference to a publicly available specification for the value.</dd>
 </dl>
-<p id="rfc.section.22.3.p.5">The initial contents of this registry are shown in <a href="#iana-error-table" class="xref">Table 8</a>.  Values from 0xFF00 to 0xFFFF are reserved for Private Use <a href="#RFC8126" class="xref">[RFC8126]</a>.</p>
-<div id="rfc.table.8"></div>
+<p id="rfc.section.22.3.p.5">The initial contents of this registry are shown in <a href="#iana-error-table" class="xref">Table 7</a>.  Values from 0xFF00 to 0xFFFF are reserved for Private Use <a href="#RFC8126" class="xref">[RFC8126]</a>.</p>
+<div id="rfc.table.7"></div>
 <div id="iana-error-table"></div>
 <table cellpadding="3" cellspacing="0" class="tt full center">
 <caption>Initial QUIC Transport Error Codes Entries</caption>
@@ -3635,7 +3594,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h1 id="rfc.appendix.A">
 <a href="#rfc.appendix.A">Appendix A.</a> <a href="#sample-packet-number-decoding" id="sample-packet-number-decoding">Sample Packet Number Decoding Algorithm</a>
 </h1>
-<p id="rfc.section.A.p.1">The following pseudo-code shows how an implementation can decode packet numbers after packet number protection has been removed.</p>
+<p id="rfc.section.A.p.1">The following pseudo-code shows how an implementation can decode packet numbers after header protection has been removed.</p>
 <pre>
 DecodePacketNumber(largest_pn, truncated_pn, pn_nbits):
    expected_pn  = largest_pn + 1

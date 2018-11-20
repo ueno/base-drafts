@@ -302,9 +302,11 @@ ul.toc li {
 <link href="#rfc.section.5.1" rel="Chapter" title="5.1 Packet Protection Keys">
 <link href="#rfc.section.5.2" rel="Chapter" title="5.2 Initial Secrets">
 <link href="#rfc.section.5.3" rel="Chapter" title="5.3 AEAD Usage">
-<link href="#rfc.section.5.4" rel="Chapter" title="5.4 Packet Number Protection">
-<link href="#rfc.section.5.4.1" rel="Chapter" title="5.4.1 AES-Based Packet Number Protection">
-<link href="#rfc.section.5.4.2" rel="Chapter" title="5.4.2 ChaCha20-Based Packet Number Protection">
+<link href="#rfc.section.5.4" rel="Chapter" title="5.4 Header Protection">
+<link href="#rfc.section.5.4.1" rel="Chapter" title="5.4.1 Header Protection Application">
+<link href="#rfc.section.5.4.2" rel="Chapter" title="5.4.2 Header Protection Sample">
+<link href="#rfc.section.5.4.3" rel="Chapter" title="5.4.3 AES-Based Header Protection">
+<link href="#rfc.section.5.4.4" rel="Chapter" title="5.4.4 ChaCha20-Based Header Protection">
 <link href="#rfc.section.5.5" rel="Chapter" title="5.5 Receiving Protected Packets">
 <link href="#rfc.section.5.6" rel="Chapter" title="5.6 Use of 0-RTT Keys">
 <link href="#rfc.section.5.7" rel="Chapter" title="5.7 Receiving Out-of-Order Protected Frames">
@@ -317,7 +319,7 @@ ul.toc li {
 <link href="#rfc.section.9" rel="Chapter" title="9 Security Considerations">
 <link href="#rfc.section.9.1" rel="Chapter" title="9.1 Packet Reflection Attack Mitigation">
 <link href="#rfc.section.9.2" rel="Chapter" title="9.2 Peer Denial of Service">
-<link href="#rfc.section.9.3" rel="Chapter" title="9.3 Packet Number Protection Analysis">
+<link href="#rfc.section.9.3" rel="Chapter" title="9.3 Header Protection Analysis">
 <link href="#rfc.section.9.4" rel="Chapter" title="9.4 Key Diversity">
 <link href="#rfc.section.10" rel="Chapter" title="10 IANA Considerations">
 <link href="#rfc.references" rel="Chapter" title="11 References">
@@ -448,11 +450,15 @@ ul.toc li {
 </li>
 <li>5.3.   <a href="#rfc.section.5.3">AEAD Usage</a>
 </li>
-<li>5.4.   <a href="#rfc.section.5.4">Packet Number Protection</a>
+<li>5.4.   <a href="#rfc.section.5.4">Header Protection</a>
 </li>
-<ul><li>5.4.1.   <a href="#rfc.section.5.4.1">AES-Based Packet Number Protection</a>
+<ul><li>5.4.1.   <a href="#rfc.section.5.4.1">Header Protection Application</a>
 </li>
-<li>5.4.2.   <a href="#rfc.section.5.4.2">ChaCha20-Based Packet Number Protection</a>
+<li>5.4.2.   <a href="#rfc.section.5.4.2">Header Protection Sample</a>
+</li>
+<li>5.4.3.   <a href="#rfc.section.5.4.3">AES-Based Header Protection</a>
+</li>
+<li>5.4.4.   <a href="#rfc.section.5.4.4">ChaCha20-Based Header Protection</a>
 </li>
 </ul><li>5.5.   <a href="#rfc.section.5.5">Receiving Protected Packets</a>
 </li>
@@ -478,7 +484,7 @@ ul.toc li {
 </li>
 <li>9.2.   <a href="#rfc.section.9.2">Peer Denial of Service</a>
 </li>
-<li>9.3.   <a href="#rfc.section.9.3">Packet Number Protection Analysis</a>
+<li>9.3.   <a href="#rfc.section.9.3">Header Protection Analysis</a>
 </li>
 <li>9.4.   <a href="#rfc.section.9.4">Key Diversity</a>
 </li>
@@ -857,7 +863,7 @@ Handshake Received
 <p id="rfc.section.5.1.p.1">QUIC derives packet protection keys in the same way that TLS derives record protection keys.</p>
 <p id="rfc.section.5.1.p.2">Each encryption level has separate secret values for protection of packets sent in each direction.  These traffic secrets are derived by TLS (see Section 7.1 of <a href="#TLS13" class="xref">[TLS13]</a>) and are used by QUIC for all encryption levels except the Initial encryption level.  The secrets for the Initial encryption level are computed based on the client&#8217;s initial Destination Connection ID, as described in <a href="#initial-secrets" class="xref">Section 5.2</a>.</p>
 <p id="rfc.section.5.1.p.3">The keys used for packet protection are computed from the TLS secrets using the method described in Section 7.3 of <a href="#TLS13" class="xref">[TLS13]</a>), with the labels &#8220;quic key&#8221; and &#8220;quic iv&#8221; in place of the labels used by TLS (that is, &#8220;key&#8221; and &#8220;iv&#8221; respectively).  Using these labels provides key separation between QUIC and TLS, see <a href="#key-diversity" class="xref">Section 9.4</a>.</p>
-<p id="rfc.section.5.1.p.4">The HKDF-Expand-Label function is also used to derive the initial secrets (see <a href="#initial-secrets" class="xref">Section 5.2</a>) and to derive a packet number protection key (the &#8220;quic pn&#8221; label, see <a href="#pn-encrypt" class="xref">Section 5.4</a>).</p>
+<p id="rfc.section.5.1.p.4">The HKDF-Expand-Label function is also used to derive the initial secrets (see <a href="#initial-secrets" class="xref">Section 5.2</a>) and to derive a packet number protection key (the &#8220;quic hp&#8221; label, see <a href="#header-protect" class="xref">Section 5.4</a>).</p>
 <h2 id="rfc.section.5.2">
 <a href="#rfc.section.5.2">5.2.</a> <a href="#initial-secrets" id="initial-secrets">Initial Secrets</a>
 </h2>
@@ -887,7 +893,7 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
 <a href="#rfc.section.5.3">5.3.</a> <a href="#aead" id="aead">AEAD Usage</a>
 </h2>
 <p id="rfc.section.5.3.p.1">The Authentication Encryption with Associated Data (AEAD) <a href="#AEAD" class="xref">[AEAD]</a> function used for QUIC packet protection is the AEAD that is negotiated for use with the TLS connection.  For example, if TLS is using the TLS_AES_128_GCM_SHA256, the AEAD_AES_128_GCM function is used.</p>
-<p id="rfc.section.5.3.p.2">QUIC packets are protected prior to applying packet number protection (<a href="#pn-encrypt" class="xref">Section 5.4</a>).  The unprotected packet number is part of the associated data (A).  When removing packet protection, an endpoint first removes the protection from the packet number.</p>
+<p id="rfc.section.5.3.p.2">Packets are protected prior to applying header protection (<a href="#header-protect" class="xref">Section 5.4</a>).  The unprotected packet header is part of the associated data (A).  When removing packet protection, an endpoint first removes the header protection.</p>
 <p id="rfc.section.5.3.p.3">All QUIC packets other than Version Negotiation and Retry packets are protected with an AEAD algorithm <a href="#AEAD" class="xref">[AEAD]</a>. Prior to establishing a shared secret, packets are protected with AEAD_AES_128_GCM and a key derived from the destination connection ID in the client&#8217;s first Initial packet (see <a href="#initial-secrets" class="xref">Section 5.2</a>).  This provides protection against off-path attackers and robustness against QUIC version unaware middleboxes, but not against on-path attackers.</p>
 <p id="rfc.section.5.3.p.4">All ciphersuites currently defined for TLS 1.3 - and therefore QUIC - have a 16-byte authentication tag and produce an output 16 bytes larger than their input.</p>
 <p id="rfc.section.5.3.p.5">The key and IV for the packet are computed as described in <a href="#protection-keys" class="xref">Section 5.1</a>.  The nonce, N, is formed by combining the packet protection IV with the packet number.  The 64 bits of the reconstructed QUIC packet number in network byte order are left-padded with zeros to the size of the IV.  The exclusive OR of the padded packet number and the IV forms the AEAD nonce.</p>
@@ -896,12 +902,71 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
 <p id="rfc.section.5.3.p.8">The output ciphertext, C, of the AEAD is transmitted in place of P.</p>
 <p id="rfc.section.5.3.p.9">Some AEAD functions have limits for how many packets can be encrypted under the same key and IV (see for example <a href="#AEBounds" class="xref">[AEBounds]</a>).  This might be lower than the packet number limit.  An endpoint MUST initiate a key update (<a href="#key-update" class="xref">Section 6</a>) prior to exceeding any limit set for the AEAD that is in use.</p>
 <h2 id="rfc.section.5.4">
-<a href="#rfc.section.5.4">5.4.</a> <a href="#pn-encrypt" id="pn-encrypt">Packet Number Protection</a>
+<a href="#rfc.section.5.4">5.4.</a> <a href="#header-protect" id="header-protect">Header Protection</a>
 </h2>
-<p id="rfc.section.5.4.p.1">QUIC packet numbers are protected using a key that is derived from the current set of secrets.  The key derived using the &#8220;quic pn&#8221; label is used to protect the packet number from casual observation.  The packet number protection algorithm depends on the negotiated AEAD.</p>
-<p id="rfc.section.5.4.p.2">Packet number protection is applied after packet protection is applied (see <a href="#aead" class="xref">Section 5.3</a>).  The ciphertext of the packet is sampled and used as input to an encryption algorithm.</p>
-<p id="rfc.section.5.4.p.3">In sampling the packet ciphertext, the packet number length is assumed to be 4 bytes (its maximum possible encoded length), unless there is insufficient space in the packet for sampling.  The sampled ciphertext starts after allowing for a 4 byte packet number unless this would cause the sample to extend past the end of the packet.  If the sample would extend past the end of the packet, the end of the packet is sampled.</p>
-<p id="rfc.section.5.4.p.4">For example, the sampled ciphertext for a packet with a short header can be determined by:</p>
+<p id="rfc.section.5.4.p.1">Parts of QUIC packet headers, in particular the Packet Number field, are protected using a key that is derived separate to the packet protection key and IV.  The key derived using the &#8220;quic hp&#8221; label is used to provide confidentiality protection for those fields that are not exposed to on-path elements.</p>
+<p id="rfc.section.5.4.p.2">This protection applies to the least-significant bits of the first byte, plus the Packet Number field.  The four least-significant bits of the first byte are protected for packets with long headers; the five least significant bits of the first byte are protected for packets with short headers.  For both header forms, this covers the reserved bits and the Packet Number Length field; the Key Phase bit is also protected for packets with a short header.</p>
+<p id="rfc.section.5.4.p.3">This process does not apply to Retry or Version Negotiation packets, which do not contain a protected payload or any of the fields that are protected by this process.</p>
+<h3 id="rfc.section.5.4.1">
+<a href="#rfc.section.5.4.1">5.4.1.</a> <a href="#header-protection-application" id="header-protection-application">Header Protection Application</a>
+</h3>
+<p id="rfc.section.5.4.1.p.1">Header protection is applied after packet protection is applied (see <a href="#aead" class="xref">Section 5.3</a>).  The ciphertext of the packet is sampled and used as input to an encryption algorithm.  The algorithm used depends on the negotiated AEAD.</p>
+<p id="rfc.section.5.4.1.p.2">The output of this algorithm is a 5 byte mask which is applied to the protected header fields using exclusive OR.  The least significant bits of the first byte of the packet are masked by the least significant bits of the first mask byte, and the packet number is masked with the remaining bytes.  Any unused bytes of mask that might result from a shorter packet number encoding are unused.</p>
+<p><a href="#pseudo-hp" class="xref">Figure 4</a> shows a sample algorithm for applying header protection. Removing header protection only differs in the order in which the packet number length (pn_length) is determined.</p>
+<div id="rfc.figure.4"></div>
+<div id="pseudo-hp"></div>
+<pre>
+mask = header_protection(hp_key, sample)
+
+pn_length = (packet[0] &amp; 0x03) + 1
+if (packet[0] &amp; 0x80) == 0x80:
+   # Long header: 4 bits masked
+   packet[0] ^= mask[0] &amp; 0x0f
+else:
+   # Short header: 5 bits masked
+   packet[0] ^= mask[0] &amp; 0x1f
+
+# pn_offset is the start of the Packet Number field.
+packet[pn_offset:pn_offset+pn_length] ^= mask[1:1+pn_length]
+</pre>
+<p class="figure">Figure 4: Header Protection Pseudocode</p>
+<p><a href="#fig-sample" class="xref">Figure 5</a> shows the protected fields of long and short headers marked with an E.  <a href="#fig-sample" class="xref">Figure 5</a> also shows the sampled fields.</p>
+<div id="rfc.figure.5"></div>
+<div id="fig-sample"></div>
+<pre>
+Long Header:
++-+-+-+-+-+-+-+-+
+|1|1|T T|E E E E|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    Version -&gt; Length Fields                 ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Short Header:
++-+-+-+-+-+-+-+-+
+|0|1|S|E E E E E|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|               Destination Connection ID (0/32..144)         ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Common Fields:
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|E E E E E E E E E  Packet Number (8/16/24/32) E E E E E E E E...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   [Protected Payload (8/16/24)]             ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|             Sampled part of Protected Payload (128)         ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Protected Payload Remainder (*)             ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+</pre>
+<p class="figure">Figure 5: Header Protection and Ciphertext Sample</p>
+<p id="rfc.section.5.4.1.p.5">Before a TLS ciphersuite can be used with QUIC, a header protection algorithm MUST be specified for the AEAD used with that ciphersuite.  This document defines algorithms for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, AEAD_AES_256_CCM (all AES AEADs are defined in <a href="#AEAD" class="xref">[AEAD]</a>), and AEAD_CHACHA20_POLY1305 <a href="#CHACHA" class="xref">[CHACHA]</a>.  Prior to TLS selecting a ciphersuite, AES header protection is used (<a href="#hp-aes" class="xref">Section 5.4.3</a>), matching the AEAD_AES_128_GCM packet protection.</p>
+<h3 id="rfc.section.5.4.2">
+<a href="#rfc.section.5.4.2">5.4.2.</a> <a href="#hp-sample" id="hp-sample">Header Protection Sample</a>
+</h3>
+<p id="rfc.section.5.4.2.p.1">The header protection algorithm uses both the header protection key and a sample of the ciphertext from the packet Payload field.</p>
+<p id="rfc.section.5.4.2.p.2">The same number of bytes are always sampled, but an allowance needs to be made for the endpoint removing protection, which will not know the length of the Packet Number field.  In sampling the packet ciphertext, the Packet Number field is assumed to be 4 bytes long (its maximum possible encoded length), unless there is insufficient space in the packet for a complete sample.  The starting offset for the sample is set to 4 bytes after the start of the Packet Number field, then is reduced until there are enough bytes to sample.</p>
+<p id="rfc.section.5.4.2.p.3">The sampled ciphertext for a packet with a short header can be determined by the following pseudocode:</p>
 <pre>
 sample_offset = 1 + len(connection_id) + 4
 
@@ -909,7 +974,8 @@ if sample_offset + sample_length &gt; packet_length then
     sample_offset = packet_length - sample_length
 sample = packet[sample_offset..sample_offset+sample_length]
 </pre>
-<p id="rfc.section.5.4.p.5">A packet with a long header is sampled in the same way, noting that multiple QUIC packets might be included in the same UDP datagram and that each one is handled separately.</p>
+<p id="rfc.section.5.4.2.p.4">For example, for a packet with a short header, an 8 byte connection ID, and protected with AEAD_AES_128_GCM, the sample takes bytes 13 to 28 inclusive (using zero-based indexing) as long as the packet is at least 29 bytes long.  The shortest packet that can be produced with this configuration is 27 bytes long, in which case bytes 11 to 26 are sampled.</p>
+<p id="rfc.section.5.4.2.p.5">A packet with a long header is sampled in the same way, noting that multiple QUIC packets might be included in the same UDP datagram and that each one is handled separately.</p>
 <pre>
 sample_offset = 6 + len(destination_connection_id) +
                     len(source_connection_id) +
@@ -917,28 +983,30 @@ sample_offset = 6 + len(destination_connection_id) +
 if packet_type == Initial:
     sample_offset += len(token_length) +
                      len(token)
+
+if sample_offset + sample_length &gt; packet_length then
+    sample_offset = packet_length - sample_length
+sample = packet[sample_offset..sample_offset+sample_length]
 </pre>
-<p id="rfc.section.5.4.p.6">To ensure that this process does not sample the packet number, packet number protection algorithms MUST NOT sample more ciphertext than the minimum expansion of the corresponding AEAD.</p>
-<p id="rfc.section.5.4.p.7">Packet number protection is applied to the packet number encoded as described in Section 17.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>. Since the length of the packet number is stored in the first byte of the encoded packet number, it may be necessary to progressively decrypt the packet number.</p>
-<p id="rfc.section.5.4.p.8">Before a TLS ciphersuite can be used with QUIC, a packet protection algorithm MUST be specifed for the AEAD used with that ciphersuite.  This document defines algorithms for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, AEAD_AES_256_CCM (all AES AEADs are defined in <a href="#AEAD" class="xref">[AEAD]</a>), and AEAD_CHACHA20_POLY1305 (<a href="#CHACHA" class="xref">[CHACHA]</a>).</p>
-<h3 id="rfc.section.5.4.1">
-<a href="#rfc.section.5.4.1">5.4.1.</a> <a href="#aes-based-packet-number-protection" id="aes-based-packet-number-protection">AES-Based Packet Number Protection</a>
+<p id="rfc.section.5.4.2.p.6">To ensure that this process does not sample the packet number, header protection algorithms MUST NOT require a sample size larger than the minimum expansion of the corresponding AEAD.</p>
+<h3 id="rfc.section.5.4.3">
+<a href="#rfc.section.5.4.3">5.4.3.</a> <a href="#hp-aes" id="hp-aes">AES-Based Header Protection</a>
 </h3>
-<p id="rfc.section.5.4.1.p.1">This section defines the packet protection algorithm for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, and AEAD_AES_256_CCM. AEAD_AES_128_GCM and AEAD_AES_128_CCM use 128-bit AES <a href="#AES" class="xref">[AES]</a> in counter (CTR) mode. AEAD_AES_256_GCM, and AEAD_AES_256_CCM use 256-bit AES in CTR mode.</p>
-<p id="rfc.section.5.4.1.p.2">This algorithm samples 16 bytes from the packet ciphertext. This value is used as the counter input to AES-CTR.</p>
+<p id="rfc.section.5.4.3.p.1">This section defines the packet protection algorithm for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, and AEAD_AES_256_CCM. AEAD_AES_128_GCM and AEAD_AES_128_CCM use 128-bit AES <a href="#AES" class="xref">[AES]</a> in electronic code-book (ECB) mode. AEAD_AES_256_GCM, and AEAD_AES_256_CCM use 256-bit AES in ECB mode.</p>
+<p id="rfc.section.5.4.3.p.2">This algorithm samples 16 bytes from the packet ciphertext. This value is used as the counter input to AES-ECB.  In pseudocode:</p>
 <pre>
-encrypted_pn = AES-CTR(pn_key, sample, packet_number)
+mask = AES-ECB(pn_key, sample)
 </pre>
-<h3 id="rfc.section.5.4.2">
-<a href="#rfc.section.5.4.2">5.4.2.</a> <a href="#chacha20-based-packet-number-protection" id="chacha20-based-packet-number-protection">ChaCha20-Based Packet Number Protection</a>
+<h3 id="rfc.section.5.4.4">
+<a href="#rfc.section.5.4.4">5.4.4.</a> <a href="#hp-chacha" id="hp-chacha">ChaCha20-Based Header Protection</a>
 </h3>
-<p id="rfc.section.5.4.2.p.1">When AEAD_CHACHA20_POLY1305 is in use, packet number protection uses the raw ChaCha20 function as defined in Section 2.4 of <a href="#CHACHA" class="xref">[CHACHA]</a>.  This uses a 256-bit key and 16 bytes sampled from the packet protection output.</p>
-<p id="rfc.section.5.4.2.p.2">The first 4 bytes of the sampled ciphertext are interpreted as a 32-bit number in little-endian order and are used as the block count.  The remaining 12 bytes are interpreted as three concatenated 32-bit numbers in little-endian order and used as the nonce.</p>
-<p id="rfc.section.5.4.2.p.3">The encoded packet number is then encrypted with ChaCha20 directly. In pseudocode:</p>
+<p id="rfc.section.5.4.4.p.1">When AEAD_CHACHA20_POLY1305 is in use, header protection uses the raw ChaCha20 function as defined in Section 2.4 of <a href="#CHACHA" class="xref">[CHACHA]</a>.  This uses a 256-bit key and 16 bytes sampled from the packet protection output.</p>
+<p id="rfc.section.5.4.4.p.2">The first 4 bytes of the sampled ciphertext are interpreted as a 32-bit number in little-endian order and are used as the block count.  The remaining 12 bytes are interpreted as three concatenated 32-bit numbers in little-endian order and used as the nonce.</p>
+<p id="rfc.section.5.4.4.p.3">The encryption mask is produced by invoking ChaCha20 to protect 5 zero bytes. In pseudocode:</p>
 <pre>
 counter = DecodeLE(sample[0..3])
 nonce = DecodeLE(sample[4..7], sample[8..11], sample[12..15])
-encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
+mask = ChaCha20(pn_key, counter, nonce, {0,0,0,0,0})
 </pre>
 <h2 id="rfc.section.5.5">
 <a href="#rfc.section.5.5">5.5.</a> <a href="#receiving-protected-packets" id="receiving-protected-packets">Receiving Protected Packets</a>
@@ -977,7 +1045,7 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
 <p id="rfc.section.6.p.8">An endpoint SHOULD retain old keys for a short period to allow it to decrypt packets with smaller packet numbers than the packet that triggered the key update.  This allows an endpoint to consume packets that are reordered around the transition between keys.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
 <p id="rfc.section.6.p.9">Keys and their corresponding secrets SHOULD be discarded when an endpoint has received all packets with packet numbers lower than the lowest packet number used for the new key.  An endpoint might discard keys if it determines that the length of the delay to affected packets is excessive.</p>
 <p id="rfc.section.6.p.10">This ensures that once the handshake is complete, packets with the same KEY_PHASE will have the same packet protection keys, unless there are multiple key updates in a short time frame succession and significant packet reordering.</p>
-<div id="rfc.figure.4"></div>
+<div id="rfc.figure.6"></div>
 <div id="ex-key-update"></div>
 <pre>
    Initiating Peer                    Responding Peer
@@ -991,7 +1059,7 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
                                           QUIC Frames @N
                       &lt;--------
 </pre>
-<p class="figure">Figure 4: Key Update</p>
+<p class="figure">Figure 6: Key Update</p>
 <p id="rfc.section.6.p.11">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
 <p id="rfc.section.6.p.12">In deciding when to update keys, endpoints MUST NOT exceed the limits for use of specific keys, as described in Section 5.5 of <a href="#TLS13" class="xref">[TLS13]</a>.</p>
 <h1 id="rfc.section.7">
@@ -1048,23 +1116,23 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
 <p id="rfc.section.9.2.p.2">QUIC prohibits the sending of empty <samp>STREAM</samp> frames unless they are marked with the FIN bit.  This prevents <samp>STREAM</samp> frames from being sent that only waste effort.</p>
 <p id="rfc.section.9.2.p.3">While there are legitimate uses for some redundant packets, implementations SHOULD track redundant packets and treat excessive volumes of any non-productive packets as indicative of an attack.</p>
 <h2 id="rfc.section.9.3">
-<a href="#rfc.section.9.3">9.3.</a> <a href="#pn-encrypt-analysis" id="pn-encrypt-analysis">Packet Number Protection Analysis</a>
+<a href="#rfc.section.9.3">9.3.</a> <a href="#header-protect-analysis" id="header-protect-analysis">Header Protection Analysis</a>
 </h2>
-<p id="rfc.section.9.3.p.1">Packet number protection relies on the packet protection AEAD being a pseudorandom function (PRF), which is not a property that AEAD algorithms guarantee. Therefore, no strong assurances about the general security of this mechanism can be shown in the general case. The AEAD algorithms described in this document are assumed to be PRFs.</p>
-<p id="rfc.section.9.3.p.2">The packet number protection algorithms defined in this document take the form:</p>
+<p id="rfc.section.9.3.p.1">Header protection relies on the packet protection AEAD being a pseudorandom function (PRF), which is not a property that AEAD algorithms guarantee. Therefore, no strong assurances about the general security of this mechanism can be shown in the general case. The AEAD algorithms described in this document are assumed to be PRFs.</p>
+<p id="rfc.section.9.3.p.2">The header protection algorithms defined in this document take the form:</p>
 <pre>
-encrypted_pn = packet_number XOR PRF(pn_key, sample)
+protected_field = field XOR PRF(pn_key, sample)
 </pre>
 <p id="rfc.section.9.3.p.3">This construction is secure against chosen plaintext attacks (IND-CPA) <a href="#IMC" class="xref">[IMC]</a>.</p>
-<p id="rfc.section.9.3.p.4">Use of the same key and ciphertext sample more than once risks compromising packet number protection. Protecting two different packet numbers with the same key and ciphertext sample reveals the exclusive OR of those packet numbers.  Assuming that the AEAD acts as a PRF, if L bits are sampled, the odds of two ciphertext samples being identical approach 2^(-L/2), that is, the birthday bound. For the algorithms described in this document, that probability is one in 2^64.</p>
+<p id="rfc.section.9.3.p.4">Use of the same key and ciphertext sample more than once risks compromising header protection. Protecting two different headers with the same key and ciphertext sample reveals the exclusive OR of the protected fields.  Assuming that the AEAD acts as a PRF, if L bits are sampled, the odds of two ciphertext samples being identical approach 2^(-L/2), that is, the birthday bound. For the algorithms described in this document, that probability is one in 2^64.</p>
 <p></p>
 
 <dl>
 <dt>Note:</dt>
 <dd style="margin-left: 8">In some cases, inputs shorter than the full size required by the packet protection algorithm might be used.</dd>
 </dl>
-<p id="rfc.section.9.3.p.6">To prevent an attacker from modifying packet numbers, values of packet numbers are transitively authenticated using packet protection; packet numbers are part of the authenticated additional data.  A falsified or modified packet number can only be detected once the packet protection is removed.</p>
-<p id="rfc.section.9.3.p.7">An attacker can guess values for packet numbers and have an endpoint confirm guesses through timing side channels.  If the recipient of a packet discards packets with duplicate packet numbers without attempting to remove packet protection they could reveal through timing side-channels that the packet number matches a received packet.  For authentication to be free from side-channels, the entire process of packet number protection removal, packet number recovery, and packet protection removal MUST be applied together without timing and other side-channels.</p>
+<p id="rfc.section.9.3.p.6">To prevent an attacker from modifying packet headers, the header is transitively authenticated using packet protection; the entire packet header is part of the authenticated additional data.  Protected fields that are falsified or modified can only be detected once the packet protection is removed.</p>
+<p id="rfc.section.9.3.p.7">An attacker could guess values for packet numbers and have an endpoint confirm guesses through timing side channels.  Similarly, guesses for the packet number length can be trialed and exposed.  If the recipient of a packet discards packets with duplicate packet numbers without attempting to remove packet protection they could reveal through timing side-channels that the packet number matches a received packet.  For authentication to be free from side-channels, the entire process of header protection removal, packet number recovery, and packet protection removal MUST be applied together without timing and other side-channels.</p>
 <p id="rfc.section.9.3.p.8">For the sending of packets, construction and protection of packet payloads and packet numbers MUST be free from side-channels that would reveal the packet number or its encoded size.</p>
 <h2 id="rfc.section.9.4">
 <a href="#rfc.section.9.4">9.4.</a> <a href="#key-diversity" id="key-diversity">Key Diversity</a>
