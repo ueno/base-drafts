@@ -350,7 +350,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Thomson, M., Ed. and S. Turner, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-tls-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2018-11-21" />
+  <meta name="dct.issued" scheme="ISO8601" content="2018-11-22" />
   <meta name="dct.abstract" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
   <meta name="description" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
 
@@ -374,12 +374,12 @@ ul.toc li {
 <td class="right">S. Turner, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: May 25, 2019</td>
+<td class="left">Expires: May 26, 2019</td>
 <td class="right">sn3rd</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">November 21, 2018</td>
+<td class="right">November 22, 2018</td>
 </tr>
 
     	
@@ -398,7 +398,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on May 25, 2019.</p>
+<p>This Internet-Draft will expire on May 26, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2018 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -966,17 +966,17 @@ Common Fields:
 <a href="#rfc.section.5.4.2">5.4.2.</a> <a href="#hp-sample" id="hp-sample">Header Protection Sample</a>
 </h3>
 <p id="rfc.section.5.4.2.p.1">The header protection algorithm uses both the header protection key and a sample of the ciphertext from the packet Payload field.</p>
-<p id="rfc.section.5.4.2.p.2">The same number of bytes are always sampled, but an allowance needs to be made for the endpoint removing protection, which will not know the length of the Packet Number field.  In sampling the packet ciphertext, the Packet Number field is assumed to be 4 bytes long (its maximum possible encoded length), unless there is insufficient space in the packet for a complete sample.  The starting offset for the sample is set to 4 bytes after the start of the Packet Number field, then is reduced until there are enough bytes to sample.</p>
-<p id="rfc.section.5.4.2.p.3">The sampled ciphertext for a packet with a short header can be determined by the following pseudocode:</p>
+<p id="rfc.section.5.4.2.p.2">The same number of bytes are always sampled, but an allowance needs to be made for the endpoint removing protection, which will not know the length of the Packet Number field.  In sampling the packet ciphertext, the Packet Number field is assumed to be 4 bytes long (its maximum possible encoded length).</p>
+<p id="rfc.section.5.4.2.p.3">An endpoint MUST discard packets that are not long enough to contain a complete sample.</p>
+<p id="rfc.section.5.4.2.p.4">To ensure that sufficient data is available for sampling, packets are padded so that the combined lengths of the encoded packet number and protected payload is at least 4 bytes longer than the sample required for header protection.  For the AEAD functions defined in <a href="#TLS13" class="xref">[TLS13]</a>, which have 16-byte expansions and 16-byte header protection samples, this results in needing at least 3 bytes of frames in the unprotected payload if the packet number is encoded on a single byte, or 2 bytes of frames for a 2-byte packet number encoding.</p>
+<p id="rfc.section.5.4.2.p.5">The sampled ciphertext for a packet with a short header can be determined by the following pseudocode:</p>
 <pre>
 sample_offset = 1 + len(connection_id) + 4
 
-if sample_offset + sample_length &gt; packet_length then
-    sample_offset = packet_length - sample_length
 sample = packet[sample_offset..sample_offset+sample_length]
 </pre>
-<p id="rfc.section.5.4.2.p.4">For example, for a packet with a short header, an 8 byte connection ID, and protected with AEAD_AES_128_GCM, the sample takes bytes 13 to 28 inclusive (using zero-based indexing) as long as the packet is at least 29 bytes long.  The shortest packet that can be produced with this configuration is 27 bytes long, in which case bytes 11 to 26 are sampled.</p>
-<p id="rfc.section.5.4.2.p.5">A packet with a long header is sampled in the same way, noting that multiple QUIC packets might be included in the same UDP datagram and that each one is handled separately.</p>
+<p id="rfc.section.5.4.2.p.6">For example, for a packet with a short header, an 8 byte connection ID, and protected with AEAD_AES_128_GCM, the sample takes bytes 13 to 28 inclusive (using zero-based indexing).</p>
+<p id="rfc.section.5.4.2.p.7">A packet with a long header is sampled in the same way, noting that multiple QUIC packets might be included in the same UDP datagram and that each one is handled separately.</p>
 <pre>
 sample_offset = 6 + len(destination_connection_id) +
                     len(source_connection_id) +
@@ -985,11 +985,8 @@ if packet_type == Initial:
     sample_offset += len(token_length) +
                      len(token)
 
-if sample_offset + sample_length &gt; packet_length then
-    sample_offset = packet_length - sample_length
 sample = packet[sample_offset..sample_offset+sample_length]
 </pre>
-<p id="rfc.section.5.4.2.p.6">To ensure that this process does not sample the packet number, header protection algorithms MUST NOT require a sample size larger than the minimum expansion of the corresponding AEAD.</p>
 <h3 id="rfc.section.5.4.3">
 <a href="#rfc.section.5.4.3">5.4.3.</a> <a href="#hp-aes" id="hp-aes">AES-Based Header Protection</a>
 </h3>
