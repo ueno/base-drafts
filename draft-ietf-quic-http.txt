@@ -93,7 +93,7 @@ Table of Contents
      4.1.  Frame Layout  . . . . . . . . . . . . . . . . . . . . . .  10
      4.2.  Frame Definitions . . . . . . . . . . . . . . . . . . . .  11
        4.2.1.  DATA  . . . . . . . . . . . . . . . . . . . . . . . .  11
-       4.2.2.  HEADERS . . . . . . . . . . . . . . . . . . . . . . .  12
+       4.2.2.  HEADERS . . . . . . . . . . . . . . . . . . . . . . .  11
        4.2.3.  PRIORITY  . . . . . . . . . . . . . . . . . . . . . .  12
        4.2.4.  CANCEL_PUSH . . . . . . . . . . . . . . . . . . . . .  14
        4.2.5.  SETTINGS  . . . . . . . . . . . . . . . . . . . . . .  15
@@ -346,9 +346,7 @@ Internet-Draft                   HTTP/3                    November 2018
    conveyed in the SETTINGS frame.  After the QUIC connection is
    established, a SETTINGS frame (Section 4.2.5) MUST be sent by each
    endpoint as the initial frame of their respective HTTP control stream
-   (see Section 3.2.1).  The server MUST NOT process any request streams
-   or send responses until the client's SETTINGS frame has been
-   received.
+   (see Section 3.2.1).
 
 2.4.  Connection Reuse
 
@@ -385,6 +383,8 @@ Internet-Draft                   HTTP/3                    November 2018
 
    QUIC streams can be either unidirectional, carrying data only from
    initiator to receiver, or bidirectional.  Streams can be initiated by
+   either the client or the server.  For more detail on QUIC streams,
+   see Section 2 of [QUIC-TRANSPORT].
 
 
 
@@ -393,9 +393,6 @@ Bishop                    Expires May 31, 2019                  [Page 7]
 
 Internet-Draft                   HTTP/3                    November 2018
 
-
-   either the client or the server.  For more detail on QUIC streams,
-   see Section 2 of [QUIC-TRANSPORT].
 
    When HTTP headers and data are sent over QUIC, the QUIC layer handles
    most of the stream management.  HTTP does not need to do any separate
@@ -441,7 +438,10 @@ Internet-Draft                   HTTP/3                    November 2018
 
                   Figure 1: Unidirectional Stream Header
 
-
+   Some stream types are reserved (Section 3.2.3).  Two stream types are
+   defined in this document: control streams (Section 3.2.1) and push
+   streams (Section 3.2.2).  Other stream types can be defined by
+   extensions to HTTP/3; see Section 7 for more details.
 
 
 
@@ -449,11 +449,6 @@ Bishop                    Expires May 31, 2019                  [Page 8]
 
 Internet-Draft                   HTTP/3                    November 2018
 
-
-   Some stream types are reserved (Section 3.2.3).  Two stream types are
-   defined in this document: control streams (Section 3.2.1) and push
-   streams (Section 3.2.2).  Other stream types can be defined by
-   extensions to HTTP/3.
 
    Both clients and servers SHOULD send a value of three or greater for
    the QUIC transport parameter "initial_max_uni_streams".
@@ -498,6 +493,11 @@ Internet-Draft                   HTTP/3                    November 2018
    A push stream is indicated by a stream type of "0x50" (ASCII 'P'),
    followed by the Push ID of the promise that it fulfills, encoded as a
    variable-length integer.  The remaining data on this stream consists
+   of HTTP/3 frames, as defined in Section 4.2, and fulfills a promised
+   server push.  Server push and Push IDs are described in Section 5.4.
+
+
+
 
 
 
@@ -505,9 +505,6 @@ Bishop                    Expires May 31, 2019                  [Page 9]
 
 Internet-Draft                   HTTP/3                    November 2018
 
-
-   of HTTP/3 frames, as defined in Section 4.2, and fulfills a promised
-   server push.  Server push and Push IDs are described in Section 5.4.
 
    Only servers can push; if a server receives a client-initiated push
    stream, this MUST be treated as a stream error of type
@@ -548,20 +545,6 @@ Internet-Draft                   HTTP/3                    November 2018
 
    All frames have the following format:
 
-
-
-
-
-
-
-
-
-
-Bishop                    Expires May 31, 2019                 [Page 10]
-
-Internet-Draft                   HTTP/3                    November 2018
-
-
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -571,6 +554,13 @@ Internet-Draft                   HTTP/3                    November 2018
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                        Figure 3: HTTP/3 frame format
+
+
+
+Bishop                    Expires May 31, 2019                 [Page 10]
+
+Internet-Draft                   HTTP/3                    November 2018
+
 
    A frame includes the following fields:
 
@@ -611,17 +601,22 @@ Internet-Draft                   HTTP/3                    November 2018
    is received with a payload length of zero, the recipient MUST respond
    with a stream error (Section 8) of type HTTP_MALFORMED_FRAME.
 
+4.2.2.  HEADERS
+
+   The HEADERS frame (type=0x1) is used to carry a header block,
+   compressed using QPACK.  See [QPACK] for more details.
+
+
+
+
+
+
 
 
 Bishop                    Expires May 31, 2019                 [Page 11]
 
 Internet-Draft                   HTTP/3                    November 2018
 
-
-4.2.2.  HEADERS
-
-   The HEADERS frame (type=0x1) is used to carry a header block,
-   compressed using QPACK.  See [QPACK] for more details.
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -667,6 +662,11 @@ Internet-Draft                   HTTP/3                    November 2018
    Exclusive:  A flag which indicates that the stream dependency is
       exclusive (see [RFC7540], Section 5.3).
 
+   Prioritized Element ID:  A variable-length integer that identifies
+      the element being prioritized.  Depending on the value of
+      Prioritized Type, this contains the Stream ID of a request stream,
+
+
 
 
 Bishop                    Expires May 31, 2019                 [Page 12]
@@ -674,9 +674,6 @@ Bishop                    Expires May 31, 2019                 [Page 12]
 Internet-Draft                   HTTP/3                    November 2018
 
 
-   Prioritized Element ID:  A variable-length integer that identifies
-      the element being prioritized.  Depending on the value of
-      Prioritized Type, this contains the Stream ID of a request stream,
       the Push ID of a promised resource, or a Placeholder ID of a
       placeholder.
 
@@ -722,6 +719,9 @@ Internet-Draft                   HTTP/3                    November 2018
    ID MUST identify a client-initiated bidirectional stream.  A server
    MUST treat receipt of PRIORITY frame with a Stream ID of any other
    type as a connection error of type HTTP_MALFORMED_FRAME.
+
+
+
 
 
 
@@ -797,12 +797,11 @@ Internet-Draft                   HTTP/3                    November 2018
 
    SETTINGS parameters are not negotiated; they describe characteristics
    of the sending peer, which can be used by the receiving peer.
-   However, a negotiation can be implied by the use of SETTINGS - a peer
-   uses SETTINGS to advertise a set of supported values.  The recipient
-   can then choose which entries from this list are also acceptable and
-   proceed with the value it has chosen.  (This choice could be
-   announced in a field of an extension frame, or in its own value in
-   SETTINGS.)
+   However, a negotiation can be implied by the use of SETTINGS - each
+   peer uses SETTINGS to advertise a set of supported values.  The
+   definition of the setting would describe how each peer combines the
+   two sets to conclude which choice will be used.  SETTINGS does not
+   provide a mechanism to identify when the choice takes effect.
 
    Different values for the same parameter can be advertised by each
    peer.  For example, a client might be willing to consume a very large
@@ -833,7 +832,8 @@ Internet-Draft                   HTTP/3                    November 2018
    An implementation MUST ignore the contents for any SETTINGS
    identifier it does not understand.
 
-
+   SETTINGS frames always apply to a connection, never a single stream.
+   A SETTINGS frame MUST be sent as the first frame of each control
 
 
 
@@ -842,8 +842,6 @@ Bishop                    Expires May 31, 2019                 [Page 15]
 Internet-Draft                   HTTP/3                    November 2018
 
 
-   SETTINGS frames always apply to a connection, never a single stream.
-   A SETTINGS frame MUST be sent as the first frame of each control
    stream (see Section 3.2.1) by each peer, and MUST NOT be sent
    subsequently or on any other stream.  If an endpoint receives a
    SETTINGS frame on a different stream, the endpoint MUST respond with
@@ -860,9 +858,11 @@ Internet-Draft                   HTTP/3                    November 2018
    The following settings are defined in HTTP/3:
 
    SETTINGS_MAX_HEADER_LIST_SIZE (0x6):  The default value is unlimited.
+      See Section 5.1.1 for usage.
 
-   SETTINGS_NUM_PLACEHOLDERS (0x8):  This value SHOULD be non-zero.  The
-      default value is 16.
+   SETTINGS_NUM_PLACEHOLDERS (0x8):  The default value is 0.  However,
+      this value SHOULD be set to a non-zero value by servers.  See
+      Section 5.3.1 for usage.
 
    Setting identifiers of the format "0x?a?a" are reserved to exercise
    the requirement that unknown identifiers be ignored.  Such settings
@@ -873,23 +873,23 @@ Internet-Draft                   HTTP/3                    November 2018
    Because the setting has no defined meaning, the value of the setting
    can be any value the implementation selects.
 
-   Additional settings MAY be defined by extensions to HTTP/3.
+   Additional settings can be defined by extensions to HTTP/3; see
+   Section 7 for more details.
 
 4.2.5.2.  Initialization
 
-   When a 0-RTT QUIC connection is being used, the client's initial
-   requests will be sent before the arrival of the server's SETTINGS
-   frame.  Clients MUST store the settings the server provided in the
-   session being resumed and MUST comply with stored settings until the
-   server's current settings are received.  Remembered settings apply to
-   the new connection until the server's SETTINGS frame is received.
+   An HTTP implementation MUST NOT send frames or requests which would
+   be invalid based on its current understanding of the peer's settings.
+   All settings begin at an initial value, and are updated upon receipt
+   of a SETTINGS frame.  For servers, the initial value of each client
+   setting is the default value.
 
-   A server can remember the settings that it advertised, or store an
-   integrity-protected copy of the values in the ticket and recover the
-   information when accepting 0-RTT data.  A server uses the HTTP/3
-   settings values in determining whether to accept 0-RTT data.
-
-
+   For clients using a 1-RTT QUIC connection, the initial value of each
+   server setting is the default value.  When a 0-RTT QUIC connection is
+   being used, the initial value of each server setting is the value
+   used in the previous session.  Clients MUST store the settings the
+   server provided in the session being resumed and MUST comply with
+   stored settings until the current server settings are received.
 
 
 
@@ -898,14 +898,15 @@ Bishop                    Expires May 31, 2019                 [Page 16]
 Internet-Draft                   HTTP/3                    November 2018
 
 
+   A server can remember the settings that it advertised, or store an
+   integrity-protected copy of the values in the ticket and recover the
+   information when accepting 0-RTT data.  A server uses the HTTP/3
+   settings values in determining whether to accept 0-RTT data.
+
    A server MAY accept 0-RTT and subsequently provide different settings
    in its SETTINGS frame.  If 0-RTT data is accepted by the server, its
    SETTINGS frame MUST NOT reduce any limits or alter any values that
    might be violated by the client with its 0-RTT data.
-
-   When a 1-RTT QUIC connection is being used, the client MUST NOT send
-   requests prior to receiving and processing the server's SETTINGS
-   frame.
 
 4.2.6.  PUSH_PROMISE
 
@@ -944,8 +945,7 @@ Internet-Draft                   HTTP/3                    November 2018
    ensures that a PUSH_PROMISE can be made in relation to every response
    in which server push might be needed without duplicating pushes.
 
-   A server that uses the same Push ID in multiple PUSH_PROMISE frames
-   MUST include the same header fields each time.  The bytes of the
+
 
 
 
@@ -954,6 +954,8 @@ Bishop                    Expires May 31, 2019                 [Page 17]
 Internet-Draft                   HTTP/3                    November 2018
 
 
+   A server that uses the same Push ID in multiple PUSH_PROMISE frames
+   MUST include the same header fields each time.  The bytes of the
    header block MAY be different due to differing encoding, but the
    header fields and their values MUST be identical.  Note that ordering
    of header fields is significant.  A client MUST treat receipt of a
@@ -1000,8 +1002,6 @@ Internet-Draft                   HTTP/3                    November 2018
    HTTP_UNEXPECTED_FRAME.
 
    See Section 6.2 for more information on the use of the GOAWAY frame.
-
-
 
 
 
@@ -1182,14 +1182,14 @@ Internet-Draft                   HTTP/3                    November 2018
    additional details.
 
    An HTTP/3 implementation MAY impose a limit on the maximum size of
-   the header it will accept on an individual HTTP message.  This limit
-   is conveyed as a number of bytes in the
+   the header it will accept on an individual HTTP message; encountering
+   a larger message header SHOULD be treated as a stream error of type
+   "HTTP_EXCESSIVE_LOAD".  If an implementation wishes to advise its
+   peer of this limit, it can be conveyed as a number of bytes in the
    "SETTINGS_MAX_HEADER_LIST_SIZE" parameter.  The size of a header list
    is calculated based on the uncompressed size of header fields,
    including the length of the name and value in bytes plus an overhead
-   of 32 bytes for each header field.  Encountering a message header
-   larger than this value SHOULD be treated as a stream error of type
-   "HTTP_EXCESSIVE_LOAD".
+   of 32 bytes for each header field.
 
 5.1.2.  Request Cancellation
 
