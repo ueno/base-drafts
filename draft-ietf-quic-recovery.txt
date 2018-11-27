@@ -93,12 +93,12 @@ Table of Contents
        5.3.2.  Tail Loss Probe . . . . . . . . . . . . . . . . . . .  12
        5.3.3.  Retransmission Timeout  . . . . . . . . . . . . . . .  13
      5.4.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  14
-       5.4.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  14
+       5.4.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  15
      5.5.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  15
        5.5.1.  Constants of interest . . . . . . . . . . . . . . . .  15
        5.5.2.  Variables of interest . . . . . . . . . . . . . . . .  16
        5.5.3.  Initialization  . . . . . . . . . . . . . . . . . . .  17
-       5.5.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  17
+       5.5.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  18
        5.5.5.  On Receiving an Acknowledgment  . . . . . . . . . . .  18
        5.5.6.  On Packet Acknowledgment  . . . . . . . . . . . . . .  20
        5.5.7.  Setting the Loss Detection Timer  . . . . . . . . . .  20
@@ -628,11 +628,17 @@ Internet-Draft             QUIC Loss Detection             November 2018
 5.3.1.1.  Retry and Version Negotiation
 
    A Retry or Version Negotiation packet causes a client to send another
-   Initial packet, effectively restarting the connection process.
+   Initial packet, effectively restarting the connection process and
+   resetting congestion control and loss recovery state, including
+   resetting any pending timers.  Either packet indicates that the
+   Initial was received but not processed.  Neither packet can be
+   treated as an acknowledgment for the Initial.
 
-   Either packet indicates that the Initial was received but not
-   processed.  Neither packet can be treated as an acknowledgment for
-   the Initial, but they MAY be used to improve the RTT estimate.
+   The client MAY however compute an RTT estimate to the server as the
+   time period from when the first Initial was sent to when a Retry or a
+   Version Negotiation packet is received.  The client MAY use this
+   value to seed the RTT estimator for a subsequent connection attempt
+   to the server.
 
 5.3.2.  Tail Loss Probe
 
@@ -660,12 +666,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    outstanding.  TCP's TLP assumes if at least 2 packets are
    outstanding, acks will not be delayed.
 
-   A PTO value of at least 1.5*SRTT ensures that the ACK is overdue.
-   The 1.5 is based on [TLP], but implementations MAY experiment with
-   other constants.
-
-   To reduce latency, it is RECOMMENDED that the sender set and allow
-   the TLP timer to fire twice before setting an RTO timer.  In other
 
 
 
@@ -674,6 +674,12 @@ Iyengar & Swett           Expires May 31, 2019                 [Page 12]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+   A PTO value of at least 1.5*SRTT ensures that the ACK is overdue.
+   The 1.5 is based on [TLP], but implementations MAY experiment with
+   other constants.
+
+   To reduce latency, it is RECOMMENDED that the sender set and allow
+   the TLP timer to fire twice before setting an RTO timer.  In other
    words, when the TLP timer expires the first time, a TLP packet is
    sent, and it is RECOMMENDED that the TLP timer be scheduled for a
    second time.  When the TLP timer expires the second time, a second
@@ -715,13 +721,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
    subsequent consecutive RTO events.  Sending a single packet on an RTO
    event therefore makes the connection very sensitive to single packet
    loss.  Sending two packets instead of one significantly increases
-   resilience to packet drop in both directions, thus reducing the
-   probability of consecutive RTO events.
 
-   QUIC's RTO algorithm differs from TCP in that the firing of an RTO
-   timer is not considered a strong enough signal of packet loss, so
-   does not result in an immediate change to congestion window or
-   recovery state.  An RTO timer expires only when there's a prolonged
 
 
 
@@ -730,6 +730,13 @@ Iyengar & Swett           Expires May 31, 2019                 [Page 13]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+   resilience to packet drop in both directions, thus reducing the
+   probability of consecutive RTO events.
+
+   QUIC's RTO algorithm differs from TCP in that the firing of an RTO
+   timer is not considered a strong enough signal of packet loss, so
+   does not result in an immediate change to congestion window or
+   recovery state.  An RTO timer expires only when there's a prolonged
    period of network silence, which could be caused by a change in the
    network RTT.
 
@@ -771,13 +778,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    Sent packets are tracked for each packet number space, and ACK
    processing only applies to a single space.
 
-5.4.1.  Sent Packet Fields
-
-   packet_number:  The packet number of the sent packet.
-
-   retransmittable:  A boolean that indicates whether a packet is
-      retransmittable.  If true, it is expected that an acknowledgement
-
 
 
 
@@ -786,6 +786,12 @@ Iyengar & Swett           Expires May 31, 2019                 [Page 14]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+5.4.1.  Sent Packet Fields
+
+   packet_number:  The packet number of the sent packet.
+
+   retransmittable:  A boolean that indicates whether a packet is
+      retransmittable.  If true, it is expected that an acknowledgement
       will be received, though the peer could delay sending the ACK
       frame containing it by up to the MaxAckDelay.
 
@@ -829,18 +835,18 @@ Internet-Draft             QUIC Loss Detection             November 2018
    kMinTLPTimeout:  Minimum time in the future a tail loss probe timer
       may be set for.  The RECOMMENDED value is 10ms.
 
-   kMinRTOTimeout:  Minimum time in the future an RTO timer may be set
-      for.  The RECOMMENDED value is 200ms.
-
-   kDelayedAckTimeout:  The length of the peer's delayed ack timer.  The
-      RECOMMENDED value is 25ms.
-
 
 
 Iyengar & Swett           Expires May 31, 2019                 [Page 15]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   kMinRTOTimeout:  Minimum time in the future an RTO timer may be set
+      for.  The RECOMMENDED value is 200ms.
+
+   kDelayedAckTimeout:  The length of the peer's delayed ack timer.  The
+      RECOMMENDED value is 25ms.
 
    kInitialRtt:  The RTT used before an RTT sample is taken.  The
       RECOMMENDED value is 100ms.
@@ -884,12 +890,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    rttvar:  The RTT variance, computed as described in [RFC6298]
 
-   min_rtt:  The minimum RTT seen in the connection, ignoring ack delay.
-
-   max_ack_delay:  The maximum amount of time by which the receiver
-      intends to delay acknowledgments, in milliseconds.  The actual
-      ack_delay in a received ACK frame may be larger due to late
-      timers, reordering, or lost ACKs.
 
 
 
@@ -897,6 +897,13 @@ Iyengar & Swett           Expires May 31, 2019                 [Page 16]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   min_rtt:  The minimum RTT seen in the connection, ignoring ack delay.
+
+   max_ack_delay:  The maximum amount of time by which the receiver
+      intends to delay acknowledgments, in milliseconds.  The actual
+      ack_delay in a received ACK frame may be larger due to late
+      timers, reordering, or lost ACKs.
 
    reordering_threshold:  The largest packet number gap between the
       largest acknowledged retransmittable packet and an unacknowledged
@@ -936,13 +943,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
       time_of_last_sent_crypto_packet = 0
       largest_sent_packet = 0
 
-5.5.4.  On Sending a Packet
-
-   After a packet is sent, information about the packet is stored.  The
-   parameters to OnPacketSent are described in detail above in
-   Section 5.4.1.
-
-   Pseudocode for OnPacketSent follows:
 
 
 
@@ -953,6 +953,14 @@ Iyengar & Swett           Expires May 31, 2019                 [Page 17]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+5.5.4.  On Sending a Packet
+
+   After a packet is sent, information about the packet is stored.  The
+   parameters to OnPacketSent are described in detail above in
+   Section 5.4.1.
+
+   Pseudocode for OnPacketSent follows:
 
     OnPacketSent(packet_number, retransmittable, in_flight,
                  is_crypto_packet, sent_bytes):
@@ -975,14 +983,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    packets.
 
    Pseudocode for OnAckReceived and UpdateRtt follow:
-
-
-
-
-
-
-
-
 
 
 
