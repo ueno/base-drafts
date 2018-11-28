@@ -178,9 +178,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
        13.3.2.  ECN Verification . . . . . . . . . . . . . . . . . .  69
    14. Packet Size . . . . . . . . . . . . . . . . . . . . . . . . .  70
      14.1.  Path Maximum Transmission Unit (PMTU)  . . . . . . . . .  71
-       14.1.1.  Processing ICMP Packet Too Big Messages  . . . . . .  72
-     14.2.  Considerations for Datagram Packetization Layer PMTU
-            Discovery  . . . . . . . . . . . . . . . . . . . . . . .  73
+     14.2.  ICMP Packet Too Big Messages . . . . . . . . . . . . . .  72
+     14.3.  Datagram Packetization Layer PMTU Discovery  . . . . . .  73
    15. Versions  . . . . . . . . . . . . . . . . . . . . . . . . . .  73
    16. Variable-Length Integer Encoding  . . . . . . . . . . . . . .  74
    17. Packet Formats  . . . . . . . . . . . . . . . . . . . . . . .  75
@@ -218,6 +217,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
      19.18. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 108
      19.19. CONNECTION_CLOSE Frames  . . . . . . . . . . . . . . . . 108
      19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 109
+   20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 110
 
 
 
@@ -226,7 +226,6 @@ Iyengar & Thomson         Expires June 1, 2019                  [Page 4]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 110
      20.1.  Application Protocol Error Codes . . . . . . . . . . . . 111
    21. Security Considerations . . . . . . . . . . . . . . . . . . . 111
      21.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 111
@@ -246,7 +245,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
      23.2.  Informative References . . . . . . . . . . . . . . . . . 122
    Appendix A.  Sample Packet Number Decoding Algorithm  . . . . . . 124
    Appendix B.  Change Log . . . . . . . . . . . . . . . . . . . . . 124
-     B.1.  Since draft-ietf-quic-transport-15  . . . . . . . . . . . 125
+     B.1.  Since draft-ietf-quic-transport-15  . . . . . . . . . . . 124
      B.2.  Since draft-ietf-quic-transport-14  . . . . . . . . . . . 125
      B.3.  Since draft-ietf-quic-transport-13  . . . . . . . . . . . 125
      B.4.  Since draft-ietf-quic-transport-12  . . . . . . . . . . . 126
@@ -274,6 +273,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    o  Stream multiplexing
 
+   o  Stream and connection-level flow control
 
 
 
@@ -281,8 +281,6 @@ Iyengar & Thomson         Expires June 1, 2019                  [Page 5]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Stream and connection-level flow control
 
    o  Low-latency connection establishment
 
@@ -330,6 +328,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    o  Packets and frames are the basic unit used by QUIC to communicate.
 
       *  Section 12 describes concepts related to packets and frames,
+
+
 
 
 
@@ -3956,7 +3956,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    minimum size [RFC8200] and is also supported by most modern IPv4
    networks.  All QUIC packets (except for PMTU probe packets) SHOULD be
    sized to fit within the maximum packet size to avoid the packet being
-   fragmented or dropped {{!RFC8805}.
+   fragmented or dropped [RFC8085].
 
    To optimize capacity efficiency, endpoints SHOULD use Datagram
    Packetization Layer PMTU Discovery ([DPLPMTUD]), or implement Path
@@ -3989,7 +3989,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    sending QUIC packets on the affected path.  An endpoint MAY terminate
    the connection if an alternative path cannot be found.
 
-14.1.1.  Processing ICMP Packet Too Big Messages
+14.2.  ICMP Packet Too Big Messages
 
    PMTU discovery [RFC1191] [RFC8201] relies on reception of ICMP
    messages (e.g., IPv6 Packet Too Big messages) that indicate when a
@@ -3997,7 +3997,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    DPLPMTUD can also optionally use these messages.  This use of ICMP
    messages is potentially vulnerable to off-path attacks that
    successfully guess the IP address 3-tuple and reduce the PMTU to a
-   bandwidth-inefficient value [RFC8201].
+   bandwidth-inefficient value.
 
    QUIC endpoints SHOULD provide validation to protect from off-path
    injection of ICMP messages as specified in [RFC8201] and Section 5.2
@@ -4014,18 +4014,18 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
    When a randomized source port is used for a QUIC connection, this can
    provide some protection from off path attacks that forge ICMP
-   messages.  The source port in a quoted packet can be checked for TCP
-   [RFC6056] and UDP transports [RFC8085], such as QUIC.  When used, a
-   stack will only pass ICMP messages to a QUIC endpoint where the port
-   information in quoted packet within the ICMP payload matches a port
-   used by QUIC.
+   messages.  The source port in a quoted packet can be checked for UDP
+   transports [RFC8085] such as QUIC.  When used, a stack will only pass
+   ICMP messages to a QUIC endpoint where the port information in quoted
+   packet within the ICMP payload matches a port used by QUIC.
 
    As a part of ICMP validation, QUIC endpoints SHOULD validate that
    connection ID information corresponds to an active session.
 
    Further validation can also be provided:
 
-
+   o  An IPv4 endpoint could set the Don't Fragment (DF) bit on a small
+      proportion of packets, so that most invalid ICMP messages arrive
 
 
 
@@ -4034,8 +4034,6 @@ Iyengar & Thomson         Expires June 1, 2019                 [Page 72]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   o  An IPv4 endpoint could set the Don't Fragment (DF) bit on a small
-      proportion of packets, so that most invalid ICMP messages arrive
       when there are no DF packets outstanding, and can therefore be
       identified as spurious.
 
@@ -4049,7 +4047,7 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    provisional until QUIC's loss detection algorithm determines that the
    quoted packet has actually been lost.
 
-14.2.  Considerations for Datagram Packetization Layer PMTU Discovery
+14.3.  Datagram Packetization Layer PMTU Discovery
 
    Section 6.4 of [DPLPMTUD] provides considerations for implementing
    Datagram Packetization Layer PMTUD (DPLPMTUD) with QUIC.
@@ -4082,6 +4080,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    version.  The properties of QUIC that are guaranteed to be consistent
    across all versions of the protocol are described in
    [QUIC-INVARIANTS].
+
+
 
 
 
@@ -6219,10 +6219,10 @@ Internet-Draft           QUIC Transport Protocol           November 2018
 
 
    Once a connection is established QUIC endpoints might accept some
-   unauthenticated ICMP packets (see Section 14.1.1), but the use of
-   these packets is extremely limited.  The only other type of packet
-   that an endpoint might accept is a stateless reset (Section 10.4)
-   which relies on the token being kept secret until it is used.
+   unauthenticated ICMP packets (see Section 14.2), but the use of these
+   packets is extremely limited.  The only other type of packet that an
+   endpoint might accept is a stateless reset (Section 10.4) which
+   relies on the token being kept secret until it is used.
 
    During the creation of a connection, QUIC only provides protection
    against attack from off the network path.  All QUIC packets contain
@@ -6778,11 +6778,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 121]
 Internet-Draft           QUIC Transport Protocol           November 2018
 
 
-   [RFC6056]  Larsen, M. and F. Gont, "Recommendations for Transport-
-              Protocol Port Randomization", BCP 156, RFC 6056,
-              DOI 10.17487/RFC6056, January 2011,
-              <https://www.rfc-editor.org/info/rfc6056>.
-
    [RFC8085]  Eggert, L., Fairhurst, G., and G. Shepherd, "UDP Usage
               Guidelines", BCP 145, RFC 8085, DOI 10.17487/RFC8085,
               March 2017, <https://www.rfc-editor.org/info/rfc8085>.
@@ -6795,11 +6790,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
    [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
               2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
               May 2017, <https://www.rfc-editor.org/info/rfc8174>.
-
-   [RFC8200]  Deering, S. and R. Hinden, "Internet Protocol, Version 6
-              (IPv6) Specification", STD 86, RFC 8200,
-              DOI 10.17487/RFC8200, July 2017,
-              <https://www.rfc-editor.org/info/rfc8200>.
 
    [RFC8201]  McCann, J., Deering, S., Mogul, J., and R. Hinden, Ed.,
               "Path MTU Discovery for IP version 6", STD 87, RFC 8201,
@@ -6825,15 +6815,6 @@ Internet-Draft           QUIC Transport Protocol           November 2018
               Roskind, J., "QUIC: Multiplexed Transport Over UDP",
               December 2013, <https://goo.gl/dMVtFi>.
 
-
-
-
-
-Iyengar & Thomson         Expires June 1, 2019                [Page 122]
-
-Internet-Draft           QUIC Transport Protocol           November 2018
-
-
    [HTTP2]    Belshe, M., Peon, R., and M. Thomson, Ed., "Hypertext
               Transfer Protocol Version 2 (HTTP/2)", RFC 7540,
               DOI 10.17487/RFC7540, May 2015,
@@ -6843,6 +6824,15 @@ Internet-Draft           QUIC Transport Protocol           November 2018
               Thomson, M., "Version-Independent Properties of QUIC",
               draft-ietf-quic-invariants (work in progress), November
               2018.
+
+
+
+
+
+Iyengar & Thomson         Expires June 1, 2019                [Page 122]
+
+Internet-Draft           QUIC Transport Protocol           November 2018
+
 
    [RFC1812]  Baker, F., Ed., "Requirements for IP Version 4 Routers",
               RFC 1812, DOI 10.17487/RFC1812, June 1995,
@@ -6882,6 +6872,16 @@ Internet-Draft           QUIC Transport Protocol           November 2018
               DOI 10.17487/RFC5869, May 2010,
               <https://www.rfc-editor.org/info/rfc5869>.
 
+   [RFC7301]  Friedl, S., Popov, A., Langley, A., and E. Stephan,
+              "Transport Layer Security (TLS) Application-Layer Protocol
+              Negotiation Extension", RFC 7301, DOI 10.17487/RFC7301,
+              July 2014, <https://www.rfc-editor.org/info/rfc7301>.
+
+   [RFC8200]  Deering, S. and R. Hinden, "Internet Protocol, Version 6
+              (IPv6) Specification", STD 86, RFC 8200,
+              DOI 10.17487/RFC8200, July 2017,
+              <https://www.rfc-editor.org/info/rfc8200>.
+
 
 
 
@@ -6889,11 +6889,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 123]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   [RFC7301]  Friedl, S., Popov, A., Langley, A., and E. Stephan,
-              "Transport Layer Security (TLS) Application-Layer Protocol
-              Negotiation Extension", RFC 7301, DOI 10.17487/RFC7301,
-              July 2014, <https://www.rfc-editor.org/info/rfc7301>.
 
    [SLOWLORIS]
               RSnake Hansen, R., "Welcome to Slowloris...", June 2009,
@@ -6937,6 +6932,11 @@ Appendix B.  Change Log
 
    Issue and pull request numbers are listed with a leading octothorp.
 
+B.1.  Since draft-ietf-quic-transport-15
+
+   Substantial editorial reorganization; no technical changes.
+
+
 
 
 
@@ -6945,10 +6945,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 124]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-B.1.  Since draft-ietf-quic-transport-15
-
-   Substantial editorial reorganization; no technical changes.
 
 B.2.  Since draft-ietf-quic-transport-14
 
@@ -6994,6 +6990,10 @@ B.3.  Since draft-ietf-quic-transport-13
 
    o  More precisely define idle timeout (#1429, #1614, #1652)
 
+   o  Corrected format of Retry packet and prevented looping (#1492,
+      #1451, #1448, #1498)
+
+
 
 
 
@@ -7001,9 +7001,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 125]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Corrected format of Retry packet and prevented looping (#1492,
-      #1451, #1448, #1498)
 
    o  Permit 0-RTT after receiving Version Negotiation or Retry (#1507,
       #1514, #1621)
@@ -7049,6 +7046,9 @@ B.4.  Since draft-ietf-quic-transport-12
    o  Packets from different connection ID can't be coalesced (#1287,
       #1423)
 
+   o  Fixed sampling method for packet number encryption; the length
+      field in long headers includes the packet number field in addition
+      to the packet payload (#1387, #1389)
 
 
 
@@ -7057,10 +7057,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 126]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Fixed sampling method for packet number encryption; the length
-      field in long headers includes the packet number field in addition
-      to the packet payload (#1387, #1389)
 
    o  Stateless Reset is now symmetric and subject to size constraints
       (#466, #1346)
@@ -7107,15 +7103,16 @@ B.6.  Since draft-ietf-quic-transport-10
 
    o  STOP_SENDING is now prohibited before streams are used (#1050)
 
+   o  Recommend including ACK in Retry packets and allow PADDING (#1067,
+      #882)
+
+
 
 
 Iyengar & Thomson         Expires June 1, 2019                [Page 127]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Recommend including ACK in Retry packets and allow PADDING (#1067,
-      #882)
 
    o  Endpoints now become closing after an idle timeout (#1178, #1179)
 
@@ -7162,6 +7159,9 @@ B.8.  Since draft-ietf-quic-transport-08
 
    o  Clarified stream state machine (#634, #662, #743, #894)
 
+   o  Reserved versions don't need to be generated deterministically
+      (#831, #931)
+
 
 
 
@@ -7169,9 +7169,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 128]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Reserved versions don't need to be generated deterministically
-      (#831, #931)
 
    o  You don't always need the draining period (#871)
 
@@ -7219,14 +7216,15 @@ B.9.  Since draft-ietf-quic-transport-07
 
       *  Clarifications about stateless reset (#889, #890)
 
+   o  Address validation for connection migration (#161, #732, #878)
+
+
 
 
 Iyengar & Thomson         Expires June 1, 2019                [Page 129]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Address validation for connection migration (#161, #732, #878)
 
    o  Clearly defined retransmission rules for BLOCKED (#452, #65, #924)
 
@@ -7274,6 +7272,8 @@ B.12.  Since draft-ietf-quic-transport-04
    o  Introduce STOP_SENDING frame, RESET_STREAM only resets in one
       direction (#165)
 
+   o  Removed GOAWAY; application protocols are responsible for graceful
+      shutdown (#696)
 
 
 
@@ -7281,9 +7281,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 130]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Removed GOAWAY; application protocols are responsible for graceful
-      shutdown (#696)
 
    o  Reduced the number of error codes (#96, #177, #184, #211)
 
@@ -7331,14 +7328,15 @@ B.14.  Since draft-ietf-quic-transport-02
    o  Rework initial packet types to change how the connection ID is
       chosen (#482, #442, #493)
 
+   o  No timestamps are forbidden in unprotected packets (#542, #429)
+
+
 
 
 Iyengar & Thomson         Expires June 1, 2019                [Page 131]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  No timestamps are forbidden in unprotected packets (#542, #429)
 
    o  Cryptographic handshake is now on stream 0 (#456)
 
@@ -7386,6 +7384,8 @@ B.15.  Since draft-ietf-quic-transport-01
 
    o  Defined client address validation (#52, #118, #120, #275)
 
+   o  Define transport parameters as a TLS extension (#49, #122)
+
 
 
 
@@ -7393,8 +7393,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 132]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Define transport parameters as a TLS extension (#49, #122)
 
    o  SCUP and COPT parameters are no longer valid (#116, #117)
 
@@ -7442,6 +7440,8 @@ Internet-Draft           QUIC Transport Protocol           November 2018
       acknowledgment of all STREAM frames or the RESET_STREAM, before it
       closes (#381)
 
+   o  Remove stream reservation from state machine (#174, #280)
+
 
 
 
@@ -7449,8 +7449,6 @@ Iyengar & Thomson         Expires June 1, 2019                [Page 133]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Remove stream reservation from state machine (#174, #280)
 
    o  Only stream 1 does not contribute to connection-level flow control
       (#204)
@@ -7499,14 +7497,14 @@ B.17.  Since draft-hamilton-quic-transport-protocol-01
 
    o  Updated authors/editors list
 
+   o  Added IANA Considerations section
+
 
 
 Iyengar & Thomson         Expires June 1, 2019                [Page 134]
 
 Internet-Draft           QUIC Transport Protocol           November 2018
 
-
-   o  Added IANA Considerations section
 
    o  Moved Contributors and Acknowledgments to appendices
 
@@ -7546,6 +7544,8 @@ Authors' Addresses
    Mozilla
 
    Email: martin.thomson@gmail.com
+
+
 
 
 
