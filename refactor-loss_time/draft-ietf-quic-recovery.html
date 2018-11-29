@@ -1069,24 +1069,23 @@ DetectLostPackets(largest_acked):
   loss_time = 0
   lost_packets = {}
   loss_delay = 0
-  lost_packet_send_time = now()
-
-  if (kUsingTimeLossDetection):
-    loss_delay = (1 + time_reordering_fraction) *
-                     max(latest_rtt, smoothed_rtt)
-  else if (largest_acked.packet_number == largest_sent_packet):
-    // Early retransmit timer.
-    loss_delay = 9/8 * max(latest_rtt, smoothed_rtt)
   // Packets sent before this time are deemed lost.
-  lost_send_time -= loss_delay
+  lost_packet_send_time = now()
   lost_pn = largest_acked.packet_number - reordering_threshold
 
-  foreach unacked:
+  // Time-based recovery, or early retransmit.
+  if (kUsingTimeLossDetection ||
+      largest_acked.packet_number == largest_sent_packet):
+    loss_delay = (1 + time_reordering_fraction) *
+                     max(latest_rtt, smoothed_rtt)
+    lost_send_time -= loss_delay
+
+  foreach unacked in sent_packets:
     if unacked.packet_number &gt; largest_acked.packet_number:
       continue
 
-    if (unacked.time_sent &gt; lost_send_time ||
-        unacked.packet_number &gt; lost_pn):
+    if (unacked.time_sent &lt; lost_send_time ||
+        unacked.packet_number &lt; lost_pn):
       sent_packets.remove(unacked.packet_number)
       if (unacked.retransmittable):
         lost_packets.insert(unacked)
@@ -1098,7 +1097,7 @@ DetectLostPackets(largest_acked):
   if (!lost_packets.empty()):
     OnPacketsLost(lost_packets)
 </pre>
-<p id="rfc.section.5.5.9.p.4">This algorithm results in loss_time being set to the earliest time that the earliest packet was sent.  As a result loss_time could be in the past.  Timers set based on a loss_time that has already passed need to fire immediately.</p>
+<p id="rfc.section.5.5.9.p.4">This algorithm results in loss_time being set based on the earliest packet that is still in flight. Timers set based on a loss_time that has already passed need to fire immediately.</p>
 <h2 id="rfc.section.5.6">
 <a href="#rfc.section.5.6">5.6.</a> <a href="#discussion" id="discussion">Discussion</a>
 </h2>

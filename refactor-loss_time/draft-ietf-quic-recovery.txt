@@ -1238,24 +1238,23 @@ Internet-Draft             QUIC Loss Detection             November 2018
      loss_time = 0
      lost_packets = {}
      loss_delay = 0
-     lost_packet_send_time = now()
-
-     if (kUsingTimeLossDetection):
-       loss_delay = (1 + time_reordering_fraction) *
-                        max(latest_rtt, smoothed_rtt)
-     else if (largest_acked.packet_number == largest_sent_packet):
-       // Early retransmit timer.
-       loss_delay = 9/8 * max(latest_rtt, smoothed_rtt)
      // Packets sent before this time are deemed lost.
-     lost_send_time -= loss_delay
+     lost_packet_send_time = now()
      lost_pn = largest_acked.packet_number - reordering_threshold
 
-     foreach unacked:
+     // Time-based recovery, or early retransmit.
+     if (kUsingTimeLossDetection ||
+         largest_acked.packet_number == largest_sent_packet):
+       loss_delay = (1 + time_reordering_fraction) *
+                        max(latest_rtt, smoothed_rtt)
+       lost_send_time -= loss_delay
+
+     foreach unacked in sent_packets:
        if unacked.packet_number > largest_acked.packet_number:
          continue
 
-       if (unacked.time_sent > lost_send_time ||
-           unacked.packet_number > lost_pn):
+       if (unacked.time_sent < lost_send_time ||
+           unacked.packet_number < lost_pn):
          sent_packets.remove(unacked.packet_number)
          if (unacked.retransmittable):
            lost_packets.insert(unacked)
@@ -1267,10 +1266,9 @@ Internet-Draft             QUIC Loss Detection             November 2018
      if (!lost_packets.empty()):
        OnPacketsLost(lost_packets)
 
-   This algorithm results in loss_time being set to the earliest time
-   that the earliest packet was sent.  As a result loss_time could be in
-   the past.  Timers set based on a loss_time that has already passed
-   need to fire immediately.
+   This algorithm results in loss_time being set based on the earliest
+   packet that is still in flight.  Timers set based on a loss_time that
+   has already passed need to fire immediately.
 
 5.6.  Discussion
 
@@ -1282,6 +1280,8 @@ Internet-Draft             QUIC Loss Detection             November 2018
    acks can delay loss recovery and for the small number of connections
    where less than packet per 25ms is delivered, acking every packet is
    beneficial to congestion control and loss recovery.
+
+
 
 
 
