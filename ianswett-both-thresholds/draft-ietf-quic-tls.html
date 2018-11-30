@@ -5,7 +5,7 @@
 <head profile="http://www.w3.org/2006/03/hcard http://dublincore.org/documents/2008/08/04/dc-html/">
   <meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
 
-  <title>Using Transport Layer Security (TLS) to Secure QUIC</title>
+  <title>Using TLS to Secure QUIC</title>
 
   
 <style type="text/css">/*<![CDATA[*/
@@ -302,9 +302,11 @@ ul.toc li {
 <link href="#rfc.section.5.1" rel="Chapter" title="5.1 Packet Protection Keys">
 <link href="#rfc.section.5.2" rel="Chapter" title="5.2 Initial Secrets">
 <link href="#rfc.section.5.3" rel="Chapter" title="5.3 AEAD Usage">
-<link href="#rfc.section.5.4" rel="Chapter" title="5.4 Packet Number Protection">
-<link href="#rfc.section.5.4.1" rel="Chapter" title="5.4.1 AES-Based Packet Number Protection">
-<link href="#rfc.section.5.4.2" rel="Chapter" title="5.4.2 ChaCha20-Based Packet Number Protection">
+<link href="#rfc.section.5.4" rel="Chapter" title="5.4 Header Protection">
+<link href="#rfc.section.5.4.1" rel="Chapter" title="5.4.1 Header Protection Application">
+<link href="#rfc.section.5.4.2" rel="Chapter" title="5.4.2 Header Protection Sample">
+<link href="#rfc.section.5.4.3" rel="Chapter" title="5.4.3 AES-Based Header Protection">
+<link href="#rfc.section.5.4.4" rel="Chapter" title="5.4.4 ChaCha20-Based Header Protection">
 <link href="#rfc.section.5.5" rel="Chapter" title="5.5 Receiving Protected Packets">
 <link href="#rfc.section.5.6" rel="Chapter" title="5.6 Use of 0-RTT Keys">
 <link href="#rfc.section.5.7" rel="Chapter" title="5.7 Receiving Out-of-Order Protected Frames">
@@ -317,7 +319,8 @@ ul.toc li {
 <link href="#rfc.section.9" rel="Chapter" title="9 Security Considerations">
 <link href="#rfc.section.9.1" rel="Chapter" title="9.1 Packet Reflection Attack Mitigation">
 <link href="#rfc.section.9.2" rel="Chapter" title="9.2 Peer Denial of Service">
-<link href="#rfc.section.9.3" rel="Chapter" title="9.3 Packet Number Protection Analysis">
+<link href="#rfc.section.9.3" rel="Chapter" title="9.3 Header Protection Analysis">
+<link href="#rfc.section.9.4" rel="Chapter" title="9.4 Key Diversity">
 <link href="#rfc.section.10" rel="Chapter" title="10 IANA Considerations">
 <link href="#rfc.references" rel="Chapter" title="11 References">
 <link href="#rfc.references.1" rel="Chapter" title="11.1 Normative References">
@@ -383,7 +386,7 @@ ul.toc li {
     </tbody>
   </table>
 
-  <p class="title">Using Transport Layer Security (TLS) to Secure QUIC<br />
+  <p class="title">Using TLS to Secure QUIC<br />
   <span class="filename">draft-ietf-quic-tls-latest</span></p>
   
   <h1 id="rfc.abstract"><a href="#rfc.abstract">Abstract</a></h1>
@@ -447,11 +450,15 @@ ul.toc li {
 </li>
 <li>5.3.   <a href="#rfc.section.5.3">AEAD Usage</a>
 </li>
-<li>5.4.   <a href="#rfc.section.5.4">Packet Number Protection</a>
+<li>5.4.   <a href="#rfc.section.5.4">Header Protection</a>
 </li>
-<ul><li>5.4.1.   <a href="#rfc.section.5.4.1">AES-Based Packet Number Protection</a>
+<ul><li>5.4.1.   <a href="#rfc.section.5.4.1">Header Protection Application</a>
 </li>
-<li>5.4.2.   <a href="#rfc.section.5.4.2">ChaCha20-Based Packet Number Protection</a>
+<li>5.4.2.   <a href="#rfc.section.5.4.2">Header Protection Sample</a>
+</li>
+<li>5.4.3.   <a href="#rfc.section.5.4.3">AES-Based Header Protection</a>
+</li>
+<li>5.4.4.   <a href="#rfc.section.5.4.4">ChaCha20-Based Header Protection</a>
 </li>
 </ul><li>5.5.   <a href="#rfc.section.5.5">Receiving Protected Packets</a>
 </li>
@@ -477,7 +484,9 @@ ul.toc li {
 </li>
 <li>9.2.   <a href="#rfc.section.9.2">Peer Denial of Service</a>
 </li>
-<li>9.3.   <a href="#rfc.section.9.3">Packet Number Protection Analysis</a>
+<li>9.3.   <a href="#rfc.section.9.3">Header Protection Analysis</a>
+</li>
+<li>9.4.   <a href="#rfc.section.9.4">Key Diversity</a>
 </li>
 </ul><li>10.   <a href="#rfc.section.10">IANA Considerations</a>
 </li>
@@ -530,14 +539,15 @@ ul.toc li {
   <h1 id="rfc.section.1">
 <a href="#rfc.section.1">1.</a> <a href="#introduction" id="introduction">Introduction</a>
 </h1>
-<p id="rfc.section.1.p.1">This document describes how QUIC <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a> is secured using Transport Layer Security (TLS) version 1.3 <a href="#TLS13" class="xref">[TLS13]</a>.  TLS 1.3 provides critical latency improvements for connection establishment over previous versions.  Absent packet loss, most new connections can be established and secured within a single round trip; on subsequent connections between the same client and server, the client can often send application data immediately, that is, using a zero round trip setup.</p>
-<p id="rfc.section.1.p.2">This document describes how the standardized TLS 1.3 acts as a security component of QUIC.</p>
+<p id="rfc.section.1.p.1">This document describes how QUIC <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a> is secured using TLS <a href="#TLS13" class="xref">[TLS13]</a>.</p>
+<p id="rfc.section.1.p.2">TLS 1.3 provides critical latency improvements for connection establishment over previous versions.  Absent packet loss, most new connections can be established and secured within a single round trip; on subsequent connections between the same client and server, the client can often send application data immediately, that is, using a zero round trip setup.</p>
+<p id="rfc.section.1.p.3">This document describes how TLS acts as a security component of QUIC.</p>
 <h1 id="rfc.section.2">
 <a href="#rfc.section.2">2.</a> <a href="#notational-conventions" id="notational-conventions">Notational Conventions</a>
 </h1>
 <p id="rfc.section.2.p.1">The key words &#8220;MUST&#8221;, &#8220;MUST NOT&#8221;, &#8220;REQUIRED&#8221;, &#8220;SHALL&#8221;, &#8220;SHALL NOT&#8221;, &#8220;SHOULD&#8221;, &#8220;SHOULD NOT&#8221;, &#8220;RECOMMENDED&#8221;, &#8220;NOT RECOMMENDED&#8221;, &#8220;MAY&#8221;, and &#8220;OPTIONAL&#8221; in this document are to be interpreted as described in BCP 14 <a href="#RFC2119" class="xref">[RFC2119]</a> <a href="#RFC8174" class="xref">[RFC8174]</a> when, and only when, they appear in all capitals, as shown here.</p>
 <p id="rfc.section.2.p.2">This document uses the terminology established in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.</p>
-<p id="rfc.section.2.p.3">For brevity, the acronym TLS is used to refer to TLS 1.3.</p>
+<p id="rfc.section.2.p.3">For brevity, the acronym TLS is used to refer to TLS 1.3, though a newer version could be used (see <a href="#tls-version" class="xref">Section 4.2</a>).</p>
 <h2 id="rfc.section.2.1">
 <a href="#rfc.section.2.1">2.1.</a> <a href="#tls-overview" id="tls-overview">TLS Overview</a>
 </h2>
@@ -559,14 +569,14 @@ ul.toc li {
 <p id="rfc.section.2.1.p.5">The TLS authenticated key exchange occurs between two entities: client and server.  The client initiates the exchange and the server responds.  If the key exchange completes successfully, both client and server will agree on a secret.  TLS supports both pre-shared key (PSK) and Diffie-Hellman (DH) key exchanges.  PSK is the basis for 0-RTT; the latter provides perfect forward secrecy (PFS) when the DH keys are destroyed.</p>
 <p id="rfc.section.2.1.p.6">After completing the TLS handshake, the client will have learned and authenticated an identity for the server and the server is optionally able to learn and authenticate an identity for the client.  TLS supports X.509 <a href="#RFC5280" class="xref">[RFC5280]</a> certificate-based authentication for both server and client.</p>
 <p id="rfc.section.2.1.p.7">The TLS key exchange is resistant to tampering by attackers and it produces shared secrets that cannot be controlled by either participating peer.</p>
-<p id="rfc.section.2.1.p.8">TLS 1.3 provides two basic handshake modes of interest to QUIC:</p>
+<p id="rfc.section.2.1.p.8">TLS provides two basic handshake modes of interest to QUIC:</p>
 <p></p>
 
 <ul>
 <li>A full 1-RTT handshake in which the client is able to send application data after one round trip and the server immediately responds after receiving the first handshake message from the client.</li>
 <li>A 0-RTT handshake in which the client uses information it has previously learned about the server to send application data immediately.  This application data can be replayed by an attacker so it MUST NOT carry a self-contained trigger for any non-idempotent action.</li>
 </ul>
-<p id="rfc.section.2.1.p.10">A simplified TLS 1.3 handshake with 0-RTT application data is shown in <a href="#tls-full" class="xref">Figure 1</a>.  Note that this omits the EndOfEarlyData message, which is not used in QUIC (see <a href="#remove-eoed" class="xref">Section 8.3</a>).</p>
+<p id="rfc.section.2.1.p.10">A simplified TLS handshake with 0-RTT application data is shown in <a href="#tls-full" class="xref">Figure 1</a>.  Note that this omits the EndOfEarlyData message, which is not used in QUIC (see <a href="#remove-eoed" class="xref">Section 8.3</a>).</p>
 <div id="rfc.figure.1"></div>
 <div id="tls-full"></div>
 <pre>
@@ -602,7 +612,7 @@ ul.toc li {
 <h1 id="rfc.section.3">
 <a href="#rfc.section.3">3.</a> <a href="#protocol-overview" id="protocol-overview">Protocol Overview</a>
 </h1>
-<p id="rfc.section.3.p.1">QUIC <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a> assumes responsibility for the confidentiality and integrity protection of packets.  For this it uses keys derived from a TLS 1.3 handshake <a href="#TLS13" class="xref">[TLS13]</a>, but instead of carrying TLS records over QUIC (as with TCP), TLS Handshake and Alert messages are carried directly over the QUIC transport, which takes over the responsibilities of the TLS record layer, as shown below.</p>
+<p id="rfc.section.3.p.1">QUIC <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a> assumes responsibility for the confidentiality and integrity protection of packets.  For this it uses keys derived from a TLS handshake <a href="#TLS13" class="xref">[TLS13]</a>, but instead of carrying TLS records over QUIC (as with TCP), TLS Handshake and Alert messages are carried directly over the QUIC transport, which takes over the responsibilities of the TLS record layer, as shown below.</p>
 <pre>
 +--------------+--------------+ +-------------+
 |     TLS      |     TLS      | |    QUIC     |
@@ -619,7 +629,7 @@ ul.toc li {
 |                                             |
 +---------------------------------------------+
 </pre>
-<p id="rfc.section.3.p.2">QUIC also relies on TLS 1.3 for authentication and negotiation of parameters that are critical to security and performance.</p>
+<p id="rfc.section.3.p.2">QUIC also relies on TLS for authentication and negotiation of parameters that are critical to security and performance.</p>
 <p id="rfc.section.3.p.3">Rather than a strict layering, these two protocols are co-dependent: QUIC uses the TLS handshake; TLS uses the reliability, ordered delivery, and record layer provided by QUIC.</p>
 <p id="rfc.section.3.p.4">At a high level, there are two main interactions between the TLS and QUIC components:</p>
 <p></p>
@@ -654,7 +664,7 @@ ul.toc li {
 <a href="#rfc.section.4">4.</a> <a href="#carrying-tls" id="carrying-tls">Carrying TLS Messages</a>
 </h1>
 <p id="rfc.section.4.p.1">QUIC carries TLS handshake data in CRYPTO frames, each of which consists of a contiguous block of handshake data identified by an offset and length. Those frames are packaged into QUIC packets and encrypted under the current TLS encryption level.  As with TLS over TCP, once TLS handshake data has been delivered to QUIC, it is QUIC&#8217;s responsibility to deliver it reliably. Each chunk of data that is produced by TLS is associated with the set of keys that TLS is currently using.  If QUIC needs to retransmit that data, it MUST use the same keys even if TLS has already updated to newer keys.</p>
-<p id="rfc.section.4.p.2">One important difference between TLS 1.3 records (used with TCP) and QUIC CRYPTO frames is that in QUIC multiple frames may appear in the same QUIC packet as long as they are associated with the same encryption level. For instance, an implementation might bundle a Handshake message and an ACK for some Handshake data into the same packet.</p>
+<p id="rfc.section.4.p.2">One important difference between TLS records (used with TCP) and QUIC CRYPTO frames is that in QUIC multiple frames may appear in the same QUIC packet as long as they are associated with the same encryption level. For instance, an implementation might bundle a Handshake message and an ACK for some Handshake data into the same packet.</p>
 <p id="rfc.section.4.p.3">Each encryption level has a specific list of frames which may appear in it. The rules here generalize those of TLS, in that frames associated with establishing the connection can usually appear at any encryption level, whereas those associated with transferring data can only appear in the 0-RTT and 1-RTT encryption levels:</p>
 <p></p>
 
@@ -749,9 +759,18 @@ ul.toc li {
 <a href="#rfc.section.4.1.2">4.1.2.</a> <a href="#encryption-level-changes" id="encryption-level-changes">Encryption Level Changes</a>
 </h3>
 <p id="rfc.section.4.1.2.p.1">As keys for new encryption levels become available, TLS provides QUIC with those keys.  Separately, as TLS starts using keys at a given encryption level, TLS indicates to QUIC that it is now reading or writing with keys at that encryption level.  These events are not asynchronous; they always occur immediately after TLS is provided with new handshake bytes, or after TLS produces handshake bytes.</p>
-<p id="rfc.section.4.1.2.p.2">If 0-RTT is possible, it is ready after the client sends a TLS ClientHello message or the server receives that message.  After providing a QUIC client with the first handshake bytes, the TLS stack might signal the change to 0-RTT keys. On the server, after receiving handshake bytes that contain a ClientHello message, a TLS server might signal that 0-RTT keys are available.</p>
-<p id="rfc.section.4.1.2.p.3">Although TLS only uses one encryption level at a time, QUIC may use more than one level. For instance, after sending its Finished message (using a CRYPTO frame at the Handshake encryption level) an endpoint can send STREAM data (in 1-RTT encryption). If the Finished message is lost, the endpoint uses the Handshake encryption level to retransmit the lost message.  Reordering or loss of packets can mean that QUIC will need to handle packets at multiple encryption levels.  During the handshake, this means potentially handling packets at higher and lower encryption levels than the current encryption level used by TLS.</p>
-<p id="rfc.section.4.1.2.p.4">In particular, server implementations need to be able to read packets at the Handshake encryption level at the same time as the 0-RTT encryption level.  A client could interleave ACK frames that are protected with Handshake keys with 0-RTT data and the server needs to process those acknowledgments in order to detect lost Handshake packets.</p>
+<p id="rfc.section.4.1.2.p.2">TLS provides QUIC with three items as a new encryption level becomes available:</p>
+<p></p>
+
+<ul>
+<li>A secret</li>
+<li>An Authenticated Encryption with Associated Data (AEAD) function</li>
+<li>A Key Derivation Function (KDF)</li>
+</ul>
+<p id="rfc.section.4.1.2.p.4">These values are based on the values that TLS negotiates and are used by QUIC to generate packet and header protection keys (see <a href="#packet-protection" class="xref">Section 5</a> and <a href="#header-protect" class="xref">Section 5.4</a>).</p>
+<p id="rfc.section.4.1.2.p.5">If 0-RTT is possible, it is ready after the client sends a TLS ClientHello message or the server receives that message.  After providing a QUIC client with the first handshake bytes, the TLS stack might signal the change to 0-RTT keys. On the server, after receiving handshake bytes that contain a ClientHello message, a TLS server might signal that 0-RTT keys are available.</p>
+<p id="rfc.section.4.1.2.p.6">Although TLS only uses one encryption level at a time, QUIC may use more than one level. For instance, after sending its Finished message (using a CRYPTO frame at the Handshake encryption level) an endpoint can send STREAM data (in 1-RTT encryption). If the Finished message is lost, the endpoint uses the Handshake encryption level to retransmit the lost message.  Reordering or loss of packets can mean that QUIC will need to handle packets at multiple encryption levels.  During the handshake, this means potentially handling packets at higher and lower encryption levels than the current encryption level used by TLS.</p>
+<p id="rfc.section.4.1.2.p.7">In particular, server implementations need to be able to read packets at the Handshake encryption level at the same time as the 0-RTT encryption level.  A client could interleave ACK frames that are protected with Handshake keys with 0-RTT data and the server needs to process those acknowledgments in order to detect lost Handshake packets.</p>
 <h3 id="rfc.section.4.1.3">
 <a href="#rfc.section.4.1.3">4.1.3.</a> <a href="#tls-interface-summary" id="tls-interface-summary">TLS Interface Summary</a>
 </h3>
@@ -853,15 +872,15 @@ Handshake Received
 </h2>
 <p id="rfc.section.5.1.p.1">QUIC derives packet protection keys in the same way that TLS derives record protection keys.</p>
 <p id="rfc.section.5.1.p.2">Each encryption level has separate secret values for protection of packets sent in each direction.  These traffic secrets are derived by TLS (see Section 7.1 of <a href="#TLS13" class="xref">[TLS13]</a>) and are used by QUIC for all encryption levels except the Initial encryption level.  The secrets for the Initial encryption level are computed based on the client&#8217;s initial Destination Connection ID, as described in <a href="#initial-secrets" class="xref">Section 5.2</a>.</p>
-<p id="rfc.section.5.1.p.3">The keys used for packet protection are computed from the TLS secrets using the method described in Section 7.3 of <a href="#TLS13" class="xref">[TLS13]</a>), except that the label for HKDF-Expand-Label uses the prefix &#8220;quic &#8220; rather than &#8220;tls13 &#8220;. A different label provides key separation between TLS and QUIC.</p>
-<p id="rfc.section.5.1.p.4">For example, where TLS might use a label of 0x002009746c733133206b657900 to derive a key, QUIC uses 0x00200871756963206b657900.</p>
-<p id="rfc.section.5.1.p.5">The HKDF-Expand-Label function with a &#8220;quic &#8220; label is also used to derive the initial secrets (see <a href="#initial-secrets" class="xref">Section 5.2</a>) and to derive a packet number protection key (the &#8220;pn&#8221; label, see <a href="#pn-encrypt" class="xref">Section 5.4</a>).</p>
+<p id="rfc.section.5.1.p.3">The keys used for packet protection are computed from the TLS secrets using the KDF provided by TLS.  In TLS 1.3, the HKDF-Expand-Label function described in Section 7.1 of <a href="#TLS13" class="xref">[TLS13]</a>) is used, using the hash function from the negotiated cipher suite.  Other versions of TLS MUST provide a similar function in order to be used QUIC.</p>
+<p id="rfc.section.5.1.p.4">The current encryption level secret and the label &#8220;quic key&#8221; are input to the KDF to produce the AEAD key; the label &#8220;quic iv&#8221; is used to derive the IV, see <a href="#aead" class="xref">Section 5.3</a>.  The packet number protection key uses the &#8220;quic hp&#8221; label, see <a href="#header-protect" class="xref">Section 5.4</a>).  Using these labels provides key separation between QUIC and TLS, see <a href="#key-diversity" class="xref">Section 9.4</a>.</p>
+<p id="rfc.section.5.1.p.5">The KDF used for initial secrets is always the HKDF-Expand-Label function from TLS 1.3 (see <a href="#initial-secrets" class="xref">Section 5.2</a>).</p>
 <h2 id="rfc.section.5.2">
 <a href="#rfc.section.5.2">5.2.</a> <a href="#initial-secrets" id="initial-secrets">Initial Secrets</a>
 </h2>
 <p id="rfc.section.5.2.p.1">Initial packets are protected with a secret derived from the Destination Connection ID field from the client&#8217;s first Initial packet of the connection. Specifically:</p>
 <pre>
-initial_salt = 0x9c108f98520a5c5c32968e950e8a2c5fe06d6c38
+initial_salt = 0xef4fb0abb47470c41befcf8031334fae485e09a0
 initial_secret = HKDF-Extract(initial_salt,
                               client_dst_connection_id)
 
@@ -875,6 +894,7 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
 <p id="rfc.section.5.2.p.2">The hash function for HKDF when deriving initial secrets and keys is SHA-256 <a href="#SHA" class="xref">[SHA]</a>.</p>
 <p id="rfc.section.5.2.p.3">The connection ID used with HKDF-Expand-Label is the Destination Connection ID in the Initial packet sent by the client.  This will be a randomly-selected value unless the client creates the Initial packet after receiving a Retry packet, where the Destination Connection ID is selected by the server.</p>
 <p id="rfc.section.5.2.p.4">The value of initial_salt is a 20 byte sequence shown in the figure in hexadecimal notation. Future versions of QUIC SHOULD generate a new salt value, thus ensuring that the keys are different for each version of QUIC. This prevents a middlebox that only recognizes one version of QUIC from seeing or modifying the contents of handshake packets from future versions.</p>
+<p id="rfc.section.5.2.p.5">The HKDF-Expand-Label function defined in TLS 1.3 MUST be used for Initial packets even where the TLS versions offered do not include TLS 1.3.</p>
 <p></p>
 
 <dl>
@@ -885,29 +905,89 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
 <a href="#rfc.section.5.3">5.3.</a> <a href="#aead" id="aead">AEAD Usage</a>
 </h2>
 <p id="rfc.section.5.3.p.1">The Authentication Encryption with Associated Data (AEAD) <a href="#AEAD" class="xref">[AEAD]</a> function used for QUIC packet protection is the AEAD that is negotiated for use with the TLS connection.  For example, if TLS is using the TLS_AES_128_GCM_SHA256, the AEAD_AES_128_GCM function is used.</p>
-<p id="rfc.section.5.3.p.2">QUIC packets are protected prior to applying packet number protection (<a href="#pn-encrypt" class="xref">Section 5.4</a>).  The unprotected packet number is part of the associated data (A).  When removing packet protection, an endpoint first removes the protection from the packet number.</p>
+<p id="rfc.section.5.3.p.2">Packets are protected prior to applying header protection (<a href="#header-protect" class="xref">Section 5.4</a>).  The unprotected packet header is part of the associated data (A).  When removing packet protection, an endpoint first removes the header protection.</p>
 <p id="rfc.section.5.3.p.3">All QUIC packets other than Version Negotiation and Retry packets are protected with an AEAD algorithm <a href="#AEAD" class="xref">[AEAD]</a>. Prior to establishing a shared secret, packets are protected with AEAD_AES_128_GCM and a key derived from the destination connection ID in the client&#8217;s first Initial packet (see <a href="#initial-secrets" class="xref">Section 5.2</a>).  This provides protection against off-path attackers and robustness against QUIC version unaware middleboxes, but not against on-path attackers.</p>
-<p id="rfc.section.5.3.p.4">All ciphersuites currently defined for TLS 1.3 - and therefore QUIC - have a 16-byte authentication tag and produce an output 16 bytes larger than their input.</p>
+<p id="rfc.section.5.3.p.4">QUIC can use any of the ciphersuites defined in <a href="#TLS13" class="xref">[TLS13]</a> with the exception of TLS_AES_128_CCM_8_SHA256.  The AEAD for that ciphersuite, AEAD_AES_128_CCM_8 <a href="#CCM" class="xref">[CCM]</a>, does not produce a large enough authentication tag for use with the header protection designs provided (see <a href="#header-protect" class="xref">Section 5.4</a>).  All other ciphersuites defined in <a href="#TLS13" class="xref">[TLS13]</a> have a 16-byte authentication tag and produce an output 16 bytes larger than their input.</p>
 <p id="rfc.section.5.3.p.5">The key and IV for the packet are computed as described in <a href="#protection-keys" class="xref">Section 5.1</a>.  The nonce, N, is formed by combining the packet protection IV with the packet number.  The 64 bits of the reconstructed QUIC packet number in network byte order are left-padded with zeros to the size of the IV.  The exclusive OR of the padded packet number and the IV forms the AEAD nonce.</p>
 <p id="rfc.section.5.3.p.6">The associated data, A, for the AEAD is the contents of the QUIC header, starting from the flags byte in either the short or long header, up to and including the unprotected packet number.</p>
 <p id="rfc.section.5.3.p.7">The input plaintext, P, for the AEAD is the content of the QUIC frame following the header, as described in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.</p>
 <p id="rfc.section.5.3.p.8">The output ciphertext, C, of the AEAD is transmitted in place of P.</p>
 <p id="rfc.section.5.3.p.9">Some AEAD functions have limits for how many packets can be encrypted under the same key and IV (see for example <a href="#AEBounds" class="xref">[AEBounds]</a>).  This might be lower than the packet number limit.  An endpoint MUST initiate a key update (<a href="#key-update" class="xref">Section 6</a>) prior to exceeding any limit set for the AEAD that is in use.</p>
 <h2 id="rfc.section.5.4">
-<a href="#rfc.section.5.4">5.4.</a> <a href="#pn-encrypt" id="pn-encrypt">Packet Number Protection</a>
+<a href="#rfc.section.5.4">5.4.</a> <a href="#header-protect" id="header-protect">Header Protection</a>
 </h2>
-<p id="rfc.section.5.4.p.1">QUIC packet numbers are protected using a key that is derived from the current set of secrets.  The key derived using the &#8220;pn&#8221; label is used to protect the packet number from casual observation.  The packet number protection algorithm depends on the negotiated AEAD.</p>
-<p id="rfc.section.5.4.p.2">Packet number protection is applied after packet protection is applied (see <a href="#aead" class="xref">Section 5.3</a>).  The ciphertext of the packet is sampled and used as input to an encryption algorithm.</p>
-<p id="rfc.section.5.4.p.3">In sampling the packet ciphertext, the packet number length is assumed to be 4 bytes (its maximum possible encoded length), unless there is insufficient space in the packet for sampling.  The sampled ciphertext starts after allowing for a 4 byte packet number unless this would cause the sample to extend past the end of the packet.  If the sample would extend past the end of the packet, the end of the packet is sampled.</p>
-<p id="rfc.section.5.4.p.4">For example, the sampled ciphertext for a packet with a short header can be determined by:</p>
+<p id="rfc.section.5.4.p.1">Parts of QUIC packet headers, in particular the Packet Number field, are protected using a key that is derived separate to the packet protection key and IV.  The key derived using the &#8220;quic hp&#8221; label is used to provide confidentiality protection for those fields that are not exposed to on-path elements.</p>
+<p id="rfc.section.5.4.p.2">This protection applies to the least-significant bits of the first byte, plus the Packet Number field.  The four least-significant bits of the first byte are protected for packets with long headers; the five least significant bits of the first byte are protected for packets with short headers.  For both header forms, this covers the reserved bits and the Packet Number Length field; the Key Phase bit is also protected for packets with a short header.</p>
+<p id="rfc.section.5.4.p.3">This process does not apply to Retry or Version Negotiation packets, which do not contain a protected payload or any of the fields that are protected by this process.</p>
+<h3 id="rfc.section.5.4.1">
+<a href="#rfc.section.5.4.1">5.4.1.</a> <a href="#header-protection-application" id="header-protection-application">Header Protection Application</a>
+</h3>
+<p id="rfc.section.5.4.1.p.1">Header protection is applied after packet protection is applied (see <a href="#aead" class="xref">Section 5.3</a>).  The ciphertext of the packet is sampled and used as input to an encryption algorithm.  The algorithm used depends on the negotiated AEAD.</p>
+<p id="rfc.section.5.4.1.p.2">The output of this algorithm is a 5 byte mask which is applied to the protected header fields using exclusive OR.  The least significant bits of the first byte of the packet are masked by the least significant bits of the first mask byte, and the packet number is masked with the remaining bytes.  Any unused bytes of mask that might result from a shorter packet number encoding are unused.</p>
+<p><a href="#pseudo-hp" class="xref">Figure 4</a> shows a sample algorithm for applying header protection. Removing header protection only differs in the order in which the packet number length (pn_length) is determined.</p>
+<div id="rfc.figure.4"></div>
+<div id="pseudo-hp"></div>
+<pre>
+mask = header_protection(hp_key, sample)
+
+pn_length = (packet[0] &amp; 0x03) + 1
+if (packet[0] &amp; 0x80) == 0x80:
+   # Long header: 4 bits masked
+   packet[0] ^= mask[0] &amp; 0x0f
+else:
+   # Short header: 5 bits masked
+   packet[0] ^= mask[0] &amp; 0x1f
+
+# pn_offset is the start of the Packet Number field.
+packet[pn_offset:pn_offset+pn_length] ^= mask[1:1+pn_length]
+</pre>
+<p class="figure">Figure 4: Header Protection Pseudocode</p>
+<p><a href="#fig-sample" class="xref">Figure 5</a> shows the protected fields of long and short headers marked with an E.  <a href="#fig-sample" class="xref">Figure 5</a> also shows the sampled fields.</p>
+<div id="rfc.figure.5"></div>
+<div id="fig-sample"></div>
+<pre>
+Long Header:
++-+-+-+-+-+-+-+-+
+|1|1|T T|E E E E|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    Version -&gt; Length Fields                 ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Short Header:
++-+-+-+-+-+-+-+-+
+|0|1|S|E E E E E|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|               Destination Connection ID (0/32..144)         ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Common Fields:
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|E E E E E E E E E  Packet Number (8/16/24/32) E E E E E E E E...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   [Protected Payload (8/16/24)]             ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|             Sampled part of Protected Payload (128)         ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Protected Payload Remainder (*)             ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+</pre>
+<p class="figure">Figure 5: Header Protection and Ciphertext Sample</p>
+<p id="rfc.section.5.4.1.p.5">Before a TLS ciphersuite can be used with QUIC, a header protection algorithm MUST be specified for the AEAD used with that ciphersuite.  This document defines algorithms for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, AEAD_AES_256_CCM (all AES AEADs are defined in <a href="#AEAD" class="xref">[AEAD]</a>), and AEAD_CHACHA20_POLY1305 <a href="#CHACHA" class="xref">[CHACHA]</a>.  Prior to TLS selecting a ciphersuite, AES header protection is used (<a href="#hp-aes" class="xref">Section 5.4.3</a>), matching the AEAD_AES_128_GCM packet protection.</p>
+<h3 id="rfc.section.5.4.2">
+<a href="#rfc.section.5.4.2">5.4.2.</a> <a href="#hp-sample" id="hp-sample">Header Protection Sample</a>
+</h3>
+<p id="rfc.section.5.4.2.p.1">The header protection algorithm uses both the header protection key and a sample of the ciphertext from the packet Payload field.</p>
+<p id="rfc.section.5.4.2.p.2">The same number of bytes are always sampled, but an allowance needs to be made for the endpoint removing protection, which will not know the length of the Packet Number field.  In sampling the packet ciphertext, the Packet Number field is assumed to be 4 bytes long (its maximum possible encoded length).</p>
+<p id="rfc.section.5.4.2.p.3">An endpoint MUST discard packets that are not long enough to contain a complete sample.</p>
+<p id="rfc.section.5.4.2.p.4">To ensure that sufficient data is available for sampling, packets are padded so that the combined lengths of the encoded packet number and protected payload is at least 4 bytes longer than the sample required for header protection.  For the AEAD functions defined in <a href="#TLS13" class="xref">[TLS13]</a>, which have 16-byte expansions and 16-byte header protection samples, this results in needing at least 3 bytes of frames in the unprotected payload if the packet number is encoded on a single byte, or 2 bytes of frames for a 2-byte packet number encoding.</p>
+<p id="rfc.section.5.4.2.p.5">The sampled ciphertext for a packet with a short header can be determined by the following pseudocode:</p>
 <pre>
 sample_offset = 1 + len(connection_id) + 4
 
-if sample_offset + sample_length &gt; packet_length then
-    sample_offset = packet_length - sample_length
 sample = packet[sample_offset..sample_offset+sample_length]
 </pre>
-<p id="rfc.section.5.4.p.5">A packet with a long header is sampled in the same way, noting that multiple QUIC packets might be included in the same UDP datagram and that each one is handled separately.</p>
+<p id="rfc.section.5.4.2.p.6">For example, for a packet with a short header, an 8 byte connection ID, and protected with AEAD_AES_128_GCM, the sample takes bytes 13 to 28 inclusive (using zero-based indexing).</p>
+<p id="rfc.section.5.4.2.p.7">A packet with a long header is sampled in the same way, noting that multiple QUIC packets might be included in the same UDP datagram and that each one is handled separately.</p>
 <pre>
 sample_offset = 6 + len(destination_connection_id) +
                     len(source_connection_id) +
@@ -915,28 +995,27 @@ sample_offset = 6 + len(destination_connection_id) +
 if packet_type == Initial:
     sample_offset += len(token_length) +
                      len(token)
+
+sample = packet[sample_offset..sample_offset+sample_length]
 </pre>
-<p id="rfc.section.5.4.p.6">To ensure that this process does not sample the packet number, packet number protection algorithms MUST NOT sample more ciphertext than the minimum expansion of the corresponding AEAD.</p>
-<p id="rfc.section.5.4.p.7">Packet number protection is applied to the packet number encoded as described in Section 17.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>. Since the length of the packet number is stored in the first byte of the encoded packet number, it may be necessary to progressively decrypt the packet number.</p>
-<p id="rfc.section.5.4.p.8">Before a TLS ciphersuite can be used with QUIC, a packet protection algorithm MUST be specifed for the AEAD used with that ciphersuite.  This document defines algorithms for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, AEAD_AES_256_CCM (all AES AEADs are defined in <a href="#AEAD" class="xref">[AEAD]</a>), and AEAD_CHACHA20_POLY1305 (<a href="#CHACHA" class="xref">[CHACHA]</a>).</p>
-<h3 id="rfc.section.5.4.1">
-<a href="#rfc.section.5.4.1">5.4.1.</a> <a href="#aes-based-packet-number-protection" id="aes-based-packet-number-protection">AES-Based Packet Number Protection</a>
+<h3 id="rfc.section.5.4.3">
+<a href="#rfc.section.5.4.3">5.4.3.</a> <a href="#hp-aes" id="hp-aes">AES-Based Header Protection</a>
 </h3>
-<p id="rfc.section.5.4.1.p.1">This section defines the packet protection algorithm for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, and AEAD_AES_256_CCM. AEAD_AES_128_GCM and AEAD_AES_128_CCM use 128-bit AES <a href="#AES" class="xref">[AES]</a> in counter (CTR) mode. AEAD_AES_256_GCM, and AEAD_AES_256_CCM use 256-bit AES in CTR mode.</p>
-<p id="rfc.section.5.4.1.p.2">This algorithm samples 16 bytes from the packet ciphertext. This value is used as the counter input to AES-CTR.</p>
+<p id="rfc.section.5.4.3.p.1">This section defines the packet protection algorithm for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM, and AEAD_AES_256_CCM. AEAD_AES_128_GCM and AEAD_AES_128_CCM use 128-bit AES <a href="#AES" class="xref">[AES]</a> in electronic code-book (ECB) mode. AEAD_AES_256_GCM, and AEAD_AES_256_CCM use 256-bit AES in ECB mode.</p>
+<p id="rfc.section.5.4.3.p.2">This algorithm samples 16 bytes from the packet ciphertext. This value is used as the counter input to AES-ECB.  In pseudocode:</p>
 <pre>
-encrypted_pn = AES-CTR(pn_key, sample, packet_number)
+mask = AES-ECB(pn_key, sample)
 </pre>
-<h3 id="rfc.section.5.4.2">
-<a href="#rfc.section.5.4.2">5.4.2.</a> <a href="#chacha20-based-packet-number-protection" id="chacha20-based-packet-number-protection">ChaCha20-Based Packet Number Protection</a>
+<h3 id="rfc.section.5.4.4">
+<a href="#rfc.section.5.4.4">5.4.4.</a> <a href="#hp-chacha" id="hp-chacha">ChaCha20-Based Header Protection</a>
 </h3>
-<p id="rfc.section.5.4.2.p.1">When AEAD_CHACHA20_POLY1305 is in use, packet number protection uses the raw ChaCha20 function as defined in Section 2.4 of <a href="#CHACHA" class="xref">[CHACHA]</a>.  This uses a 256-bit key and 16 bytes sampled from the packet protection output.</p>
-<p id="rfc.section.5.4.2.p.2">The first 4 bytes of the sampled ciphertext are interpreted as a 32-bit number in little-endian order and are used as the block count.  The remaining 12 bytes are interpreted as three concatenated 32-bit numbers in little-endian order and used as the nonce.</p>
-<p id="rfc.section.5.4.2.p.3">The encoded packet number is then encrypted with ChaCha20 directly. In pseudocode:</p>
+<p id="rfc.section.5.4.4.p.1">When AEAD_CHACHA20_POLY1305 is in use, header protection uses the raw ChaCha20 function as defined in Section 2.4 of <a href="#CHACHA" class="xref">[CHACHA]</a>.  This uses a 256-bit key and 16 bytes sampled from the packet protection output.</p>
+<p id="rfc.section.5.4.4.p.2">The first 4 bytes of the sampled ciphertext are interpreted as a 32-bit number in little-endian order and are used as the block count.  The remaining 12 bytes are interpreted as three concatenated 32-bit numbers in little-endian order and used as the nonce.</p>
+<p id="rfc.section.5.4.4.p.3">The encryption mask is produced by invoking ChaCha20 to protect 5 zero bytes. In pseudocode:</p>
 <pre>
 counter = DecodeLE(sample[0..3])
 nonce = DecodeLE(sample[4..7], sample[8..11], sample[12..15])
-encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
+mask = ChaCha20(pn_key, counter, nonce, {0,0,0,0,0})
 </pre>
 <h2 id="rfc.section.5.5">
 <a href="#rfc.section.5.5">5.5.</a> <a href="#receiving-protected-packets" id="receiving-protected-packets">Receiving Protected Packets</a>
@@ -969,13 +1048,13 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
 <p id="rfc.section.6.p.2">The KEY_PHASE bit allows a recipient to detect a change in keying material without necessarily needing to receive the first packet that triggered the change.  An endpoint that notices a changed KEY_PHASE bit can update keys and decrypt the packet that contains the changed bit.</p>
 <p id="rfc.section.6.p.3">This mechanism replaces the TLS KeyUpdate message.  Endpoints MUST NOT send a TLS KeyUpdate message.  Endpoints MUST treat the receipt of a TLS KeyUpdate message as a connection error of type 0x10a, equivalent to a fatal TLS alert of unexpected_message (see <a href="#tls-errors" class="xref">Section 4.8</a>).</p>
 <p id="rfc.section.6.p.4">An endpoint MUST NOT initiate more than one key update at a time.  A new key cannot be used until the endpoint has received and successfully decrypted a packet with a matching KEY_PHASE.</p>
-<p id="rfc.section.6.p.5">A receiving endpoint detects an update when the KEY_PHASE bit does not match what it is expecting.  It creates a new secret (see Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>) and the corresponding read key and IV using the same variation on HKDF as defined in <a href="#protection-keys" class="xref">Section 5.1</a>; that is, the prefix &#8220;quic &#8220; is used in place of &#8220;tls13 &#8220;.</p>
+<p id="rfc.section.6.p.5">A receiving endpoint detects an update when the KEY_PHASE bit does not match what it is expecting.  It creates a new secret (see Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>) and the corresponding read key and IV using the KDF function provided by TLS.</p>
 <p id="rfc.section.6.p.6">If the packet can be decrypted and authenticated using the updated key and IV, then the keys the endpoint uses for packet protection are also updated.  The next packet sent by the endpoint will then use the new keys.</p>
 <p id="rfc.section.6.p.7">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends will simply use the new keys.  If an endpoint detects a second update before it has sent any packets with updated keys, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a fatal error and abort the connection.</p>
 <p id="rfc.section.6.p.8">An endpoint SHOULD retain old keys for a short period to allow it to decrypt packets with smaller packet numbers than the packet that triggered the key update.  This allows an endpoint to consume packets that are reordered around the transition between keys.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
 <p id="rfc.section.6.p.9">Keys and their corresponding secrets SHOULD be discarded when an endpoint has received all packets with packet numbers lower than the lowest packet number used for the new key.  An endpoint might discard keys if it determines that the length of the delay to affected packets is excessive.</p>
 <p id="rfc.section.6.p.10">This ensures that once the handshake is complete, packets with the same KEY_PHASE will have the same packet protection keys, unless there are multiple key updates in a short time frame succession and significant packet reordering.</p>
-<div id="rfc.figure.4"></div>
+<div id="rfc.figure.6"></div>
 <div id="ex-key-update"></div>
 <pre>
    Initiating Peer                    Responding Peer
@@ -989,7 +1068,7 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
                                           QUIC Frames @N
                       &lt;--------
 </pre>
-<p class="figure">Figure 4: Key Update</p>
+<p class="figure">Figure 6: Key Update</p>
 <p id="rfc.section.6.p.11">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
 <p id="rfc.section.6.p.12">In deciding when to update keys, endpoints MUST NOT exceed the limits for use of specific keys, as described in Section 5.5 of <a href="#TLS13" class="xref">[TLS13]</a>.</p>
 <h1 id="rfc.section.7">
@@ -1046,24 +1125,31 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
 <p id="rfc.section.9.2.p.2">QUIC prohibits the sending of empty <samp>STREAM</samp> frames unless they are marked with the FIN bit.  This prevents <samp>STREAM</samp> frames from being sent that only waste effort.</p>
 <p id="rfc.section.9.2.p.3">While there are legitimate uses for some redundant packets, implementations SHOULD track redundant packets and treat excessive volumes of any non-productive packets as indicative of an attack.</p>
 <h2 id="rfc.section.9.3">
-<a href="#rfc.section.9.3">9.3.</a> <a href="#pn-encrypt-analysis" id="pn-encrypt-analysis">Packet Number Protection Analysis</a>
+<a href="#rfc.section.9.3">9.3.</a> <a href="#header-protect-analysis" id="header-protect-analysis">Header Protection Analysis</a>
 </h2>
-<p id="rfc.section.9.3.p.1">Packet number protection relies on the packet protection AEAD being a pseudorandom function (PRF), which is not a property that AEAD algorithms guarantee. Therefore, no strong assurances about the general security of this mechanism can be shown in the general case. The AEAD algorithms described in this document are assumed to be PRFs.</p>
-<p id="rfc.section.9.3.p.2">The packet number protection algorithms defined in this document take the form:</p>
+<p id="rfc.section.9.3.p.1">Header protection relies on the packet protection AEAD being a pseudorandom function (PRF), which is not a property that AEAD algorithms guarantee. Therefore, no strong assurances about the general security of this mechanism can be shown in the general case. The AEAD algorithms described in this document are assumed to be PRFs.</p>
+<p id="rfc.section.9.3.p.2">The header protection algorithms defined in this document take the form:</p>
 <pre>
-encrypted_pn = packet_number XOR PRF(pn_key, sample)
+protected_field = field XOR PRF(pn_key, sample)
 </pre>
 <p id="rfc.section.9.3.p.3">This construction is secure against chosen plaintext attacks (IND-CPA) <a href="#IMC" class="xref">[IMC]</a>.</p>
-<p id="rfc.section.9.3.p.4">Use of the same key and ciphertext sample more than once risks compromising packet number protection. Protecting two different packet numbers with the same key and ciphertext sample reveals the exclusive OR of those packet numbers.  Assuming that the AEAD acts as a PRF, if L bits are sampled, the odds of two ciphertext samples being identical approach 2^(-L/2), that is, the birthday bound. For the algorithms described in this document, that probability is one in 2^64.</p>
+<p id="rfc.section.9.3.p.4">Use of the same key and ciphertext sample more than once risks compromising header protection. Protecting two different headers with the same key and ciphertext sample reveals the exclusive OR of the protected fields.  Assuming that the AEAD acts as a PRF, if L bits are sampled, the odds of two ciphertext samples being identical approach 2^(-L/2), that is, the birthday bound. For the algorithms described in this document, that probability is one in 2^64.</p>
 <p></p>
 
 <dl>
 <dt>Note:</dt>
 <dd style="margin-left: 8">In some cases, inputs shorter than the full size required by the packet protection algorithm might be used.</dd>
 </dl>
-<p id="rfc.section.9.3.p.6">To prevent an attacker from modifying packet numbers, values of packet numbers are transitively authenticated using packet protection; packet numbers are part of the authenticated additional data.  A falsified or modified packet number can only be detected once the packet protection is removed.</p>
-<p id="rfc.section.9.3.p.7">An attacker can guess values for packet numbers and have an endpoint confirm guesses through timing side channels.  If the recipient of a packet discards packets with duplicate packet numbers without attempting to remove packet protection they could reveal through timing side-channels that the packet number matches a received packet.  For authentication to be free from side-channels, the entire process of packet number protection removal, packet number recovery, and packet protection removal MUST be applied together without timing and other side-channels.</p>
+<p id="rfc.section.9.3.p.6">To prevent an attacker from modifying packet headers, the header is transitively authenticated using packet protection; the entire packet header is part of the authenticated additional data.  Protected fields that are falsified or modified can only be detected once the packet protection is removed.</p>
+<p id="rfc.section.9.3.p.7">An attacker could guess values for packet numbers and have an endpoint confirm guesses through timing side channels.  Similarly, guesses for the packet number length can be trialed and exposed.  If the recipient of a packet discards packets with duplicate packet numbers without attempting to remove packet protection they could reveal through timing side-channels that the packet number matches a received packet.  For authentication to be free from side-channels, the entire process of header protection removal, packet number recovery, and packet protection removal MUST be applied together without timing and other side-channels.</p>
 <p id="rfc.section.9.3.p.8">For the sending of packets, construction and protection of packet payloads and packet numbers MUST be free from side-channels that would reveal the packet number or its encoded size.</p>
+<h2 id="rfc.section.9.4">
+<a href="#rfc.section.9.4">9.4.</a> <a href="#key-diversity" id="key-diversity">Key Diversity</a>
+</h2>
+<p id="rfc.section.9.4.p.1">In using TLS, the central key schedule of TLS is used.  As a result of the TLS handshake messages being integrated into the calculation of secrets, the inclusion of the QUIC transport parameters extension ensures that handshake and 1-RTT keys are not the same as those that might be produced by a server running TLS over TCP.  However, 0-RTT keys only include the ClientHello message and might therefore use the same secrets.  To avoid the possibility of cross-protocol key synchronization, additional measures are provided to improve key separation.</p>
+<p id="rfc.section.9.4.p.2">The QUIC packet protection keys and IVs are derived using a different label than the equivalent keys in TLS.</p>
+<p id="rfc.section.9.4.p.3">To preserve this separation, a new version of QUIC SHOULD define new labels for key derivation for packet protection key and IV, plus the packet number protection keys.</p>
+<p id="rfc.section.9.4.p.4">The initial secrets also use a key that is specific to the negotiated QUIC version.  New QUIC versions SHOULD define a new salt value used in calculating initial secrets.</p>
 <h1 id="rfc.section.10">
 <a href="#rfc.section.10">10.</a> <a href="#iana-considerations" id="iana-considerations">IANA Considerations</a>
 </h1>
@@ -1123,7 +1209,7 @@ encrypted_pn = packet_number XOR PRF(pn_key, sample)
 <tr>
 <td class="reference"><b id="TLS-REGISTRIES">[TLS-REGISTRIES]</b></td>
 <td class="top">
-<a>Salowey, J.</a> and <a>S. Turner</a>, "<a href="https://tools.ietf.org/html/draft-ietf-tls-iana-registry-updates-05">IANA Registry Updates for Transport Layer Security (TLS) and Datagram Transport Layer Security (DTLS)</a>", Internet-Draft draft-ietf-tls-iana-registry-updates-05, May 2018.</td>
+<a>Salowey, J.</a> and <a>S. Turner</a>, "<a href="https://tools.ietf.org/html/rfc8447">IANA Registry Updates for TLS and DTLS</a>", RFC 8447, DOI 10.17487/RFC8447, August 2018.</td>
 </tr>
 <tr>
 <td class="reference"><b id="TLS13">[TLS13]</b></td>
@@ -1138,6 +1224,11 @@ encrypted_pn = packet_number XOR PRF(pn_key, sample)
 <td class="reference"><b id="AEBounds">[AEBounds]</b></td>
 <td class="top">
 <a>Luykx, A.</a> and <a>K. Paterson</a>, "<a href="http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf">Limits on Authenticated Encryption Use in TLS</a>", March 2016.</td>
+</tr>
+<tr>
+<td class="reference"><b id="CCM">[CCM]</b></td>
+<td class="top">
+<a>McGrew, D.</a> and <a>D. Bailey</a>, "<a href="https://tools.ietf.org/html/rfc6655">AES-CCM Cipher Suites for Transport Layer Security (TLS)</a>", RFC 6655, DOI 10.17487/RFC6655, July 2012.</td>
 </tr>
 <tr>
 <td class="reference"><b id="IMC">[IMC]</b></td>
