@@ -94,7 +94,7 @@ Table of Contents
      4.5.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  14
        4.5.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  14
      4.6.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  14
-       4.6.1.  Constants of interest . . . . . . . . . . . . . . . .  14
+       4.6.1.  Constants of interest . . . . . . . . . . . . . . . .  15
        4.6.2.  Variables of interest . . . . . . . . . . . . . . . .  15
        4.6.3.  Initialization  . . . . . . . . . . . . . . . . . . .  16
        4.6.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  17
@@ -397,11 +397,15 @@ Internet-Draft             QUIC Loss Detection             November 2018
 4.2.1.  Fast Retransmit
 
    An unacknowledged packet is marked as lost when an acknowledgment is
-   received for a packet that was sent kPacketThreshold number of
-   packets or kTimeThreshold amount of time after the unacknowledged
-   packet.  Receipt of the acknowledgement indicates that a later packet
-   was received, while the reordering threshold provides some tolerance
-   for reordering of packets in the network.
+   received for a packet sent sufficiently after the unacknowledged
+   packet.  * The largest acknowledged packet is more than
+   kPacketThreshold packets larger than the unacknowleged packet.  * The
+   unacknowledged packet was sent more than (1 + kTimeThreshold) *
+   max(SRTT, latest_RTT) ago.
+
+   Receipt of the acknowledgement indicates that a later packet was
+   received, while the reordering threshold provides some tolerance for
+   reordering of packets in the network.
 
    Spuriously declaring packets lost leads to unnecessary
    retransmissions and may result in degraded performance due to the
@@ -438,10 +442,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
       reordering where packet whose ack triggered the Early Retransit
       process encountered a shorter path;
 
-   o  the latest RTT sample is higher than the SRTT, perhaps due to a
-      sustained increase in the actual RTT, but the smoothed SRTT has
-      not yet caught up.
-
 
 
 
@@ -449,6 +449,10 @@ Iyengar & Swett           Expires June 3, 2019                  [Page 8]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   o  the latest RTT sample is higher than the SRTT, perhaps due to a
+      sustained increase in the actual RTT, but the smoothed SRTT has
+      not yet caught up.
 
    Implementers MAY experiment with using other reordering fractions,
    bearing in mind that a lower multiplier reduces reordering resilience
@@ -494,10 +498,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    is no unacknowledged CRYPTO data.  If the timer expires and the
    client has no CRYPTO data to retransmit and does not have Handshake
    keys, it SHOULD send an Initial packet in a UDP datagram of at least
-   1200 bytes.  If the client has Handshake keys, it SHOULD send a
-   Handshake packet.
-
-
 
 
 
@@ -505,6 +505,9 @@ Iyengar & Swett           Expires June 3, 2019                  [Page 9]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   1200 bytes.  If the client has Handshake keys, it SHOULD send a
+   Handshake packet.
 
    On each consecutive expiration of the crypto timer without receiving
    an acknowledgement for a new packet, the sender SHOULD double the
@@ -552,9 +555,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    The 1.5 is based on [TLP], but implementations MAY experiment with
    other constants.
 
-   To reduce latency, it is RECOMMENDED that the sender set and allow
-   the TLP timer to fire twice before setting an RTO timer.  In other
-
 
 
 Iyengar & Swett           Expires June 3, 2019                 [Page 10]
@@ -562,6 +562,8 @@ Iyengar & Swett           Expires June 3, 2019                 [Page 10]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+   To reduce latency, it is RECOMMENDED that the sender set and allow
+   the TLP timer to fire twice before setting an RTO timer.  In other
    words, when the TLP timer expires the first time, a TLP packet is
    sent, and it is RECOMMENDED that the TLP timer be scheduled for a
    second time.  When the TLP timer expires the second time, a second
@@ -608,8 +610,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    QUIC's RTO algorithm differs from TCP in that the firing of an RTO
    timer is not considered a strong enough signal of packet loss, so
-   does not result in an immediate change to congestion window or
-   recovery state.  An RTO timer expires only when there's a prolonged
 
 
 
@@ -618,6 +618,8 @@ Iyengar & Swett           Expires June 3, 2019                 [Page 11]
 Internet-Draft             QUIC Loss Detection             November 2018
 
 
+   does not result in an immediate change to congestion window or
+   recovery state.  An RTO timer expires only when there's a prolonged
    period of network silence, which could be caused by a change in the
    network RTT.
 
@@ -662,9 +664,7 @@ Internet-Draft             QUIC Loss Detection             November 2018
    when it receives a new packet which is not one greater than the
    largest received packet number.
 
-   Similarly, packets marked with the ECN Congestion Experienced (CE)
-   codepoint in the IP header SHOULD be acknowledged immediately, to
-   reduce the peer's response time to congestion events.
+
 
 
 
@@ -673,6 +673,10 @@ Iyengar & Swett           Expires June 3, 2019                 [Page 12]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   Similarly, packets marked with the ECN Congestion Experienced (CE)
+   codepoint in the IP header SHOULD be acknowledged immediately, to
+   reduce the peer's response time to congestion events.
 
    As an optimization, a receiver MAY process multiple packets before
    sending any ACK frames in response.  In this case they can determine
@@ -717,10 +721,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    by the sender before it is no longer included in the ACK frame.
    Packets could be received out of order and all subsequent ACK frames
    containing them could be lost.  In this case, the loss recovery
-   algorithm may cause spurious retransmits, but the sender will
-   continue making forward progress.
-
-
 
 
 
@@ -729,6 +729,9 @@ Iyengar & Swett           Expires June 3, 2019                 [Page 13]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   algorithm may cause spurious retransmits, but the sender will
+   continue making forward progress.
 
 4.5.  Tracking Sent Packets
 
@@ -771,11 +774,8 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
 4.6.  Pseudocode
 
-4.6.1.  Constants of interest
 
-   Constants used in loss recovery are based on a combination of RFCs,
-   papers, and common practice.  Some may need to be changed or
-   negotiated in order to better suit a variety of environments.
+
 
 
 
@@ -785,6 +785,12 @@ Iyengar & Swett           Expires June 3, 2019                 [Page 14]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+4.6.1.  Constants of interest
+
+   Constants used in loss recovery are based on a combination of RFCs,
+   papers, and common practice.  Some may need to be changed or
+   negotiated in order to better suit a variety of environments.
 
    kMaxTLPs:  Maximum number of tail loss probes before an RTO expires.
       The RECOMMENDED value is 2.
@@ -828,12 +834,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
    largest_sent_before_rto:  The last packet number sent prior to the
       first retransmission timeout.
 
-   time_of_last_sent_retransmittable_packet:  The time the most recent
-      retransmittable packet was sent.
-
-   time_of_last_sent_crypto_packet:  The time the most recent crypto
-      packet was sent.
-
 
 
 
@@ -841,6 +841,12 @@ Iyengar & Swett           Expires June 3, 2019                 [Page 15]
 
 Internet-Draft             QUIC Loss Detection             November 2018
 
+
+   time_of_last_sent_retransmittable_packet:  The time the most recent
+      retransmittable packet was sent.
+
+   time_of_last_sent_crypto_packet:  The time the most recent crypto
+      packet was sent.
 
    largest_sent_packet:  The packet number of the most recently sent
       packet.
@@ -881,12 +887,6 @@ Internet-Draft             QUIC Loss Detection             November 2018
 
    At the beginning of the connection, initialize the loss detection
    variables as follows:
-
-
-
-
-
-
 
 
 
