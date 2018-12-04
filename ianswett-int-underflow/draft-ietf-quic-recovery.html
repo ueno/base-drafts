@@ -297,8 +297,8 @@ ul.toc li {
 <link href="#rfc.section.5" rel="Chapter" title="5 Loss Detection">
 <link href="#rfc.section.5.1" rel="Chapter" title="5.1 Computing the RTT estimate">
 <link href="#rfc.section.5.2" rel="Chapter" title="5.2 Ack-based Detection">
-<link href="#rfc.section.5.2.1" rel="Chapter" title="5.2.1 Fast Retransmit">
-<link href="#rfc.section.5.2.2" rel="Chapter" title="5.2.2 Early Retransmit">
+<link href="#rfc.section.5.2.1" rel="Chapter" title="5.2.1 Packet Threshold">
+<link href="#rfc.section.5.2.2" rel="Chapter" title="5.2.2 Time Threshold">
 <link href="#rfc.section.5.3" rel="Chapter" title="5.3 Timeout Loss Detection">
 <link href="#rfc.section.5.3.1" rel="Chapter" title="5.3.1 Crypto Retransmission Timeout">
 <link href="#rfc.section.5.3.2" rel="Chapter" title="5.3.2 Tail Loss Probe">
@@ -459,9 +459,9 @@ ul.toc li {
 </li>
 <li>5.2.   <a href="#rfc.section.5.2">Ack-based Detection</a>
 </li>
-<ul><li>5.2.1.   <a href="#rfc.section.5.2.1">Fast Retransmit</a>
+<ul><li>5.2.1.   <a href="#rfc.section.5.2.1">Packet Threshold</a>
 </li>
-<li>5.2.2.   <a href="#rfc.section.5.2.2">Early Retransmit</a>
+<li>5.2.2.   <a href="#rfc.section.5.2.2">Time Threshold</a>
 </li>
 </ul><li>5.3.   <a href="#rfc.section.5.3">Timeout Loss Detection</a>
 </li>
@@ -693,36 +693,34 @@ ul.toc li {
 <h2 id="rfc.section.5.2">
 <a href="#rfc.section.5.2">5.2.</a> <a href="#ack-based-detection" id="ack-based-detection">Ack-based Detection</a>
 </h2>
-<p id="rfc.section.5.2.p.1">Ack-based loss detection implements the spirit of TCP&#8217;s Fast Retransmit <a href="#RFC5681" class="xref">[RFC5681]</a>, Early Retransmit <a href="#RFC5827" class="xref">[RFC5827]</a>, FACK, and SACK loss recovery <a href="#RFC6675" class="xref">[RFC6675]</a>. This section provides an overview of how these algorithms are implemented in QUIC.  Though both time-based loss detection and early retransmit use a timer, they are part of ack-based detection because they do not use a timer to send probes, but rather to declare packets lost.</p>
+<p id="rfc.section.5.2.p.1">Ack-based loss detection implements the spirit of TCP&#8217;s Fast Retransmit <a href="#RFC5681" class="xref">[RFC5681]</a>, Early Retransmit <a href="#RFC5827" class="xref">[RFC5827]</a>, FACK, SACK loss recovery <a href="#RFC6675" class="xref">[RFC6675]</a>, and RACK <a href="#RACK" class="xref">[RACK]</a>. This section provides an overview of how these algorithms are implemented in QUIC.</p>
+<p id="rfc.section.5.2.p.2">A packet is declared lost under the following conditions:</p>
+<p></p>
+
+<ul>
+<li>The packet is unacknowledged, retransmittable, and was sent prior to an acknowledged packet.</li>
+<li>Either its packet number is kPacketThreshold smaller than an acknowledged packet (<a href="#packet-threshold" class="xref">Section 5.2.1</a>), or it was sent long enough in the past (<a href="#time-threshold" class="xref">Section 5.2.2</a>).</li>
+</ul>
+<p id="rfc.section.5.2.p.4">The acknowledgement indicates that a packet sent later was delivered, while the packet and time thresholds provide some tolerance for packet reordering.</p>
+<p id="rfc.section.5.2.p.5">Spuriously declaring packets lost leads to unnecessary retransmissions and may result in degraded performance due to the actions of the congestion controller upon detecting loss.  Implementations that detect spurious retransmissions and increase the reordering threshold in packets or time MAY choose to start with smaller initial reordering thresholds to minimize recovery latency.</p>
 <h3 id="rfc.section.5.2.1">
-<a href="#rfc.section.5.2.1">5.2.1.</a> <a href="#fast-retransmit" id="fast-retransmit">Fast Retransmit</a>
+<a href="#rfc.section.5.2.1">5.2.1.</a> <a href="#packet-threshold" id="packet-threshold">Packet Threshold</a>
 </h3>
-<p id="rfc.section.5.2.1.p.1">An unacknowledged packet is marked as lost when an acknowledgment is received for a packet that was sent a threshold number of packets (kReorderingThreshold) and/or a threshold amount of time after the unacknowledged packet. Receipt of the acknowledgement indicates that a later packet was received, while the reordering threshold provides some tolerance for reordering of packets in the network.</p>
-<p id="rfc.section.5.2.1.p.2">Spuriously declaring packets lost leads to unnecessary retransmissions and may result in degraded performance due to the actions of the congestion controller upon detecting loss.  Implementations that detect spurious retransmissions and increase the reordering threshold in packets or time MAY choose to start with smaller initial reordering thresholds to minimize recovery latency.</p>
-<h4 id="rfc.section.5.2.1.1">
-<a href="#rfc.section.5.2.1.1">5.2.1.1.</a> <a href="#packet-threshold" id="packet-threshold">Packet Threshold</a>
-</h4>
-<p id="rfc.section.5.2.1.1.p.1">The RECOMMENDED initial value for kReorderingThreshold is 3, based on TCP loss recovery <a href="#RFC5681" class="xref">[RFC5681]</a> <a href="#RFC6675" class="xref">[RFC6675]</a>. Some networks may exhibit higher degrees of reordering, causing a sender to detect spurious losses.  Implementers MAY use algorithms developed for TCP, such as TCP-NCR <a href="#RFC4653" class="xref">[RFC4653]</a>, to improve QUIC&#8217;s reordering resilience.</p>
-<h4 id="rfc.section.5.2.1.2">
-<a href="#rfc.section.5.2.1.2">5.2.1.2.</a> <a href="#time-threshold" id="time-threshold">Time Threshold</a>
-</h4>
-<p id="rfc.section.5.2.1.2.p.1">Time threshold loss detection uses a time threshold to determine how much reordering to tolerate.  In this document, the threshold is expressed as a fraction of an RTT, but implemenantations MAY experiment with absolute thresholds.  This may be used either as a replacement for a packet reordering threshold or in addition to it.</p>
-<p id="rfc.section.5.2.1.2.p.2">When a larger packet is acknowledged, if it was sent more than the threshold after any in flight packets, those packets are immediately declared lost.  Otherwise, a timer is set for the the reordering threshold minus the time difference between the earliest in flight packet and the largest newly acknowledged packet.  Note that in some cases the timer could become longer when packets are acknowleged out of order. The RECOMMENDED time threshold, expressed as a fraction of the round-trip time (kTimeReorderingFraction), is 1/8.</p>
+<p id="rfc.section.5.2.1.p.1">The RECOMMENDED initial value for the packet reordering threshold (kPacketThreshold) is 3, based on TCP loss detection <a href="#RFC5681" class="xref">[RFC5681]</a> <a href="#RFC6675" class="xref">[RFC6675]</a>.</p>
+<p id="rfc.section.5.2.1.p.2">Some networks may exhibit higher degrees of reordering, causing a sender to detect spurious losses.  Implementers MAY use algorithms developed for TCP, such as TCP-NCR <a href="#RFC4653" class="xref">[RFC4653]</a>, to improve QUIC&#8217;s reordering resilience.</p>
 <h3 id="rfc.section.5.2.2">
-<a href="#rfc.section.5.2.2">5.2.2.</a> <a href="#early-retransmit" id="early-retransmit">Early Retransmit</a>
+<a href="#rfc.section.5.2.2">5.2.2.</a> <a href="#time-threshold" id="time-threshold">Time Threshold</a>
 </h3>
-<p id="rfc.section.5.2.2.p.1">Unacknowledged packets close to the tail may have fewer than kReorderingThreshold retransmittable packets sent after them.  Loss of such packets cannot be detected via Packet Threshold Fast Retransmit. To enable ack-based loss detection of such packets, receipt of an acknowledgment for the last outstanding retransmittable packet triggers the Early Retransmit process, as follows.</p>
-<p id="rfc.section.5.2.2.p.2">If there are unacknowledged in-flight packets still pending, they should be marked as lost. To compensate for the reduced reordering resilience, the sender SHOULD set a timer for a small period of time. If the unacknowledged in-flight packets are not acknowledged during this time, then these packets MUST be marked as lost.</p>
-<p id="rfc.section.5.2.2.p.3">An endpoint SHOULD set the timer such that a packet is marked as lost no earlier than 1.125 * max(SRTT, latest_RTT) since when it was sent.</p>
-<p id="rfc.section.5.2.2.p.4">Using max(SRTT, latest_RTT) protects from the two following cases:</p>
+<p id="rfc.section.5.2.2.p.1">Once a later packet has been acknowledged, an endpoint SHOULD declare an earlier packet lost if it was sent a threshold amount of time in the past. The time threshold is computed as kTimeThreshold * max(SRTT, latest_RTT).  If packets sent prior to the largest acknowledged packet cannot yet be declared lost, then a timer SHOULD be set for the remaining time.</p>
+<p id="rfc.section.5.2.2.p.2">The RECOMMENDED time threshold (kTimeThreshold), expressed as a round-trip time multiplier, is 9/8.</p>
+<p id="rfc.section.5.2.2.p.3">Using max(SRTT, latest_RTT) protects from the two following cases:</p>
 <p></p>
 
 <ul>
 <li>the latest RTT sample is lower than the SRTT, perhaps due to reordering where packet whose ack triggered the Early Retransmit process encountered a shorter path;</li>
 <li>the latest RTT sample is higher than the SRTT, perhaps due to a sustained increase in the actual RTT, but the smoothed SRTT has not yet caught up.</li>
 </ul>
-<p id="rfc.section.5.2.2.p.6">The 1.125 multiplier increases reordering resilience. Implementers MAY experiment with using other multipliers, bearing in mind that a lower multiplier reduces reordering resilience and increases spurious retransmissions, and a higher multiplier increases loss recovery delay.</p>
-<p id="rfc.section.5.2.2.p.7">This mechanism is based on Early Retransmit for TCP <a href="#RFC5827" class="xref">[RFC5827]</a>. However, <a href="#RFC5827" class="xref">[RFC5827]</a> does not include the timer described above. Early Retransmit is prone to spurious retransmissions due to its reduced reordering resilence without the timer. This observation led Linux TCP implementers to implement a timer for TCP as well, and this document incorporates this advancement.</p>
+<p id="rfc.section.5.2.2.p.5">Implementers MAY experiment with using other reordering thresholds, including absolute thresholds, bearing in mind that a lower multiplier reduces reordering resilience and increases spurious retransmissions, and a higher multiplier increases loss detection delay.</p>
 <h2 id="rfc.section.5.3">
 <a href="#rfc.section.5.3">5.3.</a> <a href="#timeout-loss-detection" id="timeout-loss-detection">Timeout Loss Detection</a>
 </h2>
@@ -815,12 +813,10 @@ ul.toc li {
 <dl>
 <dt>kMaxTLPs:</dt>
 <dd style="margin-left: 8">Maximum number of tail loss probes before an RTO expires.  The RECOMMENDED value is 2.</dd>
-<dt>kReorderingThreshold:</dt>
-<dd style="margin-left: 8">Maximum reordering in packet number space before FACK style loss detection considers a packet lost. The RECOMMENDED value is 3.</dd>
-<dt>kTimeReorderingFraction:</dt>
-<dd style="margin-left: 8">Maximum reordering in time space before time threshold loss detection considers a packet lost.  In fraction of an RTT. The RECOMMENDED value is 1/8.</dd>
-<dt>kUsingTimeLossDetection:</dt>
-<dd style="margin-left: 8">Whether time threshold loss detection is in use.  If false, uses only packet threshold loss detection. The RECOMMENDED value is false.</dd>
+<dt>kPacketThreshold:</dt>
+<dd style="margin-left: 8">Maximum reordering in packets before packet threshold loss detection considers a packet lost. The RECOMMENDED value is 3.</dd>
+<dt>kTimeThreshold:</dt>
+<dd style="margin-left: 8">Maximum reordering in time before time threshold loss detection considers a packet lost. Specified as an RTT multiplier. The RECOMMENDED value is 9/8.</dd>
 <dt>kMinTLPTimeout:</dt>
 <dd style="margin-left: 8">Minimum time in the future a tail loss probe timer may be set for.  The RECOMMENDED value is 10ms.</dd>
 <dt>kMinRTOTimeout:</dt>
@@ -867,9 +863,9 @@ ul.toc li {
 <dd style="margin-left: 8">The minimum RTT seen in the connection, ignoring ack delay.</dd>
 <dt>max_ack_delay:</dt>
 <dd style="margin-left: 8">The maximum amount of time by which the receiver intends to delay acknowledgments, in milliseconds.  The actual ack_delay in a received ACK frame may be larger due to late timers, reordering, or lost ACKs.</dd>
-<dt>reordering_threshold:</dt>
+<dt>packet_threshold:</dt>
 <dd style="margin-left: 8">The largest packet number gap between the largest acknowledged retransmittable packet and an unacknowledged retransmittable packet before it is declared lost.</dd>
-<dt>time_reordering_fraction:</dt>
+<dt>time_threshold:</dt>
 <dd style="margin-left: 8">The reordering window as a fraction of max(smoothed_rtt, latest_rtt).</dd>
 <dt>loss_time:</dt>
 <dd style="margin-left: 8">The time at which the next packet will be considered lost based on early transmit or exceeding the reordering window in time.</dd>
@@ -885,12 +881,8 @@ ul.toc li {
    crypto_count = 0
    tlp_count = 0
    rto_count = 0
-   if (kUsingTimeLossDetection)
-     reordering_threshold = infinite
-     time_reordering_fraction = kTimeReorderingFraction
-   else:
-     reordering_threshold = kReorderingThreshold
-     time_reordering_fraction = infinite
+   time_threshold = kTimeThreshold
+   packet_threshold = kPacketThreshold
    loss_time = 0
    smoothed_rtt = 0
    rttvar = 0
@@ -1012,7 +1004,7 @@ ul.toc li {
         time_of_last_sent_crypto_packet + timeout)
       return
     if (loss_time != 0):
-      // Early retransmit timer or time loss detection.
+      // Time threshold loss detection.
       loss_detection_timer.set(loss_time)
       return
 
@@ -1043,7 +1035,7 @@ ul.toc li {
        RetransmitUnackedCryptoData()
        crypto_count++
      else if (loss_time != 0):
-       // Early retransmit or Time Loss Detection
+       // Time threshold loss Detection
        DetectLostPackets(largest_acked_packet)
      else if (tlp_count &lt; kMaxTLPs):
        // Tail Loss Probe.
@@ -1068,19 +1060,13 @@ ul.toc li {
 DetectLostPackets(largest_acked):
   loss_time = 0
   lost_packets = {}
-  delay_until_lost = infinite
-  if (kUsingTimeLossDetection):
-    delay_until_lost =
-      (1 + time_reordering_fraction) *
-          max(latest_rtt, smoothed_rtt)
-  else if (largest_acked.packet_number == largest_sent_packet):
-    // Early retransmit timer.
-    delay_until_lost = 9/8 * max(latest_rtt, smoothed_rtt)
+  delay_until_lost = time_threshold *
+                     max(latest_rtt, smoothed_rtt)
   foreach (unacked &lt; largest_acked.packet_number):
     time_since_sent = now() - unacked.time_sent
     delta = largest_acked.packet_number - unacked.packet_number
     if (time_since_sent &gt; delay_until_lost ||
-        delta &gt; reordering_threshold):
+        delta &gt; packet_threshold):
       sent_packets.remove(unacked.packet_number)
       if (unacked.retransmittable):
         lost_packets.insert(unacked)
@@ -1328,6 +1314,11 @@ DetectLostPackets(largest_acked):
 <h2 id="rfc.references.2">
 <a href="#rfc.references.2">9.2.</a> Informative References</h2>
 <table><tbody>
+<tr>
+<td class="reference"><b id="RACK">[RACK]</b></td>
+<td class="top">
+<a>Cheng, Y.</a>, <a>Cardwell, N.</a>, <a>Dukkipati, N.</a> and <a>P. Jha</a>, "<a href="https://tools.ietf.org/html/draft-ietf-tcpm-rack-04">RACK: a time-based fast loss detection algorithm for TCP</a>", Internet-Draft draft-ietf-tcpm-rack-04, July 2018.</td>
+</tr>
 <tr>
 <td class="reference"><b id="RFC3465">[RFC3465]</b></td>
 <td class="top">
