@@ -334,8 +334,9 @@ ul.toc li {
 <link href="#rfc.section.9.1" rel="Chapter" title="9.1 Probing a New Path">
 <link href="#rfc.section.9.2" rel="Chapter" title="9.2 Initiating Connection Migration">
 <link href="#rfc.section.9.3" rel="Chapter" title="9.3 Responding to Connection Migration">
-<link href="#rfc.section.9.3.1" rel="Chapter" title="9.3.1 Handling Address Spoofing by a Peer">
-<link href="#rfc.section.9.3.2" rel="Chapter" title="9.3.2 Handling Address Spoofing by an On-path Attacker">
+<link href="#rfc.section.9.3.1" rel="Chapter" title="9.3.1 Peer Address Spoofing">
+<link href="#rfc.section.9.3.2" rel="Chapter" title="9.3.2 On-Path Address Spoofing">
+<link href="#rfc.section.9.3.3" rel="Chapter" title="9.3.3 Off-Path Packet Forwarding">
 <link href="#rfc.section.9.4" rel="Chapter" title="9.4 Loss Detection and Congestion Control">
 <link href="#rfc.section.9.5" rel="Chapter" title="9.5 Privacy Implications of Connection Migration">
 <link href="#rfc.section.9.6" rel="Chapter" title="9.6 Server&#8217;s Preferred Address">
@@ -618,9 +619,11 @@ ul.toc li {
 </li>
 <li>9.3.   <a href="#rfc.section.9.3">Responding to Connection Migration</a>
 </li>
-<ul><li>9.3.1.   <a href="#rfc.section.9.3.1">Handling Address Spoofing by a Peer</a>
+<ul><li>9.3.1.   <a href="#rfc.section.9.3.1">Peer Address Spoofing</a>
 </li>
-<li>9.3.2.   <a href="#rfc.section.9.3.2">Handling Address Spoofing by an On-path Attacker</a>
+<li>9.3.2.   <a href="#rfc.section.9.3.2">On-Path Address Spoofing</a>
+</li>
+<li>9.3.3.   <a href="#rfc.section.9.3.3">Off-Path Packet Forwarding</a>
 </li>
 </ul><li>9.4.   <a href="#rfc.section.9.4">Loss Detection and Congestion Control</a>
 </li>
@@ -1590,12 +1593,13 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </h2>
 <p id="rfc.section.8.5.p.1">A new address is considered valid when a PATH_RESPONSE frame is received containing data that was sent in a previous PATH_CHALLENGE. Receipt of an acknowledgment for a packet containing a PATH_CHALLENGE frame is not adequate validation, since the acknowledgment can be spoofed by a malicious peer.</p>
 <p id="rfc.section.8.5.p.2">For path validation to be successful, a PATH_RESPONSE frame MUST be received from the same remote address to which the corresponding PATH_CHALLENGE was sent. If a PATH_RESPONSE frame is received from a different remote address than the one to which the PATH_CHALLENGE was sent, path validation is considered to have failed, even if the data matches that sent in the PATH_CHALLENGE.</p>
-<p id="rfc.section.8.5.p.3">Additionally, the PATH_RESPONSE frame MUST be received on the same local address from which the corresponding PATH_CHALLENGE was sent.  If a PATH_RESPONSE frame is received on a different local address than the one from which the PATH_CHALLENGE was sent, path validation is considered to have failed, even if the data matches that sent in the PATH_CHALLENGE.  Thus, the endpoint considers the path to be valid when a PATH_RESPONSE frame is received on the same path with the same payload as the PATH_CHALLENGE frame.</p>
+<p id="rfc.section.8.5.p.3">Additionally, the PATH_RESPONSE frame MUST be received on the same local address from which the corresponding PATH_CHALLENGE was sent.  An endpoint considers the path to be valid when a PATH_RESPONSE frame is received on the same path with the same payload as the PATH_CHALLENGE frame.</p>
+<p id="rfc.section.8.5.p.4">If a PATH_RESPONSE frame is received on a different local address than the one from which the PATH_CHALLENGE was sent, path validation is not considered to be successful, even if the data matches the PATH_CHALLENGE.  This doesn&#8217;t result in path validation failure, as it might be a result of a forwarded packet (see <a href="#off-path-forward" class="xref">Section 9.3.3</a>) or misrouting.</p>
 <h2 id="rfc.section.8.6">
 <a href="#rfc.section.8.6">8.6.</a> <a href="#failed-path-validation" id="failed-path-validation">Failed Path Validation</a>
 </h2>
 <p id="rfc.section.8.6.p.1">Path validation only fails when the endpoint attempting to validate the path abandons its attempt to validate the path.</p>
-<p id="rfc.section.8.6.p.2">Endpoints SHOULD abandon path validation based on a timer. When setting this timer, implementations are cautioned that the new path could have a longer round-trip time than the original.</p>
+<p id="rfc.section.8.6.p.2">Endpoints SHOULD abandon path validation based on a timer. When setting this timer, implementations are cautioned that the new path could have a longer round-trip time than the original.  A value of three times the current Retransmittion Timeout (RTO) as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a> is RECOMMENDED.</p>
 <p id="rfc.section.8.6.p.3">Note that the endpoint might receive packets containing other frames on the new path, but a PATH_RESPONSE frame with appropriate data is required for path validation to succeed.</p>
 <p id="rfc.section.8.6.p.4">When an endpoint abandons path validation, it determines that the path is unusable.  This does not necessarily imply a failure of the connection - endpoints can continue sending packets over other paths as appropriate.  If no paths are available, an endpoint can wait for a new path to become available or close the connection.</p>
 <p id="rfc.section.8.6.p.5">A path validation might be abandoned for other reasons besides failure. Primarily, this happens if a connection migration to a new path is initiated while a path validation on the old path is in progress.</p>
@@ -1633,18 +1637,29 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.9.3.p.6">Receiving a packet from a new peer address might be the result of a NAT rebinding at the peer.</p>
 <p id="rfc.section.9.3.p.7">After verifying a new client address, the server SHOULD send new address validation tokens (<a href="#address-validation" class="xref">Section 8</a>) to the client.</p>
 <h3 id="rfc.section.9.3.1">
-<a href="#rfc.section.9.3.1">9.3.1.</a> <a href="#address-spoofing" id="address-spoofing">Handling Address Spoofing by a Peer</a>
+<a href="#rfc.section.9.3.1">9.3.1.</a> <a href="#address-spoofing" id="address-spoofing">Peer Address Spoofing</a>
 </h3>
 <p id="rfc.section.9.3.1.p.1">It is possible that a peer is spoofing its source address to cause an endpoint to send excessive amounts of data to an unwilling host.  If the endpoint sends significantly more data than the spoofing peer, connection migration might be used to amplify the volume of data that an attacker can generate toward a victim.</p>
 <p id="rfc.section.9.3.1.p.2">As described in <a href="#migration-response" class="xref">Section 9.3</a>, an endpoint is required to validate a peer&#8217;s new address to confirm the peer&#8217;s possession of the new address.  Until a peer&#8217;s address is deemed valid, an endpoint MUST limit the rate at which it sends data to this address.  The endpoint MUST NOT send more than a minimum congestion window&#8217;s worth of data per estimated round-trip time (kMinimumWindow, as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).  In the absence of this limit, an endpoint risks being used for a denial of service attack against an unsuspecting victim.  Note that since the endpoint will not have any round-trip time measurements to this address, the estimate SHOULD be the default initial value (see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).</p>
 <p id="rfc.section.9.3.1.p.3">If an endpoint skips validation of a peer address as described in <a href="#migration-response" class="xref">Section 9.3</a>, it does not need to limit its sending rate.</p>
 <h3 id="rfc.section.9.3.2">
-<a href="#rfc.section.9.3.2">9.3.2.</a> <a href="#on-path-spoofing" id="on-path-spoofing">Handling Address Spoofing by an On-path Attacker</a>
+<a href="#rfc.section.9.3.2">9.3.2.</a> <a href="#on-path-spoofing" id="on-path-spoofing">On-Path Address Spoofing</a>
 </h3>
 <p id="rfc.section.9.3.2.p.1">An on-path attacker could cause a spurious connection migration by copying and forwarding a packet with a spoofed address such that it arrives before the original packet.  The packet with the spoofed address will be seen to come from a migrating connection, and the original packet will be seen as a duplicate and dropped. After a spurious migration, validation of the source address will fail because the entity at the source address does not have the necessary cryptographic keys to read or respond to the PATH_CHALLENGE frame that is sent to it even if it wanted to.</p>
 <p id="rfc.section.9.3.2.p.2">To protect the connection from failing due to such a spurious migration, an endpoint MUST revert to using the last validated peer address when validation of a new peer address fails.</p>
 <p id="rfc.section.9.3.2.p.3">If an endpoint has no state about the last validated peer address, it MUST close the connection silently by discarding all connection state. This results in new packets on the connection being handled generically. For instance, an endpoint MAY send a stateless reset in response to any further incoming packets.</p>
 <p id="rfc.section.9.3.2.p.4">Note that receipt of packets with higher packet numbers from the legitimate peer address will trigger another connection migration.  This will cause the validation of the address of the spurious migration to be abandoned.</p>
+<h3 id="rfc.section.9.3.3">
+<a href="#rfc.section.9.3.3">9.3.3.</a> <a href="#off-path-forward" id="off-path-forward">Off-Path Packet Forwarding</a>
+</h3>
+<p id="rfc.section.9.3.3.p.1">An off-path attacker that can observe packets might forward copies of genuine packets to endpoints.  If the copied packet arrives before the genuine packet, this will appear as a NAT rebinding.  Any genuine packet will be discarded as a duplicate.  If the attacker is able to continue forwarding packets, it might be able to cause migration to a path via the attacker.  This places the attacker on path, giving it the ability to observe or drop all subsequent packets.</p>
+<p id="rfc.section.9.3.3.p.2">Unlike the attack described in <a href="#on-path-spoofing" class="xref">Section 9.3.2</a>, the attacker can ensure that the new path is successfully validated.</p>
+<p id="rfc.section.9.3.3.p.3">This style of attack relies on the attacker using a path that is approximately as fast as the direct path between endpoints.  The attack is more reliable if relatively few packets are sent or if packet loss coincides with the attempted attack.</p>
+<p id="rfc.section.9.3.3.p.4">A non-probing packet received on the original path that increases the maximum received packet number will cause the endpoint to move back to that path.  Eliciting packets on this path increases the likelihood that the attack is unsuccessful.  Therefore, mitigation of this attack relies on triggering the exchange of packets.</p>
+<p id="rfc.section.9.3.3.p.5">In response to an apparent migration, endpoints MUST validate the previously active path using a PATH_CHALLENGE frame.  This induces the sending of new packets on that path.  If the path is no longer viable, the validation attempt will time out and fail; if the path is viable, but no longer desired, the validation will succeed, but only results in probing packets being sent on the path.</p>
+<p id="rfc.section.9.3.3.p.6">An endpoint that receives a PATH_CHALLENGE on an active path SHOULD send a non-probing packet in response.  If the non-probing packet arrives before any copy made by an attacker, this results in the connection being migrated back to the original path.  Any subsequent migration to another path restarts this entire process.</p>
+<p id="rfc.section.9.3.3.p.7">This defense is imperfect, but this is not considered a serious problem. If the path via the attack is reliably faster than the original path despite multiple attempts to use that original path, it is not possible to distinguish between attack and an improvement in routing.</p>
+<p id="rfc.section.9.3.3.p.8">An endpoint could also use heuristics to improve detection of this style of attack.  For instance, NAT rebinding is improbable if packets were recently received on the old path, similarly rebinding is rare on IPv6 paths.  Endpoints can also look for duplicated packets.  Conversely, a change in connection ID is more likely to indicate an intentional migration rather than an attack.</p>
 <h2 id="rfc.section.9.4">
 <a href="#rfc.section.9.4">9.4.</a> <a href="#migration-cc" id="migration-cc">Loss Detection and Congestion Control</a>
 </h2>
@@ -1652,7 +1667,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.9.4.p.2">On confirming a peer&#8217;s ownership of its new address, an endpoint SHOULD immediately reset the congestion controller and round-trip time estimator for the new path.</p>
 <p id="rfc.section.9.4.p.3">An endpoint MUST NOT return to the send rate used for the previous path unless it is reasonably sure that the previous send rate is valid for the new path.  For instance, a change in the client&#8217;s port number is likely indicative of a rebinding in a middlebox and not a complete change in path.  This determination likely depends on heuristics, which could be imperfect; if the new path capacity is significantly reduced, ultimately this relies on the congestion controller responding to congestion signals and reducing send rates appropriately.</p>
 <p id="rfc.section.9.4.p.4">There may be apparent reordering at the receiver when an endpoint sends data and probes from/to multiple addresses during the migration period, since the two resulting paths may have different round-trip times.  A receiver of packets on multiple paths will still send ACK frames covering all received packets.</p>
-<p id="rfc.section.9.4.p.5">While multiple paths might be used during connection migration, a single congestion control context and a single loss recovery context (as described in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>) may be adequate.  A sender can make exceptions for probe packets so that their loss detection is independent and does not unduly cause the congestion controller to reduce its sending rate.  An endpoint might set a separate timer when a PATH_CHALLENGE is sent, which is cancelled when the corresponding PATH_RESPONSE is received.  If the timer fires before the PATH_RESPONSE is received, the endpoint might send a new PATH_CHALLENGE, and restart the timer for a longer period of time.</p>
+<p id="rfc.section.9.4.p.5">While multiple paths might be used during connection migration, a single congestion control context and a single loss recovery context (as described in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>) may be adequate.  For instance, an endpoint might delay switching to a new congestion control context until it is confirmed that an old path is no longer needed (such as the case in <a href="#off-path-forward" class="xref">Section 9.3.3</a>).</p>
+<p id="rfc.section.9.4.p.6">A sender can make exceptions for probe packets so that their loss detection is independent and does not unduly cause the congestion controller to reduce its sending rate.  An endpoint might set a separate timer when a PATH_CHALLENGE is sent, which is cancelled when the corresponding PATH_RESPONSE is received.  If the timer fires before the PATH_RESPONSE is received, the endpoint might send a new PATH_CHALLENGE, and restart the timer for a longer period of time.</p>
 <h2 id="rfc.section.9.5">
 <a href="#rfc.section.9.5">9.5.</a> <a href="#migration-linkability" id="migration-linkability">Privacy Implications of Connection Migration</a>
 </h2>
