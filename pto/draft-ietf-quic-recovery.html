@@ -702,13 +702,13 @@ ul.toc li {
 <a href="#rfc.section.6.1.1">6.1.1.</a> <a href="#packet-threshold" id="packet-threshold">Packet Threshold</a>
 </h3>
 <p id="rfc.section.6.1.1.p.1">The RECOMMENDED initial value for the packet reordering threshold (kPacketThreshold) is 3, based on TCP loss detection <a href="#RFC5681" class="xref">[RFC5681]</a> <a href="#RFC6675" class="xref">[RFC6675]</a>.</p>
-<p id="rfc.section.6.1.1.p.2">Some networks may exhibit higher degrees of reordering, causing a sender to detect spurious losses.  Implementers MAY increase the packet threshold under such conditions.</p>
+<p id="rfc.section.6.1.1.p.2">Some networks may exhibit higher degrees of reordering, causing a sender to detect spurious losses.  Implementers MAY use algorithms developed for TCP, such as TCP-NCR <a href="#RFC4653" class="xref">[RFC4653]</a>, to improve QUIC&#8217;s reordering resilience.</p>
 <h3 id="rfc.section.6.1.2">
 <a href="#rfc.section.6.1.2">6.1.2.</a> <a href="#time-threshold" id="time-threshold">Time Threshold</a>
 </h3>
 <p id="rfc.section.6.1.2.p.1">Once a later packet has been acknowledged, an endpoint SHOULD declare an earlier packet lost if it was sent a threshold amount of time in the past. The time threshold is computed as kTimeThreshold * max(SRTT, latest_RTT).  If packets sent prior to the largest acknowledged packet cannot yet be declared lost, then a timer SHOULD be set for the remaining time.</p>
 <p id="rfc.section.6.1.2.p.2">The RECOMMENDED time threshold (kTimeThreshold), expressed as a round-trip time multiplier, is 9/8.</p>
-<p id="rfc.section.6.1.2.p.3">Using max(smoothed_rtt, latest_rtt) protects from the two following cases:</p>
+<p id="rfc.section.6.1.2.p.3">Using max(SRTT, latest_RTT) protects from the two following cases:</p>
 <p></p>
 
 <ul>
@@ -719,7 +719,7 @@ ul.toc li {
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#timeout-loss-detection" id="timeout-loss-detection">Timeout Loss Detection</a>
 </h2>
-<p id="rfc.section.6.2.p.1">Timeout loss detection recovers from losses that cannot be handled by ack-based loss detection.  It uses a single timer which switches between a crypto retransmission timer and a Probe timer.</p>
+<p id="rfc.section.6.2.p.1">Timeout loss detection recovers from losses that cannot be handled by ack-based loss detection.  It uses a single timer which switches between a crypto retransmission timer and a probe timer.</p>
 <h3 id="rfc.section.6.2.1">
 <a href="#rfc.section.6.2.1">6.2.1.</a> <a href="#crypto-retransmission-timeout" id="crypto-retransmission-timeout">Crypto Retransmission Timeout</a>
 </h3>
@@ -739,23 +739,23 @@ ul.toc li {
 <h3 id="rfc.section.6.2.2">
 <a href="#rfc.section.6.2.2">6.2.2.</a> <a href="#pto" id="pto">Probe Timeout</a>
 </h3>
-<p id="rfc.section.6.2.2.p.1">A Probe Timeout (PTO) triggers a probe packet when ack-eliciting data is in flight but an acknowledgement does not seem forthcoming.  A PTO enables a connection to recover from loss of tail packets or acks, where acks of subsequent packets are not available to trigger ack-based loss detection.  The PTO algorithm used in QUIC implements the reliability functions of Tail Loss Probe <a href="#TLP" class="xref">[TLP]</a>, RTO <a href="#RFC5681" class="xref">[RFC5681]</a> and F-RTO algorithms for TCP <a href="#RFC5682" class="xref">[RFC5682]</a>, and the computation is based on TCP&#8217;s retransmission timeout period <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
+<p id="rfc.section.6.2.2.p.1">A Probe Timeout (PTO) triggers a probe packet when ack-eliciting data is in flight but an acknowledgement is not received within the expected period of time.  A PTO enables a connection to recover from loss of tail packets or acks, where acks of subsequent packets are not available to trigger ack-based loss detection.  The PTO algorithm used in QUIC implements the reliability functions of Tail Loss Probe <a href="#TLP" class="xref">[TLP]</a>, RTO <a href="#RFC5681" class="xref">[RFC5681]</a> and F-RTO algorithms for TCP <a href="#RFC5682" class="xref">[RFC5682]</a>, and the computation is based on TCP&#8217;s retransmission timeout period <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
 <h4 id="rfc.section.6.2.2.1">
 <a href="#rfc.section.6.2.2.1">6.2.2.1.</a> <a href="#computing-pto" id="computing-pto">Computing PTO</a>
 </h4>
-<p id="rfc.section.6.2.2.1.p.1">When the final ack-eliciting packet before quiescence is transmitted, the sender schedules a timer for the PTO period as follows:</p>
+<p id="rfc.section.6.2.2.1.p.1">When an ack-eliciting packet is transmitted, the sender schedules a timer for the PTO period as follows:</p>
 <p id="rfc.section.6.2.2.1.p.2">PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)</p>
-<p id="rfc.section.6.2.2.1.p.3">kGranularity, smoothed_rtt, rttvar, and max_ack_delay are defined in <a href="#ld-vars-of-interest" class="xref">Section 6.4.2</a>.</p>
-<p id="rfc.section.6.2.2.1.p.4">The PTO period is the amount of time that a sender ought to wait for an acknowledgement for a sent packet to be received.  This time period includes the estimated network roundtrip-time (smoothed_rtt), the variance in the estimate (4*rttvar), and max_ack_delay, to account for the maximum time by which a receiver might delay sending an acknowledgement.</p>
-<p id="rfc.section.6.2.2.1.p.5">There is no requirement on the clock granularity. If the PTO computation results in a value of zero, a sender MUST set the PTO value to kGranularity, to avoid the timer expiring immediately.</p>
-<p id="rfc.section.6.2.2.1.p.6">A PTO timer is set on an ack-eliciting tail packet.  A sender may not know that a packet being sent is a tail packet and may have to adjust the timer every time an ack-eliciting packet is sent.</p>
-<p id="rfc.section.6.2.2.1.p.7">When a PTO timer expires, the PTO period MUST be set to twice its current value.  This exponential reduction in the sender&#8217;s rate is important because the PTOs might be caused by loss of packets or acknowledgements due to severe congestion.</p>
+<p id="rfc.section.6.2.2.1.p.3">kGranularity, smoothed_rtt, rttvar, and max_ack_delay are defined in <a href="#ld-consts-of-interest" class="xref">Section 6.4.1</a> and <a href="#ld-vars-of-interest" class="xref">Section 6.4.2</a>.</p>
+<p id="rfc.section.6.2.2.1.p.4">The PTO period is the amount of time that a sender ought to wait for an acknowledgement of a sent packet.  This time period includes the estimated network roundtrip-time (smoothed_rtt), the variance in the estimate (4*rttvar), and max_ack_delay, to account for the maximum time by which a receiver might delay sending an acknowledgement.</p>
+<p id="rfc.section.6.2.2.1.p.5">There is no requirement on the clock granularity. The PTO value MUST be set to at least kGranularity, to avoid the timer expiring immediately.</p>
+<p id="rfc.section.6.2.2.1.p.6">When a PTO timer expires, the PTO period MUST be set to twice its current value.  This exponential reduction in the sender&#8217;s rate is important because the PTOs might be caused by loss of packets or acknowledgements due to severe congestion.</p>
+<p id="rfc.section.6.2.2.1.p.7">A sender computes its PTO timer every time an ack-eliciting packet is sent. A sender might choose to optimize this by setting the timer fewer times if it knows that more ack-eliciting packets will be sent within a short period of time.</p>
 <h4 id="rfc.section.6.2.2.2">
 <a href="#rfc.section.6.2.2.2">6.2.2.2.</a> <a href="#sending-probe-packets" id="sending-probe-packets">Sending Probe Packets</a>
 </h4>
-<p id="rfc.section.6.2.2.2.p.1">When a PTO timer expires, the sender MUST send one ack-eliciting packet as a probe. A sender MAY send up to two ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to packet loss.</p>
+<p id="rfc.section.6.2.2.2.p.1">When a PTO timer expires, the sender MUST send one ack-eliciting packet as a probe. A sender MAY send up to two ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single packet loss.</p>
 <p id="rfc.section.6.2.2.2.p.2">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drop in both directions, thus reducing the probability of consecutive PTO events.</p>
-<p id="rfc.section.6.2.2.2.p.3">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  Implementers MAY use alternate strategies for determining the content of probe packets.  An implementation could use new data in probe packets to maximize throughput.  An implementation could retransmit unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Alternatively, an implementation could send new or retransmitted data based on the application&#8217;s priorities.</p>
+<p id="rfc.section.6.2.2.2.p.3">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementers MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
 <h4 id="rfc.section.6.2.2.3">
 <a href="#rfc.section.6.2.2.3">6.2.2.3.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
 </h4>
@@ -792,7 +792,7 @@ ul.toc li {
 <a href="#rfc.section.6.4">6.4.</a> <a href="#pseudocode" id="pseudocode">Pseudocode</a>
 </h2>
 <h3 id="rfc.section.6.4.1">
-<a href="#rfc.section.6.4.1">6.4.1.</a> <a href="#constants-of-interest" id="constants-of-interest">Constants of interest</a>
+<a href="#rfc.section.6.4.1">6.4.1.</a> <a href="#ld-consts-of-interest" id="ld-consts-of-interest">Constants of interest</a>
 </h3>
 <p id="rfc.section.6.4.1.p.1">Constants used in loss recovery are based on a combination of RFCs, papers, and common practice.  Some may need to be changed or negotiated in order to better suit a variety of environments.</p>
 <p></p>
@@ -861,7 +861,7 @@ ul.toc li {
    smoothed_rtt = 0
    rttvar = 0
    min_rtt = infinite
-   largest_sent_before_rto = 0
+   largest_sent_before_pto = 0
    time_of_last_sent_ack_eliciting_packet = 0
    time_of_last_sent_crypto_packet = 0
    largest_sent_packet = 0
@@ -910,10 +910,10 @@ ul.toc li {
       // Find the smallest newly acknowledged packet
       smallest_newly_acked =
         FindSmallestNewlyAcked(newly_acked_packets)
-      // If any packets sent prior to RTO were acked, then the
-      // RTO was spurious. Otherwise, inform congestion control.
-      if (rto_count &gt; 0 &amp;&amp;
-            smallest_newly_acked &gt; largest_sent_before_rto):
+      // If any packets sent prior to PTO were acked, then the
+      // PTO was spurious. Otherwise, inform congestion control.
+      if (pto_count &gt; 0 &amp;&amp;
+            smallest_newly_acked &gt; largest_sent_before_pto):
         OnProbeTimeoutVerified(smallest_newly_acked)
       crypto_count = 0
       pto_count = 0
@@ -985,7 +985,7 @@ ul.toc li {
       loss_detection_timer.set(loss_time)
       return
 
-    // PTO timer. Calculate PTO duration
+    // Calculate PTO duration
     timeout =
       smoothed_rtt + 4 * rttvar + max_ack_delay
     timeout = max(timeout, granularity)
@@ -1074,7 +1074,7 @@ DetectLostPackets(largest_acked):
 <h2 id="rfc.section.7.2">
 <a href="#rfc.section.7.2">7.2.</a> <a href="#slow-start" id="slow-start">Slow Start</a>
 </h2>
-<p id="rfc.section.7.2.p.1">QUIC begins every connection in slow start and exits slow start upon loss or upon increase in the ECN-CE counter. QUIC re-enters slow start anytime the congestion window is less than ssthresh, which typically only occurs after an RTO. While in slow start, QUIC increases the congestion window by the number of bytes acknowledged when each acknowledgment is processed.</p>
+<p id="rfc.section.7.2.p.1">QUIC begins every connection in slow start and exits slow start upon loss or upon increase in the ECN-CE counter. QUIC re-enters slow start anytime the congestion window is less than ssthresh, which typically only occurs after an PTO. While in slow start, QUIC increases the congestion window by the number of bytes acknowledged when each acknowledgment is processed.</p>
 <h2 id="rfc.section.7.3">
 <a href="#rfc.section.7.3">7.3.</a> <a href="#congestion-avoidance" id="congestion-avoidance">Congestion Avoidance</a>
 </h2>
@@ -1087,7 +1087,7 @@ DetectLostPackets(largest_acked):
 <h2 id="rfc.section.7.5">
 <a href="#rfc.section.7.5">7.5.</a> <a href="#probe-timeout" id="probe-timeout">Probe Timeout</a>
 </h2>
-<p id="rfc.section.7.5.p.1">Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST however count these packets as being additionally in flight, since these packets adds network load without establishing packet loss.  Note that sending probe packets might cause the sender&#8217;s estimated bytes in flight to exceed the sender&#8217;s congestion window until an acknowledgement is received that establishes loss or delivery of packets.</p>
+<p id="rfc.section.7.5.p.1">Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST however count these packets as being additionally in flight, since these packets adds network load without establishing packet loss.  Note that sending probe packets might cause the sender&#8217;s bytes in flight to exceed the congestion window until an acknowledgement is received that establishes loss or delivery of packets.</p>
 <p id="rfc.section.7.5.p.2">A PTO expiration is classified as spurious or valid when an ACK frame is received that newly acknowledges packets in flight, see <a href="#pto-loss" class="xref">Section 6.2.2.3</a>.  On a valid PTO, the congestion window MUST be reduced to the minimum congestion window and slow start is re-entered.</p>
 <h2 id="rfc.section.7.6">
 <a href="#rfc.section.7.6">7.6.</a> <a href="#pacing" id="pacing">Pacing</a>
@@ -1105,7 +1105,7 @@ DetectLostPackets(largest_acked):
 <a href="#rfc.section.7.8">7.8.</a> <a href="#pseudocode-1" id="pseudocode-1">Pseudocode</a>
 </h2>
 <h3 id="rfc.section.7.8.1">
-<a href="#rfc.section.7.8.1">7.8.1.</a> <a href="#constants-of-interest-1" id="constants-of-interest-1">Constants of interest</a>
+<a href="#rfc.section.7.8.1">7.8.1.</a> <a href="#constants-of-interest" id="constants-of-interest">Constants of interest</a>
 </h3>
 <p id="rfc.section.7.8.1.p.1">Constants used in congestion control are based on a combination of RFCs, papers, and common practice.  Some may need to be changed or negotiated in order to better suit a variety of environments.</p>
 <p></p>
@@ -1296,6 +1296,11 @@ DetectLostPackets(largest_acked):
 <td class="reference"><b id="RFC3465">[RFC3465]</b></td>
 <td class="top">
 <a>Allman, M.</a>, "<a href="https://tools.ietf.org/html/rfc3465">TCP Congestion Control with Appropriate Byte Counting (ABC)</a>", RFC 3465, DOI 10.17487/RFC3465, February 2003.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC4653">[RFC4653]</b></td>
+<td class="top">
+<a>Bhandarkar, S.</a>, <a>Reddy, A.</a>, <a>Allman, M.</a> and <a>E. Blanton</a>, "<a href="https://tools.ietf.org/html/rfc4653">Improving the Robustness of TCP to Non-Congestion Events</a>", RFC 4653, DOI 10.17487/RFC4653, August 2006.</td>
 </tr>
 <tr>
 <td class="reference"><b id="RFC5681">[RFC5681]</b></td>
