@@ -864,7 +864,7 @@ ul.toc li {
 <li>Connection migration and resilience to NAT rebinding</li>
 <li>Authenticated and encrypted header and payload</li>
 </ul>
-<p id="rfc.section.1.p.3">QUIC uses UDP as a substrate to avoid requiring changes in legacy client operating systems and middleboxes.  QUIC authenticates all of its headers and encrypts most of the data it exchanges, including its signaling, to avoid incurring a dependency on middleboxes.</p>
+<p id="rfc.section.1.p.3">QUIC uses UDP as a substrate to avoid requiring changes to legacy client operating systems and middleboxes.  QUIC authenticates all of its headers and encrypts most of the data it exchanges, including its signaling, to avoid incurring a dependency on middleboxes.</p>
 <h2 id="rfc.section.1.1">
 <a href="#rfc.section.1.1">1.1.</a> <a href="#document-structure" id="document-structure">Document Structure</a>
 </h2>
@@ -1049,7 +1049,7 @@ ul.toc li {
 <pre>
        o
        | Create Stream (Sending)
-       | Create Bidirectional Stream (Receiving)
+       | Peer Creates Bidirectional Stream
        v
    +-------+
    | Ready | Send RESET_STREAM
@@ -1059,8 +1059,8 @@ ul.toc li {
        | Send STREAM /             |
        |      STREAM_DATA_BLOCKED  |
        |                           |
-       | Create Bidirectional      |
-       |      Stream (Receiving)   |
+       | Peer Creates              |
+       |      Bidirectional Stream |
        v                           |
    +-------+                       |
    | Send  | Send RESET_STREAM     |
@@ -1232,8 +1232,8 @@ ul.toc li {
 </h2>
 <p id="rfc.section.3.5.p.1">If an endpoint is no longer interested in the data it is receiving on a stream, it MAY send a STOP_SENDING frame identifying that stream to prompt closure of the stream in the opposite direction.  This typically indicates that the receiving application is no longer reading data it receives from the stream, but it is not a guarantee that incoming data will be ignored.</p>
 <p id="rfc.section.3.5.p.2">STREAM frames received after sending STOP_SENDING are still counted toward connection and stream flow control, even though these frames will be discarded upon receipt.</p>
-<p id="rfc.section.3.5.p.3">A STOP_SENDING frame requests that the receiving endpoint send a RESET_STREAM frame.  An endpoint that receives a STOP_SENDING frame MUST send a RESET_STREAM frame for that stream.  An endpoint SHOULD copy the error code from the STOP_SENDING frame, but MAY use any other application error code.  The endpoint that sends a STOP_SENDING frame can ignore the error code carried in any RESET_STREAM frame it receives.</p>
-<p id="rfc.section.3.5.p.4">If the STOP_SENDING frame is received on a send stream that is already in the &#8220;Data Sent&#8221; state, a RESET_STREAM frame MAY still be sent in order to cancel retransmissions of previously-sent STREAM frames.</p>
+<p id="rfc.section.3.5.p.3">A STOP_SENDING frame requests that the receiving endpoint send a RESET_STREAM frame.  An endpoint that receives a STOP_SENDING frame MUST send a RESET_STREAM frame for that stream.  An endpoint SHOULD copy the error code from the STOP_SENDING frame, but MAY use any application error code.  The endpoint that sends a STOP_SENDING frame can ignore the error code carried in any RESET_STREAM frame it receives.</p>
+<p id="rfc.section.3.5.p.4">If the STOP_SENDING frame is received on a send stream that is already in the &#8220;Data Sent&#8221; state, an endpoint that wishes to cease retransmission of previously-sent STREAM frames on that stream MUST first send a RESET_STREAM frame.</p>
 <p id="rfc.section.3.5.p.5">STOP_SENDING SHOULD only be sent for a receive stream that has not been reset. STOP_SENDING is most useful for streams in the &#8220;Recv&#8221; or &#8220;Size Known&#8221; states.</p>
 <p id="rfc.section.3.5.p.6">An endpoint is expected to send another STOP_SENDING frame if a packet containing a previous STOP_SENDING is lost.  However, once either all stream data or a RESET_STREAM frame has been received for the stream - that is, the stream is in any state other than &#8220;Recv&#8221; or &#8220;Size Known&#8221; - sending a STOP_SENDING frame is unnecessary.</p>
 <p id="rfc.section.3.5.p.7">An endpoint that wishes to terminate both directions of a bidirectional stream can terminate one direction by sending a RESET_STREAM, and it can encourage prompt termination in the opposite direction by sending a STOP_SENDING frame.</p>
@@ -1284,7 +1284,7 @@ ul.toc li {
 <h2 id="rfc.section.4.5">
 <a href="#rfc.section.4.5">4.5.</a> <a href="#controlling-concurrency" id="controlling-concurrency">Controlling Concurrency</a>
 </h2>
-<p id="rfc.section.4.5.p.1">An endpoint limits the cumulative number of incoming streams a peer can open.  Only steams with a stream id less than (max_stream * 4 + initial_stream_id_for_type) can be opened.  Initial limits are set in the transport parameters (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) and subsequently limits are advertised using MAX_STREAMS frames (<a href="#frame-max-streams" class="xref">Section 19.11</a>). Separate limits apply to unidirectional and bidirectional streams.</p>
+<p id="rfc.section.4.5.p.1">An endpoint limits the cumulative number of incoming streams a peer can open.  Only streams with a stream ID less than (max_stream * 4 + initial_stream_id_for_type) can be opened (see <a href="#long-packet-types" class="xref">Table 5</a>).  Initial limits are set in the transport parameters (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) and subsequently limits are advertised using MAX_STREAMS frames (<a href="#frame-max-streams" class="xref">Section 19.11</a>). Separate limits apply to unidirectional and bidirectional streams.</p>
 <p id="rfc.section.4.5.p.2">Endpoints MUST NOT exceed the limit set by their peer.  An endpoint that receives a STREAM frame with a stream ID exceeding the limit it has sent MUST treat this as a stream error of type STREAM_LIMIT_ERROR (<a href="#error-handling" class="xref">Section 11</a>).</p>
 <p id="rfc.section.4.5.p.3">A receiver cannot renege on an advertisement. That is, once a receiver advertises a stream limit using the MAX_STREAMS frame, advertising a smaller limit has no effect.  A receiver MUST ignore any MAX_STREAMS frame that does not increase the stream limit.</p>
 <p id="rfc.section.4.5.p.4">As with stream and connection flow control, this document leaves when and how many streams to advertise to a peer via MAX_STREAMS to implementations.  Implementations might choose to increase limits as streams close to keep the number of streams available to peers roughly consistent.</p>
@@ -1297,8 +1297,8 @@ ul.toc li {
 <a href="#rfc.section.5.1">5.1.</a> <a href="#connection-id" id="connection-id">Connection ID</a>
 </h2>
 <p id="rfc.section.5.1.p.1">Each connection possesses a set of connection identifiers, or connection IDs, each of which can identify the connection.  Connection IDs are independently selected by endpoints; each endpoint selects the connection IDs that its peer uses.</p>
-<p id="rfc.section.5.1.p.2">The primary function of a connection ID is to ensure that changes in addressing at lower protocol layers (UDP, IP, and below) don&#8217;t cause packets for a QUIC connection to be delivered to the wrong endpoint.  Each endpoint selects connection IDs using an implementation-specific (and perhaps deployment-specific) method which will allow packets with that connection ID to be routed back to the endpoint and identified by the endpoint upon receipt.</p>
-<p id="rfc.section.5.1.p.3">Connection IDs MUST NOT contain any information that can be used to correlate them with other connection IDs for the same connection.  As a trivial example, this means the same connection ID MUST NOT be issued more than once on the same connection.</p>
+<p id="rfc.section.5.1.p.2">The primary function of a connection ID is to ensure that changes in addressing at lower protocol layers (UDP, IP) don&#8217;t cause packets for a QUIC connection to be delivered to the wrong endpoint.  Each endpoint selects connection IDs using an implementation-specific (and perhaps deployment-specific) method which will allow packets with that connection ID to be routed back to the endpoint and identified by the endpoint upon receipt.</p>
+<p id="rfc.section.5.1.p.3">Connection IDs MUST NOT contain any information that can be used by an external observer to correlate them with other connection IDs for the same connection.  As a trivial example, this means the same connection ID MUST NOT be issued more than once on the same connection.</p>
 <p id="rfc.section.5.1.p.4">Packets with long headers include Source Connection ID and Destination Connection ID fields.  These fields are used to set the connection IDs for new connections, see <a href="#negotiating-connection-ids" class="xref">Section 7.2</a> for details.</p>
 <p id="rfc.section.5.1.p.5">Packets with short headers (<a href="#short-header" class="xref">Section 17.3</a>) only include the Destination Connection ID and omit the explicit length.  The length of the Destination Connection ID field is expected to be known to endpoints.  Endpoints using a load balancer that routes based on connection ID could agree with the load balancer on a fixed length for connection IDs, or agree on an encoding scheme.  A fixed portion could encode an explicit length, which allows the entire connection ID to vary in length and still be used by the load balancer.</p>
 <p id="rfc.section.5.1.p.6">A Version Negotiation (<a href="#packet-version" class="xref">Section 17.4</a>) packet echoes the connection IDs selected by the client, both to ensure correct routing toward the client and to allow the client to validate that the packet is in response to an Initial packet.</p>
@@ -1393,7 +1393,7 @@ Packet (v=Y) -&gt;
 <a href="#rfc.section.7">7.</a> <a href="#handshake" id="handshake">Cryptographic and Transport Handshake</a>
 </h1>
 <p id="rfc.section.7.p.1">QUIC relies on a combined cryptographic and transport handshake to minimize connection establishment latency.  QUIC uses the CRYPTO frame <a href="#frame-crypto" class="xref">Section 19.6</a> to transmit the cryptographic handshake.  Version 0x00000001 of QUIC uses TLS as described in <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>; a different QUIC version number could indicate that a different cryptographic handshake protocol is in use.</p>
-<p id="rfc.section.7.p.2">QUIC provides reliable, ordered delivery of the cryptographic handshake data. QUIC packet protection ensures confidentiality and integrity protection that meets the requirements of the cryptographic handshake protocol:</p>
+<p id="rfc.section.7.p.2">QUIC provides reliable, ordered delivery of the cryptographic handshake data. QUIC packet protection is used to encrypt as much of the handshake protocol as possible. The cryptographic handshake MUST provide the following properties:</p>
 <p></p>
 
 <ul>
@@ -1469,7 +1469,7 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p id="rfc.section.7.2.p.4">The final version used for a connection might be different from the version of the first Initial from the client.  To enable consistent routing through the handshake, a client SHOULD select an initial Destination Connection ID length long enough to fulfill the minimum size for every QUIC version it supports.</p>
 <p id="rfc.section.7.2.p.5">The client populates the Source Connection ID field with a value of its choosing and sets the SCIL field to match.</p>
 <p id="rfc.section.7.2.p.6">The Destination Connection ID field in the server&#8217;s Initial packet contains a connection ID that is chosen by the recipient of the packet (i.e., the client); the Source Connection ID includes the connection ID that the sender of the packet wishes to use (see <a href="#connection-id" class="xref">Section 5.1</a>). The server MUST use consistent Source Connection IDs during the handshake.</p>
-<p id="rfc.section.7.2.p.7">On first receiving an Initial or Retry packet from the server, the client uses the Source Connection ID supplied by the server as the Destination Connection ID for subsequent packets.  That means that a client might change the Destination Connection ID twice during connection establishment.  Once a client has received an Initial packet from the server, it MUST discard any packet it receives with a different Source Connection ID.</p>
+<p id="rfc.section.7.2.p.7">On first receiving an Initial or Retry packet from the server, the client uses the Source Connection ID supplied by the server as the Destination Connection ID for subsequent packets.  That means that a client might change the Destination Connection ID twice during connection establishment, once in response to a Retry and once in response to the first Initial packet from the server. Once a client has received an Initial packet from the server, it MUST discard any packet it receives with a different Source Connection ID.</p>
 <p id="rfc.section.7.2.p.8">A client MUST only change the value it sends in the Destination Connection ID in response to the first packet of each type it receives from the server (Retry or Initial); a server MUST set its value based on the Initial packet.  Any additional changes are not permitted; if subsequent packets of those types include a different Source Connection ID, they MUST be discarded.  This avoids problems that might arise from stateless processing of multiple Initial packets producing different connection IDs.</p>
 <p id="rfc.section.7.2.p.9">The connection ID can change over the lifetime of a connection, especially in response to connection migration (<a href="#migration" class="xref">Section 9</a>), see <a href="#issue-cid" class="xref">Section 5.1.1</a> for details.</p>
 <h2 id="rfc.section.7.3">
@@ -1479,16 +1479,26 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p id="rfc.section.7.3.p.2">The encoding of the transport parameters is detailed in <a href="#transport-parameter-encoding" class="xref">Section 18</a>.</p>
 <p id="rfc.section.7.3.p.3">QUIC includes the encoded transport parameters in the cryptographic handshake.  Once the handshake completes, the transport parameters declared by the peer are available.  Each endpoint validates the value provided by its peer.  In particular, version negotiation MUST be validated (see <a href="#version-validation" class="xref">Section 7.3.3</a>) before the connection establishment is considered properly complete.</p>
 <p id="rfc.section.7.3.p.4">Definitions for each of the defined transport parameters are included in <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>.  Any given parameter MUST appear at most once in a given transport parameters extension.  An endpoint MUST treat receipt of duplicate transport parameters as a connection error of type TRANSPORT_PARAMETER_ERROR.</p>
-<p id="rfc.section.7.3.p.5">A server MUST include the original_connection_id transport parameter (<a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) if it sent a Retry packet.</p>
+<p id="rfc.section.7.3.p.5">A server MUST include the original_connection_id transport parameter (<a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) if it sent a Retry packet to enable validation of the Retry, as described in <a href="#packet-retry" class="xref">Section 17.7</a>.</p>
 <h3 id="rfc.section.7.3.1">
 <a href="#rfc.section.7.3.1">7.3.1.</a> <a href="#zerortt-parameters" id="zerortt-parameters">Values of Transport Parameters for 0-RTT</a>
 </h3>
 <p id="rfc.section.7.3.1.p.1">A client that attempts to send 0-RTT data MUST remember the transport parameters used by the server.  The transport parameters that the server advertises during connection establishment apply to all connections that are resumed using the keying material established during that handshake.  Remembered transport parameters apply to the new connection until the handshake completes and new transport parameters from the server can be provided.</p>
 <p id="rfc.section.7.3.1.p.2">A server can remember the transport parameters that it advertised, or store an integrity-protected copy of the values in the ticket and recover the information when accepting 0-RTT data.  A server uses the transport parameters in determining whether to accept 0-RTT data.</p>
-<p id="rfc.section.7.3.1.p.3">A server MAY accept 0-RTT and subsequently provide different values for transport parameters for use in the new connection.  If 0-RTT data is accepted by the server, the server MUST NOT reduce any limits or alter any values that might be violated by the client with its 0-RTT data.  In particular, a server that accepts 0-RTT data MUST NOT set values for initial_max_data, initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, initial_max_stream_data_uni, initial_max_streams_bidi, or initial_max_streams_uni (<a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) that are smaller than the remembered value of those parameters.</p>
-<p id="rfc.section.7.3.1.p.4">Omitting or setting a zero value for certain transport parameters can result in 0-RTT data being enabled, but not usable.  The applicable subset of transport parameters that permit sending of application data SHOULD be set to non-zero values for 0-RTT.  This includes initial_max_data and either initial_max_streams_bidi and initial_max_stream_data_bidi_remote, or initial_max_streams_uni and initial_max_stream_data_uni.</p>
-<p id="rfc.section.7.3.1.p.5">The value of the server&#8217;s previous preferred_address MUST NOT be used when establishing a new connection; rather, the client should wait to observe the server&#8217;s new preferred_address value in the handshake.</p>
-<p id="rfc.section.7.3.1.p.6">A server MUST reject 0-RTT data or even abort a handshake if the implied values for transport parameters cannot be supported.</p>
+<p id="rfc.section.7.3.1.p.3">A server MAY accept 0-RTT and subsequently provide different values for transport parameters for use in the new connection.  If 0-RTT data is accepted by the server, the server MUST NOT reduce any limits or alter any values that might be violated by the client with its 0-RTT data.  In particular, a server that accepts 0-RTT data MUST NOT set values for the following parameters (<a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) that are smaller than the remembered value of those parameters.</p>
+<p></p>
+
+<ul>
+<li>initial_max_data</li>
+<li>initial_max_stream_data_bidi_local</li>
+<li>initial_max_stream_data_bidi_remote</li>
+<li>initial_max_stream_data_uni</li>
+<li>initial_max_streams_bidi</li>
+<li>initial_max_streams_uni</li>
+</ul>
+<p id="rfc.section.7.3.1.p.5">Omitting or setting a zero value for certain transport parameters can result in 0-RTT data being enabled, but not usable.  The applicable subset of transport parameters that permit sending of application data SHOULD be set to non-zero values for 0-RTT.  This includes initial_max_data and either initial_max_streams_bidi and initial_max_stream_data_bidi_remote, or initial_max_streams_uni and initial_max_stream_data_uni.</p>
+<p id="rfc.section.7.3.1.p.6">The value of the server&#8217;s previous preferred_address MUST NOT be used when establishing a new connection; rather, the client should wait to observe the server&#8217;s new preferred_address value in the handshake.</p>
+<p id="rfc.section.7.3.1.p.7">A server MUST either reject 0-RTT data or abort a handshake if the implied values for transport parameters cannot be supported.</p>
 <h3 id="rfc.section.7.3.2">
 <a href="#rfc.section.7.3.2">7.3.2.</a> <a href="#new-transport-parameters" id="new-transport-parameters">New Transport Parameters</a>
 </h3>
