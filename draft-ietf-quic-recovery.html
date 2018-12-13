@@ -736,7 +736,7 @@ ul.toc li {
 <p id="rfc.section.6.2.1.p.5">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited, as specified in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  If not all unacknowledged CRYPTO data can be sent, then all unacknowledged CRYPTO data sent in Initial packets should be retransmitted.  If no data can be sent, then no alarm should be armed until data has been received from the client.</p>
 <p id="rfc.section.6.2.1.p.6">Because the server could be blocked until more packets are received, the client MUST start the crypto retransmission timer even if there is no unacknowledged CRYPTO data.  If the timer expires and the client has no CRYPTO data to retransmit and does not have Handshake keys, it SHOULD send an Initial packet in a UDP datagram of at least 1200 bytes.  If the client has Handshake keys, it SHOULD send a Handshake packet.</p>
 <p id="rfc.section.6.2.1.p.7">On each consecutive expiration of the crypto timer without receiving an acknowledgement for a new packet, the sender SHOULD double the crypto retransmission timeout and set a timer for this period.</p>
-<p id="rfc.section.6.2.1.p.8">When crypto packets are outstanding, the TLP and RTO timers are not active.</p>
+<p id="rfc.section.6.2.1.p.8">When crypto packets are in flight, the TLP and RTO timers are not active.</p>
 <h4 id="rfc.section.6.2.1.1">
 <a href="#rfc.section.6.2.1.1">6.2.1.1.</a> <a href="#retry-and-version-negotiation" id="retry-and-version-negotiation">Retry and Version Negotiation</a>
 </h4>
@@ -754,7 +754,7 @@ ul.toc li {
 <li>PTO SHOULD be scheduled for max(1.5*SRTT+MaxAckDelay, kMinTLPTimeout)</li>
 <li>If RTO (<a href="#rto" class="xref">Section 6.2.3</a>) is earlier, schedule a TLP in its place. That is, PTO SHOULD be scheduled for min(RTO, PTO).</li>
 </ul>
-<p id="rfc.section.6.2.2.p.5">QUIC includes MaxAckDelay in all probe timeouts, because it assumes the ack delay may come into play, regardless of the number of packets outstanding.  TCP&#8217;s TLP assumes if at least 2 packets are outstanding, acks will not be delayed.</p>
+<p id="rfc.section.6.2.2.p.5">QUIC includes MaxAckDelay in all probe timeouts, because it assumes the ack delay may come into play, regardless of the number of ack-eliciting packets in flight. TCP&#8217;s TLP assumes if at least 2 ack-eliciting packets are in flight, acks will not be delayed.</p>
 <p id="rfc.section.6.2.2.p.6">A PTO value of at least 1.5*SRTT ensures that the ACK is overdue.  The 1.5 is based on <a href="#TLP" class="xref">[TLP]</a>, but implementations MAY experiment with other constants.</p>
 <p id="rfc.section.6.2.2.p.7">To reduce latency, it is RECOMMENDED that the sender set and allow the TLP timer to fire twice before setting an RTO timer. In other words, when the TLP timer expires the first time, a TLP packet is sent, and it is RECOMMENDED that the TLP timer be scheduled for a second time. When the TLP timer expires the second time, a second TLP packet is sent, and an RTO timer SHOULD be scheduled <a href="#rto" class="xref">Section 6.2.3</a>.</p>
 <p id="rfc.section.6.2.2.p.8">A TLP packet SHOULD carry new data when possible. If new data is unavailable or new data cannot be sent due to flow control, a TLP packet MAY retransmit unacknowledged data to potentially reduce recovery time. Since a TLP timer is used to send a probe into the network prior to establishing any packet loss, prior unacknowledged packets SHOULD NOT be marked as lost when a TLP timer expires.</p>
@@ -991,7 +991,7 @@ ul.toc li {
       loss_detection_timer.cancel()
       return
 
-    if (crypto packets are outstanding):
+    if (crypto packets are in flight):
       // Crypto retransmission timer.
       if (smoothed_rtt == 0):
         timeout = 2 * kInitialRtt
@@ -1029,7 +1029,7 @@ ul.toc li {
 <p id="rfc.section.6.4.8.p.2">Pseudocode for OnLossDetectionTimeout follows:</p>
 <pre>
    OnLossDetectionTimeout():
-     if (crypto packets are outstanding):
+     if (crypto packets are in flight):
        // Crypto retransmission timeout.
        RetransmitUnackedCryptoData()
        crypto_count++
@@ -1150,7 +1150,7 @@ DetectLostPackets(largest_acked):
 <dt>kMaxDatagramSize:</dt>
 <dd style="margin-left: 8">The sender&#8217;s maximum payload size. Does not include UDP or IP overhead.  The max packet size is used for calculating initial and minimum congestion windows. The RECOMMENDED value is 1200 bytes.</dd>
 <dt>kInitialWindow:</dt>
-<dd style="margin-left: 8">Default limit on the initial amount of outstanding data in bytes.  Taken from <a href="#RFC6928" class="xref">[RFC6928]</a>.  The RECOMMENDED value is the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14600)).</dd>
+<dd style="margin-left: 8">Default limit on the initial amount of data in flight, in bytes.  Taken from <a href="#RFC6928" class="xref">[RFC6928]</a>.  The RECOMMENDED value is the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14600)).</dd>
 <dt>kMinimumWindow:</dt>
 <dd style="margin-left: 8">Minimum congestion window in bytes. The RECOMMENDED value is 2 * kMaxDatagramSize.</dd>
 <dt>kLossReductionFactor:</dt>
