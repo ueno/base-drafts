@@ -1075,7 +1075,7 @@ DetectLostPackets(largest_acked):
 <a href="#rfc.section.7.5">7.5.</a> <a href="#probe-timeout" id="probe-timeout">Probe Timeout</a>
 </h2>
 <p id="rfc.section.7.5.p.1">Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST however count these packets as being additionally in flight, since these packets adds network load without establishing packet loss.  Note that sending probe packets might cause the sender&#8217;s bytes in flight to exceed the congestion window until an acknowledgement is received that establishes loss or delivery of packets.</p>
-<p id="rfc.section.7.5.p.2">If two consecutive PTOs have occurred (pto_count is at least 3), the network is considered to be experiencing persistent congestion, and the sender&#8217;s congestion window MUST be reduced to the minimum congestion window.</p>
+<p id="rfc.section.7.5.p.2">If a threshold number of consecutive PTOs have occurred (pto_count is at least kPersistentCongestion, see <a href="#cc-consts-of-interest" class="xref">Section 7.8.1</a>), the network is considered to be experiencing persistent congestion, and the sender&#8217;s congestion window MUST be reduced to the minimum congestion window.</p>
 <h2 id="rfc.section.7.6">
 <a href="#rfc.section.7.6">7.6.</a> <a href="#pacing" id="pacing">Pacing</a>
 </h2>
@@ -1092,7 +1092,7 @@ DetectLostPackets(largest_acked):
 <a href="#rfc.section.7.8">7.8.</a> <a href="#pseudocode-1" id="pseudocode-1">Pseudocode</a>
 </h2>
 <h3 id="rfc.section.7.8.1">
-<a href="#rfc.section.7.8.1">7.8.1.</a> <a href="#constants-of-interest" id="constants-of-interest">Constants of interest</a>
+<a href="#rfc.section.7.8.1">7.8.1.</a> <a href="#cc-consts-of-interest" id="cc-consts-of-interest">Constants of interest</a>
 </h3>
 <p id="rfc.section.7.8.1.p.1">Constants used in congestion control are based on a combination of RFCs, papers, and common practice.  Some may need to be changed or negotiated in order to better suit a variety of environments.</p>
 <p></p>
@@ -1106,6 +1106,8 @@ DetectLostPackets(largest_acked):
 <dd style="margin-left: 8">Minimum congestion window in bytes. The RECOMMENDED value is 2 * kMaxDatagramSize.</dd>
 <dt>kLossReductionFactor:</dt>
 <dd style="margin-left: 8">Reduction in congestion window when a new loss event is detected.  The RECOMMENDED value is 0.5.</dd>
+<dt>kPersistentCongestion:</dt>
+<dd style="margin-left: 8">Number of consecutive PTOs after which network is considered to be experiencing persistent congestion.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, similar to Tail Loss Probe (TLP) in TCP <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>.  Once the number of consecutive PTOs reaches this threshold - that is, persistent congestion is established - the sender responds by collapsing its congestion window, similar to a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value is 3, equivalent to having two TLPs followed by an RTO in TCP.</dd>
 </dl>
 <h3 id="rfc.section.7.8.2">
 <a href="#rfc.section.7.8.2">7.8.2.</a> <a href="#vars-of-interest" id="vars-of-interest">Variables of interest</a>
@@ -1180,7 +1182,7 @@ DetectLostPackets(largest_acked):
        congestion_window = max(congestion_window, kMinimumWindow)
        ssthresh = congestion_window
        // Collapse congestion window if persistent congestion
-       if (pto_count &gt; 2):
+       if (pto_count &gt;= kPersistentCongestion):
          congestion_window = kMinimumWindow
 </pre>
 <h3 id="rfc.section.7.8.7">
