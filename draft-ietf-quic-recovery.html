@@ -786,7 +786,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <dd style="margin-left: 8">A boolean that indicates whether the packet contains cryptographic handshake messages critical to the completion of the QUIC handshake. In this version of QUIC, this includes any packet with the long header that includes a CRYPTO frame.</dd>
 <dt>sent_bytes:</dt>
 <dd style="margin-left: 8">The number of bytes sent in the packet, not including UDP or IP overhead, but including QUIC framing overhead.</dd>
-<dt>time:</dt>
+<dt>time_sent:</dt>
 <dd style="margin-left: 8">The time the packet was sent.</dd>
 </dl>
 <h2 id="rfc.section.6.4">
@@ -872,7 +872,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
               is_crypto_packet, sent_bytes):
    largest_sent_packet = packet_number
    sent_packets[packet_number].packet_number = packet_number
-   sent_packets[packet_number].time = now
+   sent_packets[packet_number].time_sent = now
    sent_packets[packet_number].ack_eliciting = ack_eliciting
    sent_packets[packet_number].in_flight = in_flight
    if (ack_eliciting):
@@ -894,7 +894,8 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
     // ack-eliciting, update the RTT.
     if (sent_packets[ack.largest_acked] &amp;&amp;
         sent_packets[ack.largest_acked].ack_eliciting):
-      latest_rtt = now - sent_packets[ack.largest_acked].time
+      latest_rtt =
+        now - sent_packets[ack.largest_acked].time_sent
       UpdateRtt(latest_rtt, ack.ack_delay)
 
     // Find all newly acked packets in this ACK frame
@@ -1158,7 +1159,7 @@ DetectLostPackets(largest_acked):
    OnPacketAckedCC(acked_packet):
      // Remove from bytes_in_flight.
      bytes_in_flight -= acked_packet.size
-     if (InRecovery(acked_packet.time)):
+     if (InRecovery(acked_packet.time_sent)):
        // Do not increase congestion window in recovery period.
        return
      if (congestion_window &lt; ssthresh):
@@ -1199,7 +1200,7 @@ DetectLostPackets(largest_acked):
        // Start a new congestion event if the last acknowledged
        // packet was sent after the start of the previous
        // recovery epoch.
-       CongestionEvent(sent_packets[ack.largest_acked].time)
+       CongestionEvent(sent_packets[ack.largest_acked].time_sent)
 </pre>
 <h3 id="rfc.section.7.8.8">
 <a href="#rfc.section.7.8.8">7.8.8.</a> <a href="#on-packets-lost" id="on-packets-lost">On Packets Lost</a>
@@ -1214,7 +1215,7 @@ DetectLostPackets(largest_acked):
 
      // Start a new congestion epoch if the last lost packet
      // is past the end of the previous recovery epoch.
-     CongestionEvent(largest_lost_packet.time)
+     CongestionEvent(largest_lost_packet.time_sent)
 </pre>
 <h1 id="rfc.section.8">
 <a href="#rfc.section.8">8.</a> <a href="#security-considerations" id="security-considerations">Security Considerations</a>
