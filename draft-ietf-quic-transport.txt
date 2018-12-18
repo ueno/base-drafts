@@ -175,17 +175,17 @@ Internet-Draft           QUIC Transport Protocol           December 2018
        13.1.2.  ACK Frames and Packet Protection . . . . . . . . . .  68
      13.2.  Retransmission of Information  . . . . . . . . . . . . .  68
      13.3.  Explicit Congestion Notification . . . . . . . . . . . .  70
-       13.3.1.  ECN Counters . . . . . . . . . . . . . . . . . . . .  71
+       13.3.1.  ECN Counts . . . . . . . . . . . . . . . . . . . . .  71
        13.3.2.  ECN Verification . . . . . . . . . . . . . . . . . .  71
    14. Packet Size . . . . . . . . . . . . . . . . . . . . . . . . .  73
      14.1.  Path Maximum Transmission Unit (PMTU)  . . . . . . . . .  73
      14.2.  ICMP Packet Too Big Messages . . . . . . . . . . . . . .  74
      14.3.  Datagram Packetization Layer PMTU Discovery  . . . . . .  75
-   15. Versions  . . . . . . . . . . . . . . . . . . . . . . . . . .  76
-   16. Variable-Length Integer Encoding  . . . . . . . . . . . . . .  77
+   15. Versions  . . . . . . . . . . . . . . . . . . . . . . . . . .  75
+   16. Variable-Length Integer Encoding  . . . . . . . . . . . . . .  76
    17. Packet Formats  . . . . . . . . . . . . . . . . . . . . . . .  77
-     17.1.  Packet Number Encoding and Decoding  . . . . . . . . . .  78
-     17.2.  Long Header Packet . . . . . . . . . . . . . . . . . . .  79
+     17.1.  Packet Number Encoding and Decoding  . . . . . . . . . .  77
+     17.2.  Long Header Packet . . . . . . . . . . . . . . . . . . .  78
      17.3.  Short Header Packet  . . . . . . . . . . . . . . . . . .  81
      17.4.  Version Negotiation Packet . . . . . . . . . . . . . . .  83
      17.5.  Initial Packet . . . . . . . . . . . . . . . . . . . . .  84
@@ -3922,12 +3922,12 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 70]
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
-13.3.1.  ECN Counters
+13.3.1.  ECN Counts
 
    On receiving a QUIC packet with an ECT or CE codepoint, an endpoint
    that can access the ECN codepoints from the enclosing IP packet
    increases the corresponding ECT(0), ECT(1), or CE count, and includes
-   these counters in subsequent ACK frames (see Section 13.1 and
+   these counts in subsequent ACK frames (see Section 13.1 and
    Section 19.3).
 
    A packet detected by a receiver as a duplicate does not affect the
@@ -3936,9 +3936,9 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    If an endpoint receives a QUIC packet without an ECT or CE codepoint
    in the IP packet header, it responds per Section 13.1 with an ACK
-   frame without increasing any ECN counters.  Similarly, if an endpoint
+   frame without increasing any ECN counts.  Similarly, if an endpoint
    does not have access to received ECN codepoints, it does not increase
-   ECN counters.
+   ECN counts.
 
    Coalesced packets (see Section 12.2) mean that several packets can
    share the same IP header.  The ECN counter for the ECN codepoint
@@ -3946,11 +3946,11 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    QUIC packet, not per enclosing IP packet or UDP datagram.
 
    Each packet number space maintains separate acknowledgement state and
-   separate ECN counters.  For example, if one each of an Initial,
-   0-RTT, Handshake, and 1-RTT QUIC packet are coalesced, the
-   corresponding counters for the Initial and Handshake packet number
-   space will be incremented by one and the counters for the 1-RTT
-   packet number space will be increased by two.
+   separate ECN counts.  For example, if one each of an Initial, 0-RTT,
+   Handshake, and 1-RTT QUIC packet are coalesced, the corresponding
+   counts for the Initial and Handshake packet number space will be
+   incremented by one and the counts for the 1-RTT packet number space
+   will be increased by two.
 
 13.3.2.  ECN Verification
 
@@ -3983,35 +3983,31 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    setting ECT codepoints in subsequent IP packets, with the expectation
    that either the network path or the peer no longer supports ECN.
 
-   To reduce the risk of non-standard compliant ECN markings affecting
-   the operation of an endpoint, an endpoint verifies the counts it
-   receives when it receives new acknowledgements:
+   Network devices that corrupt or apply non-standard ECN markings might
+   result in reduced throughput or other undesirable side-effects.  To
+   reduce this risk, an endpoint uses the following steps to verify the
+   counts it receives in an ACK frame.  Counts MUST NOT be verified if
+   the ACK frame does not increase the largest received packet number at
+   the endpoint.
 
-   o  The increase in ECT(0) and ECT(1) counters MUST be at least the
-      number of QUIC packets newly acknowledged that were sent with the
-      corresponding codepoint minus the increase in the CE counter.
-      This detects network remarking between ECT(0) and ECT(1).
+   o  The total increase in ECT(0), ECT(1), and CE counts MUST be no
+      smaller than the total number of QUIC packets sent with an ECT
+      codepoint that are newly acknowledged in this ACK frame.  This
+      step detects any network remarking from ECT(0), ECT(1), or CE
+      codepoints to Not-ECT.
 
-   o  The total increase in ECT(0), ECT(1), and CE counters reported in
-      the ACK frame MUST be at least the total number of QUIC packets
-      newly acknowledged in this ACK frame.  This detects if the network
-      changes ECT(0), ECT(1) or CE to Not-ECT.
-
-   This validation is only performed if the ACK frame increases the
-   largest received packet number.  Reordered acknowledgments could have
-   lower counter values and might not be successfully validated as a
-   result.
-
-   These counts might be inflated if acknowledgments are never received
-   for packets that were successfully delivered.  If validation
-   succeeds, an endpoint MUST increase its expected counter values to
-   those it receives.
+   o  Any increase in either ECT(0) or ECT(1) counts, plus any increase
+      in the CE count, MUST be no smaller than the number of packets
+      sent with the corresponding ECT codepoint that are newly
+      acknowledged in this ACK frame.  This step detects any erroneous
+      network remarking from ECT(0) to ECT(1) (or vice versa).
 
    An endpoint could miss acknowledgements for a packet when ACK frames
    are lost.  It is therefore possible for the total increase in ECT(0),
-   ECT(1), and CE counters to be greater than the number of packets
-   acknowledged in an ACK frame.  When this happens, the local reference
-   counts MUST be increased to match the counters in the ACK frame.
+   ECT(1), and CE counts to be greater than the number of packets
+   acknowledged in an ACK frame.  When this happens, and if verification
+   succeeds, the local reference counts MUST be increased to match the
+   counts in the ACK frame.
 
    Upon successful verification, an endpoint continues to set ECT
    codepoints in subsequent packets with the expectation that the path
@@ -4026,6 +4022,10 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    acknowledgments from the peer (see [QUIC-RECOVERY]), or if an
    endpoint has reason to believe that an element on the network path
    might be corrupting ECN codepoints, the endpoint MAY cease setting
+   ECT codepoints in subsequent packets.  Doing so allows the connection
+   to be resilient to network elements that corrupt ECN codepoints in
+   the IP header or drop packets with ECT or CE codepoints in the IP
+   header.
 
 
 
@@ -4033,10 +4033,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 72]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-   ECT codepoints in subsequent packets.  Doing so allows the connection
-   to traverse network elements that drop IP packets with ECT or CE
-   markings or corrupt ECN codepoints in the IP header.
 
 14.  Packet Size
 
@@ -4082,6 +4078,10 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    sized to fit within the maximum packet size to avoid the packet being
    fragmented or dropped [RFC8085].
 
+   An endpoint SHOULD use Datagram Packetization Layer PMTU Discovery
+   ([DPLPMTUD]) or implement Path MTU Discovery (PMTUD) [RFC1191]
+   [RFC8201] to determine whether the path to a destination will support
+   a desired message size without fragmentation.
 
 
 
@@ -4089,11 +4089,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 73]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-   An endpoint SHOULD use Datagram Packetization Layer PMTU Discovery
-   ([DPLPMTUD]) or implement Path MTU Discovery (PMTUD) [RFC1191]
-   [RFC8201] to determine whether the path to a destination will support
-   a desired message size without fragmentation.
 
    In the absence of these mechanisms, QUIC endpoints SHOULD NOT send IP
    packets larger than 1280 bytes.  Assuming the minimum IP header size,
@@ -4139,6 +4134,11 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    information unintelligible, as described in Section 1.1 of
    [DPLPMTUD].
 
+   When a randomized source port is used for a QUIC connection, this can
+   provide some protection from off path attacks that forge ICMP
+   messages.  The source port in a quoted packet can be checked for UDP
+   transports [RFC8085] such as QUIC.  When used, a stack will only pass
+
 
 
 Iyengar & Thomson         Expires June 21, 2019                [Page 74]
@@ -4146,10 +4146,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 74]
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
-   When a randomized source port is used for a QUIC connection, this can
-   provide some protection from off path attacks that forge ICMP
-   messages.  The source port in a quoted packet can be checked for UDP
-   transports [RFC8085] such as QUIC.  When used, a stack will only pass
    ICMP messages to a QUIC endpoint where the port information in quoted
    packet within the ICMP payload matches a port used by QUIC.
 
@@ -4193,6 +4189,10 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    The considerations for processing ICMP messages in the previous
    section also apply if these messages are used by DPLPMTUD.
 
+15.  Versions
+
+   QUIC versions are identified using a 32-bit unsigned number.
+
 
 
 
@@ -4201,10 +4201,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 75]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-15.  Versions
-
-   QUIC versions are identified using a 32-bit unsigned number.
 
    The version 0x00000000 is reserved to represent version negotiation.
    This version of the specification is identified by the number
@@ -4248,7 +4244,11 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    they are using for private experimentation on the GitHub wiki at
    <https://github.com/quicwg/base-drafts/wiki/QUIC-Versions>.
 
+16.  Variable-Length Integer Encoding
 
+   QUIC packets and frames commonly use a variable-length encoding for
+   non-negative integer values.  This encoding ensures that smaller
+   integer values need fewer bytes to encode.
 
 
 
@@ -4257,12 +4257,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 76]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-16.  Variable-Length Integer Encoding
-
-   QUIC packets and frames commonly use a variable-length encoding for
-   non-negative integer values.  This encoding ensures that smaller
-   integer values need fewer bytes to encode.
 
    The QUIC variable-length integer encoding reserves the two most
    significant bits of the first byte to encode the base 2 logarithm of
@@ -4302,8 +4296,14 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    endian) and all field sizes are in bits.  Hexadecimal notation is
    used for describing the value of fields.
 
+17.1.  Packet Number Encoding and Decoding
 
+   Packet numbers in long and short packet headers are encoded in 1 to 4
+   bytes.  The number of bits required to represent the packet number is
+   reduced by including the least significant bits of the packet number.
 
+   The encoded packet number is protected as described in Section 5.4 of
+   [QUIC-TLS].
 
 
 
@@ -4313,15 +4313,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 77]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-17.1.  Packet Number Encoding and Decoding
-
-   Packet numbers in long and short packet headers are encoded in 1 to 4
-   bytes.  The number of bits required to represent the packet number is
-   reduced by including the least significant bits of the packet number.
-
-   The encoded packet number is protected as described in Section 5.4 of
-   [QUIC-TLS].
 
    The sender MUST use a packet number size able to represent more than
    twice as large a range than the difference between the largest
@@ -4359,6 +4350,15 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    Example pseudo-code for packet number decoding can be found in
    Appendix A.
 
+17.2.  Long Header Packet
+
+
+
+
+
+
+
+
 
 
 
@@ -4369,8 +4369,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 78]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-17.2.  Long Header Packet
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -4418,6 +4416,8 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       protection (see Section 5.4 of [QUIC-TLS]).  The value included
       prior to protection MUST be set to 0.  An endpoint MUST treat
       receipt of a packet that has a non-zero value for these bits after
+      removing protection as a connection error of type
+      PROTOCOL_VIOLATION.
 
 
 
@@ -4425,9 +4425,6 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 79]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-      removing protection as a connection error of type
-      PROTOCOL_VIOLATION.
 
    Packet Number Length (P):  The least significant two bits (those with
       a mask of 0x03) of byte 0 contain the length of the packet number,
@@ -4475,14 +4472,15 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    Payload:  The payload of the packet.
 
+   The following packet types are defined:
+
+
 
 
 Iyengar & Thomson         Expires June 21, 2019                [Page 80]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-   The following packet types are defined:
 
                  +------+-----------------+--------------+
                  | Type | Name            | Section      |
@@ -4530,6 +4528,8 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                    Figure 11: Short Header Packet Format
+
+
 
 
 
@@ -5493,7 +5493,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 19.3.2.  ECN section
 
    The ECN section should only be parsed when the ACK frame type is
-   0x03.  The ECN section consists of 3 ECN counters as shown below.
+   0x03.  The ECN section consists of 3 ECN counts as shown below.
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -5514,7 +5514,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    CE Count:  A variable-length integer representing the total number
       packets received with the CE codepoint.
 
-   ECN counters are maintained separately for each packet number space.
+   ECN counts are maintained separately for each packet number space.
 
 19.4.  RESET_STREAM Frame
 
