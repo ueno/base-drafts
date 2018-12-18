@@ -189,10 +189,11 @@ Internet-Draft           QUIC Transport Protocol           December 2018
      17.3.  Short Header Packet  . . . . . . . . . . . . . . . . . .  81
      17.4.  Version Negotiation Packet . . . . . . . . . . . . . . .  83
      17.5.  Initial Packet . . . . . . . . . . . . . . . . . . . . .  84
-       17.5.1.  Starting Packet Numbers  . . . . . . . . . . . . . .  86
-       17.5.2.  0-RTT Packet Numbers . . . . . . . . . . . . . . . .  86
+       17.5.1.  Abandoning Initial Packets . . . . . . . . . . . . .  86
+       17.5.2.  Starting Packet Numbers  . . . . . . . . . . . . . .  86
+       17.5.3.  0-RTT Packet Numbers . . . . . . . . . . . . . . . .  86
      17.6.  Handshake Packet . . . . . . . . . . . . . . . . . . . .  87
-     17.7.  Retry Packet . . . . . . . . . . . . . . . . . . . . . .  87
+     17.7.  Retry Packet . . . . . . . . . . . . . . . . . . . . . .  88
    18. Transport Parameter Encoding  . . . . . . . . . . . . . . . .  90
      18.1.  Transport Parameter Definitions  . . . . . . . . . . . .  92
    19. Frame Types and Formats . . . . . . . . . . . . . . . . . . .  94
@@ -217,7 +218,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
      19.17. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 110
      19.18. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 110
      19.19. CONNECTION_CLOSE Frames  . . . . . . . . . . . . . . . . 110
-     19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 111
 
 
 
@@ -226,6 +226,7 @@ Iyengar & Thomson         Expires June 21, 2019                 [Page 4]
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
+     19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 111
    20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 112
      20.1.  Application Protocol Error Codes . . . . . . . . . . . . 113
    21. Security Considerations . . . . . . . . . . . . . . . . . . . 113
@@ -247,7 +248,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    Appendix A.  Sample Packet Number Decoding Algorithm  . . . . . . 125
    Appendix B.  Change Log . . . . . . . . . . . . . . . . . . . . . 125
      B.1.  Since draft-ietf-quic-transport-16  . . . . . . . . . . . 125
-     B.2.  Since draft-ietf-quic-transport-15  . . . . . . . . . . . 126
+     B.2.  Since draft-ietf-quic-transport-15  . . . . . . . . . . . 127
      B.3.  Since draft-ietf-quic-transport-14  . . . . . . . . . . . 127
      B.4.  Since draft-ietf-quic-transport-13  . . . . . . . . . . . 127
      B.5.  Since draft-ietf-quic-transport-12  . . . . . . . . . . . 128
@@ -273,7 +274,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    QUIC is a multiplexed and secure general-purpose transport protocol
    that provides:
 
-   o  Stream multiplexing
 
 
 
@@ -281,6 +281,8 @@ Iyengar & Thomson         Expires June 21, 2019                 [Page 5]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Stream multiplexing
 
    o  Stream and connection-level flow control
 
@@ -329,14 +331,14 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    o  Packets and frames are the basic unit used by QUIC to communicate.
 
-      *  Section 12 describes concepts related to packets and frames,
-
 
 
 Iyengar & Thomson         Expires June 21, 2019                 [Page 6]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+      *  Section 12 describes concepts related to packets and frames,
 
       *  Section 13 defines models for the transmission, retransmission,
          and acknowledgement of data, and
@@ -382,9 +384,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       UDP datagram.  Multiple QUIC packets can be encapsulated in a
       single UDP datagram.
 
-   Endpoint:  An entity that can participate in a QUIC connection by
-      generating, receiving, and processing QUIC packets.  There are
-      only two types of endpoint in QUIC: client and server.
+
 
 
 
@@ -393,6 +393,10 @@ Iyengar & Thomson         Expires June 21, 2019                 [Page 7]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   Endpoint:  An entity that can participate in a QUIC connection by
+      generating, receiving, and processing QUIC packets.  There are
+      only two types of endpoint in QUIC: client and server.
 
    Client:  The endpoint initiating a QUIC connection.
 
@@ -438,10 +442,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    for, and close a stream.  Streams can also be long-lived and can last
    the entire duration of a connection.
 
-   Streams can be created by either endpoint, can concurrently send data
-   interleaved with other streams, and can be cancelled.  Any stream can
-   be initiated by either endpoint.  QUIC does not provide any means of
-   ensuring ordering between bytes on different streams.
 
 
 
@@ -449,6 +449,11 @@ Iyengar & Thomson         Expires June 21, 2019                 [Page 8]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   Streams can be created by either endpoint, can concurrently send data
+   interleaved with other streams, and can be cancelled.  Any stream can
+   be initiated by either endpoint.  QUIC does not provide any means of
+   ensuring ordering between bytes on different streams.
 
    QUIC allows for an arbitrary number of streams to operate
    concurrently and for an arbitrary amount of data to be sent on any
@@ -493,11 +498,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
                          Table 1: Stream ID Types
 
-   Within each type, streams are created with numerically increasing
-   stream IDs.  A stream ID that is used out of order results in all
-   streams of that type with lower-numbered stream IDs also being
-   opened.
-
 
 
 
@@ -505,6 +505,11 @@ Iyengar & Thomson         Expires June 21, 2019                 [Page 9]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   Within each type, streams are created with numerically increasing
+   stream IDs.  A stream ID that is used out of order results in all
+   streams of that type with lower-numbered stream IDs also being
+   opened.
 
    The first bidirectional stream opened by the client has a stream ID
    of 0.
@@ -547,12 +552,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    performance if resources allocated to streams are correctly
    prioritized.
 
-   QUIC does not provide frames for exchanging prioritization
-   information.  Instead it relies on receiving priority information
-   from the application that uses QUIC.
 
-   A QUIC implementation SHOULD provide ways in which an application can
-   indicate the relative priority of streams.  When deciding which
 
 
 
@@ -562,6 +562,12 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 10]
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
+   QUIC does not provide frames for exchanging prioritization
+   information.  Instead it relies on receiving priority information
+   from the application that uses QUIC.
+
+   A QUIC implementation SHOULD provide ways in which an application can
+   indicate the relative priority of streams.  When deciding which
    streams to dedicate resources to, the implementation SHOULD use the
    information provided by the application.
 
@@ -597,12 +603,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    Figure 1 shows the states for the part of a stream that sends data to
    a peer.
-
-
-
-
-
-
 
 
 
@@ -1575,7 +1575,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    A client MAY attempt 0-RTT after receiving a Version Negotiation
    packet.  A client that sends additional 0-RTT packets MUST NOT reset
-   the packet number to 0 as a result, see Section 17.5.2.
+   the packet number to 0 as a result, see Section 17.5.3.
 
    Version negotiation packets have no cryptographic protection.  The
    result of the negotiation MUST be revalidated as part of the
@@ -3794,14 +3794,14 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    acknowledged.
 
    o  Data sent in CRYPTO frames is retransmitted according to the rules
-      in [QUIC-RECOVERY], until all data has been acknowledged.
+      in [QUIC-RECOVERY], until all data has been acknowledged.  Data in
+      CRYPTO frames for Initial and Handshake packets is discarded when
+      keys for the corresponding encryption level are discarded.
 
    o  Application data sent in STREAM frames is retransmitted in new
       STREAM frames unless the endpoint has sent a RESET_STREAM for that
       stream.  Once an endpoint sends a RESET_STREAM frame, no further
       STREAM frames are needed.
-
-
 
 
 
@@ -4781,20 +4781,43 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    Initial packet.  Cryptographic handshake messages subsequent to the
    first do not need to fit within a single UDP datagram.
 
-17.5.1.  Starting Packet Numbers
+17.5.1.  Abandoning Initial Packets
+
+   A client stops both sending and processing Initial packets when it
+   sends its first Handshake packet.  A server stops sending and
+   processing Initial packets when it receives its first Handshake
+   packet.  Though packets might still be in flight or awaiting
+   acknowledgment, no further Initial packets need to be exchanged
+   beyond this point.  Initial packet protection keys are discarded (see
+   Section 4.10 of [QUIC-TLS]) along with any loss recovery and
+   congestion control state (see Sections 5.3.1.2 and 6.9 of
+   [QUIC-RECOVERY]).
+
+   Any data in CRYPTO frames is discarded - and no longer retransmitted
+   - when Initial keys are discarded.
+
+17.5.2.  Starting Packet Numbers
 
    The first Initial packet sent by either endpoint contains a packet
    number of 0.  The packet number MUST increase monotonically
    thereafter.  Initial packets are in a different packet number space
    to other packets (see Section 12.3).
 
-17.5.2.  0-RTT Packet Numbers
+17.5.3.  0-RTT Packet Numbers
 
    Packet numbers for 0-RTT protected packets use the same space as
    1-RTT protected packets.
 
    After a client receives a Retry or Version Negotiation packet, 0-RTT
    packets are likely to have been lost or discarded by the server.  A
+
+
+
+Iyengar & Thomson         Expires June 21, 2019                [Page 86]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
+
    client MAY attempt to resend data in 0-RTT packets after it sends a
    new Initial packet.
 
@@ -4810,14 +4833,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    that changes the connection ID used for subsequent packets, indicates
    a strong possibility that 0-RTT packets could be lost.  A client only
    receives acknowledgments for its 0-RTT packets once the handshake is
-
-
-
-Iyengar & Thomson         Expires June 21, 2019                [Page 86]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
-
    complete.  Consequently, a server might expect 0-RTT packets to start
    with a packet number of 0.  Therefore, in determining the length of
    the packet number encoding for 0-RTT packets, a client MUST assume
@@ -4850,21 +4865,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    of 0.  Handshake packets are their own packet number space.  Packet
    numbers are incremented normally for other Handshake packets.
 
-   The payload of this packet contains CRYPTO frames and could contain
-   PADDING, or ACK frames.  Handshake packets MAY contain
-   CONNECTION_CLOSE frames.  Endpoints MUST treat receipt of Handshake
-   packets with other frames as a connection error.
-
-17.7.  Retry Packet
-
-   A Retry packet uses a long packet header with a type value of 0x3.
-   It carries an address validation token created by the server.  It is
-   used by a server that wishes to perform a stateless retry (see
-   Section 8.1).
-
-
-
-
 
 
 
@@ -4873,6 +4873,22 @@ Iyengar & Thomson         Expires June 21, 2019                [Page 87]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   The payload of this packet contains CRYPTO frames and could contain
+   PADDING, or ACK frames.  Handshake packets MAY contain
+   CONNECTION_CLOSE frames.  Endpoints MUST treat receipt of Handshake
+   packets with other frames as a connection error.
+
+   Like Initial packets (see Section 17.5.1), data in CRYPTO frames at
+   the Handshake encryption level is discarded - and no longer
+   retransmitted - when Handshake protection keys are discarded.
+
+17.7.  Retry Packet
+
+   A Retry packet uses a long packet header with a type value of 0x3.
+   It carries an address validation token created by the server.  It is
+   used by a server that wishes to perform a stateless retry (see
+   Section 8.1).
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -4906,6 +4922,14 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       packet are not protected as they are for other packets with the
       long header, because Retry packets don't contain a protected
       payload.  These bits instead encode the length of the Original
+
+
+
+Iyengar & Thomson         Expires June 21, 2019                [Page 88]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
+
       Destination Connection ID field.  The length uses the same
       encoding as the DCIL and SCIL fields.
 
@@ -4920,15 +4944,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    The server populates the Destination Connection ID with the
    connection ID that the client included in the Source Connection ID of
    the Initial packet.
-
-
-
-
-
-Iyengar & Thomson         Expires June 21, 2019                [Page 88]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
 
    The server includes a connection ID of its choice in the Source
    Connection ID field.  This value MUST not be equal to the Destination
@@ -4964,6 +4979,13 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    connection ID as part of its token validation logic (see
    Section 8.1.2).
 
+
+
+Iyengar & Thomson         Expires June 21, 2019                [Page 89]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
+
    The next Initial packet from the client uses the connection ID and
    token values from the Retry packet (see Section 7.2).  Aside from
    this, the Initial packet sent by the client is subject to the same
@@ -4975,16 +4997,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    0-RTT packets to the connection ID provided by the server.  A client
    that sends additional 0-RTT packets without constructing a new
    cryptographic handshake message MUST NOT reset the packet number to 0
-   after a Retry packet, see Section 17.5.2.
-
-
-
-
-
-Iyengar & Thomson         Expires June 21, 2019                [Page 89]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
+   after a Retry packet, see Section 17.5.3.
 
    A server acknowledges the use of a Retry packet for a connection
    using the original_connection_id transport parameter (see
@@ -5007,19 +5020,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    The format of the transport parameters is the TransportParameters
    struct from Figure 15.  This is described using the presentation
    language from Section 3 of [TLS13].
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -7044,9 +7044,9 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    o  Clarified how PING frames are sent after loss (#2094)
 
-B.2.  Since draft-ietf-quic-transport-15
+   o  Initial keys are discarded once Handshake are avaialble (#1951,
+      #2045)
 
-   Substantial editorial reorganization; no technical changes.
 
 
 
@@ -7057,6 +7057,10 @@ Iyengar & Thomson         Expires June 21, 2019               [Page 126]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+B.2.  Since draft-ietf-quic-transport-15
+
+   Substantial editorial reorganization; no technical changes.
 
 B.3.  Since draft-ietf-quic-transport-14
 
@@ -7102,10 +7106,6 @@ B.4.  Since draft-ietf-quic-transport-13
 
    o  More precisely define idle timeout (#1429, #1614, #1652)
 
-   o  Corrected format of Retry packet and prevented looping (#1492,
-      #1451, #1448, #1498)
-
-
 
 
 
@@ -7113,6 +7113,9 @@ Iyengar & Thomson         Expires June 21, 2019               [Page 127]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Corrected format of Retry packet and prevented looping (#1492,
+      #1451, #1448, #1498)
 
    o  Permit 0-RTT after receiving Version Negotiation or Retry (#1507,
       #1514, #1621)
@@ -7158,9 +7161,6 @@ B.5.  Since draft-ietf-quic-transport-12
    o  Packets from different connection ID can't be coalesced (#1287,
       #1423)
 
-   o  Fixed sampling method for packet number encryption; the length
-      field in long headers includes the packet number field in addition
-      to the packet payload (#1387, #1389)
 
 
 
@@ -7169,6 +7169,10 @@ Iyengar & Thomson         Expires June 21, 2019               [Page 128]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Fixed sampling method for packet number encryption; the length
+      field in long headers includes the packet number field in addition
+      to the packet payload (#1387, #1389)
 
    o  Stateless Reset is now symmetric and subject to size constraints
       (#466, #1346)
@@ -7215,16 +7219,15 @@ B.7.  Since draft-ietf-quic-transport-10
 
    o  STOP_SENDING is now prohibited before streams are used (#1050)
 
-   o  Recommend including ACK in Retry packets and allow PADDING (#1067,
-      #882)
-
-
 
 
 Iyengar & Thomson         Expires June 21, 2019               [Page 129]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Recommend including ACK in Retry packets and allow PADDING (#1067,
+      #882)
 
    o  Endpoints now become closing after an idle timeout (#1178, #1179)
 
@@ -7271,9 +7274,6 @@ B.9.  Since draft-ietf-quic-transport-08
 
    o  Clarified stream state machine (#634, #662, #743, #894)
 
-   o  Reserved versions don't need to be generated deterministically
-      (#831, #931)
-
 
 
 
@@ -7281,6 +7281,9 @@ Iyengar & Thomson         Expires June 21, 2019               [Page 130]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Reserved versions don't need to be generated deterministically
+      (#831, #931)
 
    o  You don't always need the draining period (#871)
 
@@ -7328,15 +7331,14 @@ B.10.  Since draft-ietf-quic-transport-07
 
       *  Clarifications about stateless reset (#889, #890)
 
-   o  Address validation for connection migration (#161, #732, #878)
-
-
 
 
 Iyengar & Thomson         Expires June 21, 2019               [Page 131]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Address validation for connection migration (#161, #732, #878)
 
    o  Clearly defined retransmission rules for BLOCKED (#452, #65, #924)
 
@@ -7384,8 +7386,6 @@ B.13.  Since draft-ietf-quic-transport-04
    o  Introduce STOP_SENDING frame, RESET_STREAM only resets in one
       direction (#165)
 
-   o  Removed GOAWAY; application protocols are responsible for graceful
-      shutdown (#696)
 
 
 
@@ -7393,6 +7393,9 @@ Iyengar & Thomson         Expires June 21, 2019               [Page 132]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Removed GOAWAY; application protocols are responsible for graceful
+      shutdown (#696)
 
    o  Reduced the number of error codes (#96, #177, #184, #211)
 
@@ -7440,15 +7443,14 @@ B.15.  Since draft-ietf-quic-transport-02
    o  Rework initial packet types to change how the connection ID is
       chosen (#482, #442, #493)
 
-   o  No timestamps are forbidden in unprotected packets (#542, #429)
-
-
 
 
 Iyengar & Thomson         Expires June 21, 2019               [Page 133]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  No timestamps are forbidden in unprotected packets (#542, #429)
 
    o  Cryptographic handshake is now on stream 0 (#456)
 
@@ -7496,8 +7498,6 @@ B.16.  Since draft-ietf-quic-transport-01
 
    o  Defined client address validation (#52, #118, #120, #275)
 
-   o  Define transport parameters as a TLS extension (#49, #122)
-
 
 
 
@@ -7505,6 +7505,8 @@ Iyengar & Thomson         Expires June 21, 2019               [Page 134]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Define transport parameters as a TLS extension (#49, #122)
 
    o  SCUP and COPT parameters are no longer valid (#116, #117)
 
@@ -7552,8 +7554,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       acknowledgment of all STREAM frames or the RESET_STREAM, before it
       closes (#381)
 
-   o  Remove stream reservation from state machine (#174, #280)
-
 
 
 
@@ -7561,6 +7561,8 @@ Iyengar & Thomson         Expires June 21, 2019               [Page 135]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Remove stream reservation from state machine (#174, #280)
 
    o  Only stream 1 does not contribute to connection-level flow control
       (#204)
@@ -7609,14 +7611,14 @@ B.18.  Since draft-hamilton-quic-transport-protocol-01
 
    o  Updated authors/editors list
 
-   o  Added IANA Considerations section
-
 
 
 Iyengar & Thomson         Expires June 21, 2019               [Page 136]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
+
+   o  Added IANA Considerations section
 
    o  Moved Contributors and Acknowledgments to appendices
 
@@ -7656,8 +7658,6 @@ Authors' Addresses
    Mozilla
 
    Email: martin.thomson@gmail.com
-
-
 
 
 
