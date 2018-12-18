@@ -365,7 +365,7 @@ ul.toc li {
 <link href="#rfc.section.13.1.2" rel="Chapter" title="13.1.2 ACK Frames and Packet Protection">
 <link href="#rfc.section.13.2" rel="Chapter" title="13.2 Retransmission of Information">
 <link href="#rfc.section.13.3" rel="Chapter" title="13.3 Explicit Congestion Notification">
-<link href="#rfc.section.13.3.1" rel="Chapter" title="13.3.1 ECN Counters">
+<link href="#rfc.section.13.3.1" rel="Chapter" title="13.3.1 ECN Counts">
 <link href="#rfc.section.13.3.2" rel="Chapter" title="13.3.2 ECN Verification">
 <link href="#rfc.section.14" rel="Chapter" title="14 Packet Size">
 <link href="#rfc.section.14.1" rel="Chapter" title="14.1 Path Maximum Transmission Unit (PMTU)">
@@ -380,6 +380,7 @@ ul.toc li {
 <link href="#rfc.section.17.2" rel="Chapter" title="17.2 Long Header Packet">
 <link href="#rfc.section.17.3" rel="Chapter" title="17.3 Version Negotiation Packet">
 <link href="#rfc.section.17.4" rel="Chapter" title="17.4 Initial Packet">
+<link href="#rfc.section.17.4.1" rel="Chapter" title="17.4.1 Abandoning Initial Packets">
 <link href="#rfc.section.17.5" rel="Chapter" title="17.5 0-RTT Protected">
 <link href="#rfc.section.17.6" rel="Chapter" title="17.6 Handshake Packet">
 <link href="#rfc.section.17.7" rel="Chapter" title="17.7 Retry Packet">
@@ -683,7 +684,7 @@ ul.toc li {
 </li>
 <li>13.3.   <a href="#rfc.section.13.3">Explicit Congestion Notification</a>
 </li>
-<ul><li>13.3.1.   <a href="#rfc.section.13.3.1">ECN Counters</a>
+<ul><li>13.3.1.   <a href="#rfc.section.13.3.1">ECN Counts</a>
 </li>
 <li>13.3.2.   <a href="#rfc.section.13.3.2">ECN Verification</a>
 </li>
@@ -713,7 +714,9 @@ ul.toc li {
 </li>
 <li>17.4.   <a href="#rfc.section.17.4">Initial Packet</a>
 </li>
-<li>17.5.   <a href="#rfc.section.17.5">0-RTT Protected</a>
+<ul><li>17.4.1.   <a href="#rfc.section.17.4.1">Abandoning Initial Packets</a>
+</li>
+</ul><li>17.5.   <a href="#rfc.section.17.5">0-RTT Protected</a>
 </li>
 <li>17.6.   <a href="#rfc.section.17.6">Handshake Packet</a>
 </li>
@@ -1867,7 +1870,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </h2>
 <p id="rfc.section.12.2.p.1">Initial (<a href="#packet-initial" class="xref">Section 17.4</a>), 0-RTT Protected (<a href="#packet-0rtt" class="xref">Section 17.5</a>), and Handshake (<a href="#packet-handshake" class="xref">Section 17.6</a>) packets contain a Length field, which determines the end of the packet.  The Length field covers both the Packet Number and Payload fields, both of which are confidentiality protected and initially of unknown length. The length of the Payload field is learned once header protection is removed.</p>
 <p id="rfc.section.12.2.p.2">Using the Length field, a sender can coalesce multiple QUIC packets into one UDP datagram.  This can reduce the number of UDP datagrams needed to complete the cryptographic handshake and starting sending data.  Receivers MUST be able to process coalesced packets.</p>
-<p id="rfc.section.12.2.p.3">Coalescing packets in order of increasing encryption levels (Initial, 0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be able to process all the packets in a single pass.  A packet with a short header does not include a length, so it will always be the last packet included in a UDP datagram.</p>
+<p id="rfc.section.12.2.p.3">Coalescing packets in order of increasing encryption levels (Initial, 0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be able to process all the packets in a single pass.  A packet with a short header does not include a length, so it can only be the last packet included in a UDP datagram.</p>
 <p id="rfc.section.12.2.p.4">Senders MUST NOT coalesce QUIC packets for different connections into a single UDP datagram. Receivers SHOULD ignore any subsequent packets with a different Destination Connection ID than the first packet in the datagram.</p>
 <p id="rfc.section.12.2.p.5">Every QUIC packet that is coalesced into a single UDP datagram is separate and complete.  Though the values of some fields in the packet header might be redundant, no fields are omitted.  The receiver of coalesced QUIC packets MUST individually process each QUIC packet and separately acknowledge them, as if they were received as the payload of different UDP datagrams.  For example, if decryption fails (because the keys are not available or any other reason) or the packet is of an unknown type, the receiver MAY either discard or buffer the packet for later processing and MUST attempt to process the remaining packets.</p>
 <p id="rfc.section.12.2.p.6">Retry packets (<a href="#packet-retry" class="xref">Section 17.7</a>), Version Negotiation packets (<a href="#packet-version" class="xref">Section 17.3</a>), and packets with a short header cannot be followed by other packets in the same UDP datagram, as they do not contain a Length field.</p>
@@ -2072,7 +2075,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p></p>
 
 <ul>
-<li>Data sent in CRYPTO frames is retransmitted according to the rules in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>, until all data has been acknowledged.</li>
+<li>Data sent in CRYPTO frames is retransmitted according to the rules in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>, until all data has been acknowledged.  Data in CRYPTO frames for Initial and Handshake packets is discarded when keys for the corresponding encryption level are discarded.</li>
 <li>Application data sent in STREAM frames is retransmitted in new STREAM frames unless the endpoint has sent a RESET_STREAM for that stream.  Once an endpoint sends a RESET_STREAM frame, no further STREAM frames are needed.</li>
 <li>The most recent set of acknowledgments are sent in ACK frames.  An ACK frame SHOULD contain all unacknowledged acknowledgments, as described in <a href="#sending-ack-frames" class="xref">Section 13.1.1</a>.</li>
 <li>Cancellation of stream transmission, as carried in a RESET_STREAM frame, is sent until acknowledged or until all stream data is acknowledged by the peer (that is, either the &#8220;Reset Recvd&#8221; or &#8220;Data Recvd&#8221; state is reached on the send stream). The content of a RESET_STREAM frame MUST NOT change when it is sent again.</li>
@@ -2092,44 +2095,43 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.13.3">
 <a href="#rfc.section.13.3">13.3.</a> <a href="#ecn" id="ecn">Explicit Congestion Notification</a>
 </h2>
-<p id="rfc.section.13.3.p.1">QUIC endpoints use Explicit Congestion Notification (ECN) <a href="#RFC3168" class="xref">[RFC3168]</a> to detect and respond to network congestion.  ECN allows a network node to indicate congestion in the network by setting a codepoint in the IP header of a packet instead of dropping it.  Endpoints react to congestion by reducing their sending rate in response, as described in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.</p>
+<p id="rfc.section.13.3.p.1">QUIC endpoints can use Explicit Congestion Notification (ECN) <a href="#RFC3168" class="xref">[RFC3168]</a> to detect and respond to network congestion.  ECN allows a network node to indicate congestion in the network by setting a codepoint in the IP header of a packet instead of dropping it.  Endpoints react to congestion by reducing their sending rate in response, as described in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.</p>
 <p id="rfc.section.13.3.p.2">To use ECN, QUIC endpoints first determine whether a path supports ECN marking and the peer is able to access the ECN codepoint in the IP header.  A network path does not support ECN if ECN marked packets get dropped or ECN markings are rewritten on the path. An endpoint verifies the path, both during connection establishment and when migrating to a new path (see <a href="#migration" class="xref">Section 9</a>).</p>
 <h3 id="rfc.section.13.3.1">
-<a href="#rfc.section.13.3.1">13.3.1.</a> <a href="#ecn-counters" id="ecn-counters">ECN Counters</a>
+<a href="#rfc.section.13.3.1">13.3.1.</a> <a href="#ecn-counts" id="ecn-counts">ECN Counts</a>
 </h3>
-<p id="rfc.section.13.3.1.p.1">On receiving a QUIC packet with an ECT or CE codepoint, an endpoint that can access the ECN codepoints from the enclosing IP packet increases the corresponding ECT(0), ECT(1), or CE count, and includes these counters in subsequent ACK frames (see <a href="#processing-and-ack" class="xref">Section 13.1</a> and <a href="#frame-ack" class="xref">Section 19.3</a>).</p>
+<p id="rfc.section.13.3.1.p.1">On receiving a QUIC packet with an ECT or CE codepoint, an ECN-enabled endpoint that can access the ECN codepoints from the enclosing IP packet increases the corresponding ECT(0), ECT(1), or CE count, and includes these counts in subsequent ACK frames (see <a href="#processing-and-ack" class="xref">Section 13.1</a> and <a href="#frame-ack" class="xref">Section 19.3</a>).  Note that this requires being able to read the ECN codepoints from the enclosing IP packet, which is not possible on all platforms.</p>
 <p id="rfc.section.13.3.1.p.2">A packet detected by a receiver as a duplicate does not affect the receiver&#8217;s local ECN codepoint counts; see (<a href="#security-ecn" class="xref">Section 21.7</a>) for relevant security concerns.</p>
-<p id="rfc.section.13.3.1.p.3">If an endpoint receives a QUIC packet without an ECT or CE codepoint in the IP packet header, it responds per <a href="#processing-and-ack" class="xref">Section 13.1</a> with an ACK frame without increasing any ECN counters.  Similarly, if an endpoint does not have access to received ECN codepoints, it does not increase ECN counters.</p>
+<p id="rfc.section.13.3.1.p.3">If an endpoint receives a QUIC packet without an ECT or CE codepoint in the IP packet header, it responds per <a href="#processing-and-ack" class="xref">Section 13.1</a> with an ACK frame without increasing any ECN counts.  if an endpoint does not implement ECN support or does not have access to received ECN codepoints, it does not increase ECN counts.</p>
 <p id="rfc.section.13.3.1.p.4">Coalesced packets (see <a href="#packet-coalesce" class="xref">Section 12.2</a>) mean that several packets can share the same IP header.  The ECN counter for the ECN codepoint received in the associated IP header are incremented once for each QUIC packet, not per enclosing IP packet or UDP datagram.</p>
-<p id="rfc.section.13.3.1.p.5">Each packet number space maintains separate acknowledgement state and separate ECN counters.  For example, if one each of an Initial, 0-RTT, Handshake, and 1-RTT QUIC packet are coalesced, the corresponding counters for the Initial and Handshake packet number space will be incremented by one and the counters for the 1-RTT packet number space will be increased by two.</p>
+<p id="rfc.section.13.3.1.p.5">Each packet number space maintains separate acknowledgement state and separate ECN counts.  For example, if one each of an Initial, 0-RTT, Handshake, and 1-RTT QUIC packet are coalesced, the corresponding counts for the Initial and Handshake packet number space will be incremented by one and the counts for the 1-RTT packet number space will be increased by two.</p>
 <h3 id="rfc.section.13.3.2">
 <a href="#rfc.section.13.3.2">13.3.2.</a> <a href="#ecn-verification" id="ecn-verification">ECN Verification</a>
 </h3>
-<p id="rfc.section.13.3.2.p.1">Each endpoint independently verifies and enables use of ECN by setting the IP header ECN codepoint to ECN Capable Transport (ECT) for the path from it to the other peer. Even if ECN is not used on the path to the peer, the endpoint MUST provide feedback about ECN markings received (if accessible).</p>
-<p id="rfc.section.13.3.2.p.2">To verify both that a path supports ECN and the peer can provide ECN feedback, an endpoint MUST set the ECT(0) codepoint in the IP header of all outgoing packets <a href="#RFC8311" class="xref">[RFC8311]</a>.</p>
+<p id="rfc.section.13.3.2.p.1">Each endpoint independently verifies and enables use of ECN by setting the IP header ECN codepoint to ECN Capable Transport (ECT) for the path from it to the other peer. Even if not setting ECN codepoints on packets it transmits, the endpoint SHOULD provide feedback about ECN markings received (if accessible).</p>
+<p id="rfc.section.13.3.2.p.2">To verify both that a path supports ECN and the peer can provide ECN feedback, an endpoint sets the ECT(0) codepoint in the IP header of all outgoing packets <a href="#RFC8311" class="xref">[RFC8311]</a>.</p>
 <p id="rfc.section.13.3.2.p.3">If an ECT codepoint set in the IP header is not corrupted by a network device, then a received packet contains either the codepoint sent by the peer or the Congestion Experienced (CE) codepoint set by a network device that is experiencing congestion.</p>
 <p id="rfc.section.13.3.2.p.4">If a QUIC packet sent with an ECT codepoint is newly acknowledged by the peer in an ACK frame without ECN feedback, the endpoint stops setting ECT codepoints in subsequent IP packets, with the expectation that either the network path or the peer no longer supports ECN.</p>
-<p id="rfc.section.13.3.2.p.5">To reduce the risk of non-standard compliant ECN markings affecting the operation of an endpoint, an endpoint verifies the counts it receives when it receives new acknowledgements:</p>
+<p id="rfc.section.13.3.2.p.5">Network devices that corrupt or apply non-standard ECN markings might result in reduced throughput or other undesirable side-effects.  To reduce this risk, an endpoint uses the following steps to verify the counts it receives in an ACK frame.  Counts MUST NOT be verified if the ACK frame does not increase the largest received packet number at the endpoint.</p>
 <p></p>
 
 <ul>
-<li>The increase in ECT(0) and ECT(1) counters MUST be at least the number of QUIC packets newly acknowledged that were sent with the corresponding codepoint minus the increase in the CE counter. This detects network remarking between ECT(0) and ECT(1).</li>
-<li>The total increase in ECT(0), ECT(1), and CE counters reported in the ACK frame MUST be at least the total number of QUIC packets newly acknowledged in this ACK frame. This detects if the network changes ECT(0), ECT(1) or CE to Not-ECT.</li>
+<li>The total increase in ECT(0), ECT(1), and CE counts MUST be no smaller than the total number of QUIC packets sent with an ECT codepoint that are newly acknowledged in this ACK frame.  This step detects any network remarking from ECT(0), ECT(1), or CE codepoints to Not-ECT.</li>
+<li>Any increase in either ECT(0) or ECT(1) counts, plus any increase in the CE count, MUST be no smaller than the number of packets sent with the corresponding ECT codepoint that are newly acknowledged in this ACK frame.  This step detects any erroneous network remarking from ECT(0) to ECT(1) (or vice versa).</li>
 </ul>
-<p id="rfc.section.13.3.2.p.7">This validation is only performed if the ACK frame increases the largest received packet number. Reordered acknowledgments could have lower counter values and might not be successfully validated as a result.</p>
-<p id="rfc.section.13.3.2.p.8">These counts might be inflated if acknowledgments are never received for packets that were successfully delivered. If validation succeeds, an endpoint MUST increase its expected counter values to those it receives.</p>
-<p id="rfc.section.13.3.2.p.9">An endpoint could miss acknowledgements for a packet when ACK frames are lost.  It is therefore possible for the total increase in ECT(0), ECT(1), and CE counters to be greater than the number of packets acknowledged in an ACK frame.  When this happens, the local reference counts MUST be increased to match the counters in the ACK frame.</p>
-<p id="rfc.section.13.3.2.p.10">Upon successful verification, an endpoint continues to set ECT codepoints in subsequent packets with the expectation that the path is ECN-capable.</p>
-<p id="rfc.section.13.3.2.p.11">If verification fails, then the endpoint ceases setting ECT codepoints in subsequent IP packets with the expectation that either the network path or the peer does not support ECN.</p>
-<p id="rfc.section.13.3.2.p.12">If an endpoint sets ECT codepoints on outgoing IP packets and encounters a retransmission timeout due to the absence of acknowledgments from the peer (see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), or if an endpoint has reason to believe that an element on the network path might be corrupting ECN codepoints, the endpoint MAY cease setting ECT codepoints in subsequent packets. Doing so allows the connection to traverse network elements that drop IP packets with ECT or CE markings or corrupt ECN codepoints in the IP header.</p>
+<p id="rfc.section.13.3.2.p.7">An endpoint could miss acknowledgements for a packet when ACK frames are lost.  It is therefore possible for the total increase in ECT(0), ECT(1), and CE counts to be greater than the number of packets acknowledged in an ACK frame.  When this happens, and if verification succeeds, the local reference counts MUST be increased to match the counts in the ACK frame.</p>
+<p id="rfc.section.13.3.2.p.8">Upon successful verification, an endpoint continues to set ECT codepoints in subsequent packets with the expectation that the path is ECN-capable.</p>
+<p id="rfc.section.13.3.2.p.9">If verification fails, then the endpoint ceases setting ECT codepoints in subsequent IP packets with the expectation that either the network path or the peer does not support ECN.</p>
+<p id="rfc.section.13.3.2.p.10">If an endpoint sets ECT codepoints on outgoing IP packets and encounters a retransmission timeout due to the absence of acknowledgments from the peer (see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), or if an endpoint has reason to believe that an element on the network path might be corrupting ECN codepoints, the endpoint MAY cease setting ECT codepoints in subsequent packets.  Doing so allows the connection to be resilient to network elements that corrupt ECN codepoints in the IP header or drop packets with ECT or CE codepoints in the IP header.</p>
 <h1 id="rfc.section.14">
 <a href="#rfc.section.14">14.</a> <a href="#packet-size" id="packet-size">Packet Size</a>
 </h1>
 <p id="rfc.section.14.p.1">The QUIC packet size includes the QUIC header and protected payload, but not the UDP or IP header.</p>
-<p id="rfc.section.14.p.2">Clients MUST ensure they send the first Initial packet in a UDP datagram that is at least 1200 bytes.  The payload of a UDP datagram carrying the Initial packet MUST be expanded to at least 1200 bytes, by adding PADDING frames to the Initial packet and/or by combining the Initial packet with a 0-RTT packet (see <a href="#packet-coalesce" class="xref">Section 12.2</a>).  Sending a UDP datagram of this size ensures that the network path supports a reasonable Maximum Transmission Unit (MTU), and helps reduce the amplitude of amplification attacks caused by server responses toward an unverified client address, see <a href="#address-validation" class="xref">Section 8</a>.</p>
-<p id="rfc.section.14.p.3">The datagram containing the first Initial packet from a client MAY exceed 1200 bytes if the client believes that the Path Maximum Transmission Unit (PMTU) supports the size that it chooses.</p>
-<p id="rfc.section.14.p.4">A server MAY send a CONNECTION_CLOSE frame with error code PROTOCOL_VIOLATION in response to the first Initial packet it receives from a client if the UDP datagram is smaller than 1200 bytes. It MUST NOT send any other frame type in response, or otherwise behave as if any part of the offending packet was processed as valid.</p>
-<p id="rfc.section.14.p.5">The server MUST also limit the number of bytes it sends before validating the address of the client, see <a href="#address-validation" class="xref">Section 8</a>.</p>
+<p id="rfc.section.14.p.2">Clients MUST ensure they send the first Initial packet in single IP packet.  Similarly, the first Initial packet sent after receiving a Retry packet MUST be sent in a single IP packet.</p>
+<p id="rfc.section.14.p.3">The payload of a UDP datagram carrying the first Initial packet MUST be expanded to at least 1200 bytes, by adding PADDING frames to the Initial packet and/or by combining the Initial packet with a 0-RTT packet (see <a href="#packet-coalesce" class="xref">Section 12.2</a>).  Sending a UDP datagram of this size ensures that the network path supports a reasonable Maximum Transmission Unit (MTU), and helps reduce the amplitude of amplification attacks caused by server responses toward an unverified client address, see <a href="#address-validation" class="xref">Section 8</a>.</p>
+<p id="rfc.section.14.p.4">The datagram containing the first Initial packet from a client MAY exceed 1200 bytes if the client believes that the Path Maximum Transmission Unit (PMTU) supports the size that it chooses.</p>
+<p id="rfc.section.14.p.5">A server MAY send a CONNECTION_CLOSE frame with error code PROTOCOL_VIOLATION in response to the first Initial packet it receives from a client if the UDP datagram is smaller than 1200 bytes. It MUST NOT send any other frame type in response, or otherwise behave as if any part of the offending packet was processed as valid.</p>
+<p id="rfc.section.14.p.6">The server MUST also limit the number of bytes it sends before validating the address of the client, see <a href="#address-validation" class="xref">Section 8</a>.</p>
 <h2 id="rfc.section.14.1">
 <a href="#rfc.section.14.1">14.1.</a> <a href="#path-maximum-transmission-unit-pmtu" id="path-maximum-transmission-unit-pmtu">Path Maximum Transmission Unit (PMTU)</a>
 </h2>
@@ -2155,7 +2157,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <li>An IPv4 endpoint could set the Don&#8217;t Fragment (DF) bit on a small proportion of packets, so that most invalid ICMP messages arrive when there are no DF packets outstanding, and can therefore be identified as spurious.</li>
 <li>An endpoint could store additional information from the IP or UDP headers to use for validation (for example, the IP ID or UDP checksum).</li>
 </ul>
-<p id="rfc.section.14.2.p.9">The endpoint SHOULD ignore all ICMP messages that are not validated or do not carry sufficient quoted packet payload to perform validation.  Any reduction in the QUIC maximum packet size MAY be provisional until QUIC&#8217;s loss detection algorithm determines that the quoted packet has actually been lost.</p>
+<p id="rfc.section.14.2.p.9">The endpoint SHOULD ignore all ICMP messages that are not validated or do not carry sufficient quoted packet payload to perform validation.</p>
+<p id="rfc.section.14.2.p.10">An endpoint MUST NOT increase PMTU based on ICMP messages.  Any reduction in the QUIC maximum packet size MAY be provisional until QUIC&#8217;s loss detection algorithm determines that the quoted packet has actually been lost.</p>
 <h2 id="rfc.section.14.3">
 <a href="#rfc.section.14.3">14.3.</a> <a href="#datagram-packetization-layer-pmtu-discovery" id="datagram-packetization-layer-pmtu-discovery">Datagram Packetization Layer PMTU Discovery</a>
 </h2>
@@ -2418,6 +2421,11 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.17.4.p.7">The payload of an Initial packet includes a CRYPTO frame (or frames) containing a cryptographic handshake message, ACK frames, or both.  PADDING and CONNECTION_CLOSE frames are also permitted.  An endpoint that receives an Initial packet containing other frames can either discard the packet as spurious or treat it as a connection error.</p>
 <p id="rfc.section.17.4.p.8">The first packet sent by a client always includes a CRYPTO frame that contains the entirety of the first cryptographic handshake message.  This packet, and the cryptographic handshake message, MUST fit in a single UDP datagram (see <a href="#handshake" class="xref">Section 7</a>).  The first CRYPTO frame sent always begins at an offset of 0 (see <a href="#handshake" class="xref">Section 7</a>).</p>
 <p id="rfc.section.17.4.p.9">Note that if the server sends a HelloRetryRequest, the client will send a second Initial packet.  This Initial packet will continue the cryptographic handshake and will contain a CRYPTO frame with an offset matching the size of the CRYPTO frame sent in the first Initial packet.  Cryptographic handshake messages subsequent to the first do not need to fit within a single UDP datagram.</p>
+<h3 id="rfc.section.17.4.1">
+<a href="#rfc.section.17.4.1">17.4.1.</a> <a href="#discard-initial" id="discard-initial">Abandoning Initial Packets</a>
+</h3>
+<p id="rfc.section.17.4.1.p.1">A client stops both sending and processing Initial packets when it sends its first Handshake packet.  A server stops sending and processing Initial packets when it receives its first Handshake packet.  Though packets might still be in flight or awaiting acknowledgment, no further Initial packets need to be exchanged beyond this point.  Initial packet protection keys are discarded (see Section 4.10 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>) along with any loss recovery and congestion control state (see Sections 5.3.1.2 and 6.9 of <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).</p>
+<p id="rfc.section.17.4.1.p.2">Any data in CRYPTO frames is discarded - and no longer retransmitted - when Initial keys are discarded.</p>
 <h2 id="rfc.section.17.5">
 <a href="#rfc.section.17.5">17.5.</a> <a href="#packet-0rtt" id="packet-0rtt">0-RTT Protected</a>
 </h2>
@@ -2461,7 +2469,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.17.6">
 <a href="#rfc.section.17.6">17.6.</a> <a href="#packet-handshake" id="packet-handshake">Handshake Packet</a>
 </h2>
-<p id="rfc.section.17.6.p.1">A Handshake packet uses long headers with a type value of 0x3.  It is used to carry acknowledgments and cryptographic handshake messages from the server and client.</p>
+<p id="rfc.section.17.6.p.1">A Handshake packet uses long headers with a type value of 0x2.  It is used to carry acknowledgments and cryptographic handshake messages from the server and client.</p>
 <p id="rfc.section.17.6.p.2">Once a client has received a Handshake packet from a server, it uses Handshake packets to send subsequent cryptographic handshake messages and acknowledgments to the server.</p>
 <p id="rfc.section.17.6.p.3">The Destination Connection ID field in a Handshake packet contains a connection ID that is chosen by the recipient of the packet; the Source Connection ID includes the connection ID that the sender of the packet wishes to use (see <a href="#negotiating-connection-ids" class="xref">Section 7.2</a>).</p>
 <p id="rfc.section.17.6.p.4">The first Handshake packet sent by a server contains a packet number of 0.  Handshake packets are their own packet number space.  Packet numbers are incremented normally for other Handshake packets.</p>
@@ -2501,6 +2509,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">The payload of the packet.</dd>
 </dl>
 <p id="rfc.section.17.6.p.7">The payload of this packet contains CRYPTO frames and could contain PADDING, or ACK frames. Handshake packets MAY contain CONNECTION_CLOSE frames.  Endpoints MUST treat receipt of Handshake packets with other frames as a connection error.</p>
+<p id="rfc.section.17.6.p.8">Like Initial packets (see <a href="#discard-initial" class="xref">Section 17.4.1</a>), data in CRYPTO frames at the Handshake encryption level is discarded - and no longer retransmitted - when Handshake protection keys are discarded.</p>
 <h2 id="rfc.section.17.7">
 <a href="#rfc.section.17.7">17.7.</a> <a href="#packet-retry" id="packet-retry">Retry Packet</a>
 </h2>
@@ -2711,7 +2720,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.19.3">
 <a href="#rfc.section.19.3">19.3.</a> <a href="#frame-ack" id="frame-ack">ACK Frames</a>
 </h2>
-<p id="rfc.section.19.3.p.1">Receivers send ACK frames (types 0x02 and 0x03) to inform senders of packets they have received and processed. The ACK frame contains one or more ACK Blocks.  ACK Blocks are ranges of acknowledged packets. If the frame type is 0x03, ACK frames also contain the sum of QUIC packets with associated ECN marks received on the connection up until this point.</p>
+<p id="rfc.section.19.3.p.1">Receivers send ACK frames (types 0x02 and 0x03) to inform senders of packets they have received and processed. The ACK frame contains one or more ACK Blocks.  ACK Blocks are ranges of acknowledged packets. If the frame type is 0x03, ACK frames also contain the sum of QUIC packets with associated ECN marks received on the connection up until this point. QUIC implementations MUST properly handle both types and, if they have enabled ECN for packets they send, they SHOULD use the information in the ECN section to manage their congestion state.</p>
 <p id="rfc.section.19.3.p.2">QUIC acknowledgements are irrevocable.  Once acknowledged, a packet remains acknowledged, even if it does not appear in a future ACK frame.  This is unlike TCP SACKs (<a href="#RFC2018" class="xref">[RFC2018]</a>).</p>
 <p id="rfc.section.19.3.p.3">It is expected that a sender will reuse the same packet number across different packet number spaces.  ACK frames only acknowledge the packet numbers that were transmitted by the sender in the same packet number space of the packet that the ACK was received in.</p>
 <p id="rfc.section.19.3.p.4">Version Negotiation and Retry packets cannot be acknowledged because they do not contain a packet number.  Rather than relying on ACK frames, these packets are implicitly acknowledged by the next Initial packet sent by the client.</p>
@@ -2803,7 +2812,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h3 id="rfc.section.19.3.2">
 <a href="#rfc.section.19.3.2">19.3.2.</a> <a href="#ecn-section" id="ecn-section">ECN section</a>
 </h3>
-<p id="rfc.section.19.3.2.p.1">The ECN section should only be parsed when the ACK frame type is 0x03.  The ECN section consists of 3 ECN counters as shown below.</p>
+<p id="rfc.section.19.3.2.p.1">The ECN section should only be parsed when the ACK frame type is 0x03.  The ECN section consists of 3 ECN counts as shown below.</p>
 <pre>
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -2825,7 +2834,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>CE Count:</dt>
 <dd style="margin-left: 8">A variable-length integer representing the total number packets received with the CE codepoint.</dd>
 </dl>
-<p id="rfc.section.19.3.2.p.3">ECN counters are maintained separately for each packet number space.</p>
+<p id="rfc.section.19.3.2.p.3">ECN counts are maintained separately for each packet number space.</p>
 <h2 id="rfc.section.19.4">
 <a href="#rfc.section.19.4">19.4.</a> <a href="#frame-reset-stream" id="frame-reset-stream">RESET_STREAM Frame</a>
 </h2>
@@ -3783,6 +3792,7 @@ DecodePacketNumber(largest_pn, truncated_pn, pn_nbits):
 <li>Servers are required to ignore Version Negotiation packets (#2088)</li>
 <li>Tokens are repeated in all Initial packets (#2089)</li>
 <li>Clarified how PING frames are sent after loss (#2094)</li>
+<li>Initial keys are discarded once Handshake are avaialble (#1951, #2045)</li>
 </ul>
 <h2 id="rfc.appendix.B.2">
 <a href="#rfc.appendix.B.2">B.2.</a> <a href="#since-draft-ietf-quic-transport-15" id="since-draft-ietf-quic-transport-15">Since draft-ietf-quic-transport-15</a>
