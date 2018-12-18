@@ -835,7 +835,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <dt>largest_sent_packet:</dt>
 <dd style="margin-left: 8">The packet number of the most recently sent packet.</dd>
 <dt>largest_acked_packet:</dt>
-<dd style="margin-left: 8">The largest packet number acknowledged in an ACK frame.</dd>
+<dd style="margin-left: 8">The largest packet number acknowledged in the packet number space so far.</dd>
 <dt>latest_rtt:</dt>
 <dd style="margin-left: 8">The most recent RTT measurement made when receiving an ack for a previously unacked packet.</dd>
 <dt>smoothed_rtt:</dt>
@@ -868,6 +868,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
    time_of_last_sent_ack_eliciting_packet = 0
    time_of_last_sent_crypto_packet = 0
    largest_sent_packet = 0
+   largest_acked_packet = 0
 </pre>
 <h3 id="rfc.section.6.4.4">
 <a href="#rfc.section.6.4.4">6.4.4.</a> <a href="#on-sending-a-packet" id="on-sending-a-packet">On Sending a Packet</a>
@@ -897,6 +898,9 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <p id="rfc.section.6.4.5.p.2">Pseudocode for OnAckReceived and UpdateRtt follow:</p>
 <pre>
   OnAckReceived(ack):
+    largest_acked_packet = max(largest_acked_packet,
+                               ack.largest_acked)
+
     // If the largest acknowledged is newly acked and
     // ack-eliciting, update the RTT.
     if (sent_packets[ack.largest_acked] &amp;&amp;
@@ -916,7 +920,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
     crypto_count = 0
     pto_count = 0
 
-    DetectLostPackets(ack.acked_packet)
+    DetectLostPackets()
     SetLossDetectionTimer()
 
     // Process ECN information if present.
@@ -1005,7 +1009,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
        crypto_count++
      else if (loss_time != 0):
        // Time threshold loss Detection
-       DetectLostPackets(largest_acked_packet)
+       DetectLostPackets()
      else:
        // PTO
        SendTwoPackets()
@@ -1017,10 +1021,9 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <a href="#rfc.section.6.4.9">6.4.9.</a> <a href="#detecting-lost-packets" id="detecting-lost-packets">Detecting Lost Packets</a>
 </h3>
 <p id="rfc.section.6.4.9.p.1">DetectLostPackets is called every time an ACK is received and operates on the sent_packets for that packet number space. If the loss detection timer expires and the loss_time is set, the previous largest acknowledged packet is supplied.</p>
-<p id="rfc.section.6.4.9.p.2">DetectLostPackets takes one parameter, largest_acked, which is the largest acked packet.</p>
-<p id="rfc.section.6.4.9.p.3">Pseudocode for DetectLostPackets follows:</p>
+<p id="rfc.section.6.4.9.p.2">Pseudocode for DetectLostPackets follows:</p>
 <pre>
-DetectLostPackets(largest_acked):
+DetectLostPackets():
   loss_time = 0
   lost_packets = {}
   loss_delay = kTimeThreshold * max(latest_rtt, smoothed_rtt)
@@ -1029,10 +1032,10 @@ DetectLostPackets(largest_acked):
   lost_send_time = now() - loss_delay
 
   // Packets with packet numbers before this are deemed lost.
-  lost_pn = largest_acked.packet_number - kPacketThreshold
+  lost_pn = largest_acked_packet - kPacketThreshold
 
   foreach unacked in sent_packets:
-    if (unacked.packet_number &gt; largest_acked.packet_number):
+    if (unacked.packet_number &gt; largest_acked_packet):
       continue
 
     // Mark packet as lost, or set time when it should be marked.
