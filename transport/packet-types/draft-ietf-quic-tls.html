@@ -1064,9 +1064,8 @@ mask = ChaCha20(pn_key, counter, nonce, {0,0,0,0,0})
 <p id="rfc.section.6.p.5">A receiving endpoint detects an update when the KEY_PHASE bit does not match what it is expecting.  It creates a new secret (see Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>) and the corresponding read key and IV using the KDF function provided by TLS.  The header protection key is not updated.</p>
 <p id="rfc.section.6.p.6">If the packet can be decrypted and authenticated using the updated key and IV, then the keys the endpoint uses for packet protection are also updated.  The next packet sent by the endpoint will then use the new keys.</p>
 <p id="rfc.section.6.p.7">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends will simply use the new keys.  If an endpoint detects a second update before it has sent any packets with updated keys, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a fatal error and abort the connection.</p>
-<p id="rfc.section.6.p.8">An endpoint SHOULD retain old keys for a short period to allow it to decrypt packets with smaller packet numbers than the packet that triggered the key update.  This allows an endpoint to consume packets that are reordered around the transition between keys.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
-<p id="rfc.section.6.p.9">Keys and their corresponding secrets SHOULD be discarded when an endpoint has received all packets with packet numbers lower than the lowest packet number used for the new key.  An endpoint might discard keys if it determines that the length of the delay to affected packets is excessive.</p>
-<p id="rfc.section.6.p.10">This ensures that once the handshake is complete, packets with the same KEY_PHASE will have the same packet protection keys, unless there are multiple key updates in a short time frame succession and significant packet reordering.</p>
+<p id="rfc.section.6.p.8">An endpoint SHOULD retain old keys for a period of no more than three times the Probe Timeout (PTO, see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).  After this period, old keys and their corresponding secrets SHOULD be discarded.  Retaining keys allow endpoints to process packets that were sent with old keys and delayed in the network.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
+<p id="rfc.section.6.p.9">This ensures that once the handshake is complete, packets with the same KEY_PHASE will have the same packet protection keys, unless there are multiple key updates in a short time frame succession and significant packet reordering.</p>
 <div id="rfc.figure.6"></div>
 <div id="ex-key-update"></div>
 <pre>
@@ -1082,8 +1081,8 @@ mask = ChaCha20(pn_key, counter, nonce, {0,0,0,0,0})
                       &lt;--------
 </pre>
 <p class="figure">Figure 6: Key Update</p>
-<p id="rfc.section.6.p.11">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
-<p id="rfc.section.6.p.12">In deciding when to update keys, endpoints MUST NOT exceed the limits for use of specific keys, as described in Section 5.5 of <a href="#TLS13" class="xref">[TLS13]</a>.</p>
+<p id="rfc.section.6.p.10">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
+<p id="rfc.section.6.p.11">In deciding when to update keys, endpoints MUST NOT exceed the limits for use of specific keys, as described in Section 5.5 of <a href="#TLS13" class="xref">[TLS13]</a>.</p>
 <h1 id="rfc.section.7">
 <a href="#rfc.section.7">7.</a> <a href="#security-of-initial-messages" id="security-of-initial-messages">Security of Initial Messages</a>
 </h1>
