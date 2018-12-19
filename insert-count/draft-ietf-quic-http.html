@@ -762,7 +762,6 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 4: DATA frame payload</p>
-<p id="rfc.section.4.2.1.p.3">If a DATA frame is received with a payload length of zero, the payload of the frame extends until the end of the stream.</p>
 <h3 id="rfc.section.4.2.2">
 <a href="#rfc.section.4.2.2">4.2.2.</a> <a href="#frame-headers" id="frame-headers">HEADERS</a>
 </h3>
@@ -783,7 +782,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 </h3>
 <p id="rfc.section.4.2.3.p.1">The PRIORITY (type=0x02) frame specifies the client-advised priority of a stream.</p>
 <p id="rfc.section.4.2.3.p.2">When opening a new request stream, a PRIORITY frame MAY be sent as the first frame of the stream creating a dependency on an existing element.  In order to ensure that prioritization is processed in a consistent order, any subsequent PRIORITY frames MUST be sent on the control stream.  A PRIORITY frame received after other frames on a request stream MUST be treated as a stream error of type HTTP_UNEXPECTED_FRAME.</p>
-<p id="rfc.section.4.2.3.p.3">Subsequent PRIORITY frames sent on the control stream might arrive before PRIORITY frames sent on a request stream due to reordering.  PRIORITY frames on the control stream always take precedence.</p>
+<p id="rfc.section.4.2.3.p.3">If, by the time a new request stream is opened, its priority information has already been received via the control stream, the PRIORITY frame sent on the request stream MUST be ignored.</p>
 <div id="rfc.figure.6"></div>
 <div id="fig-priority"></div>
 <pre>
@@ -813,7 +812,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dt>Element Dependency ID:</dt>
 <dd style="margin-left: 8">A variable-length integer that identifies the element on which a dependency is being expressed. Depending on the value of Dependency Type, this contains the Stream ID of a request stream, the Push ID of a promised resource, the Placeholder ID of a placeholder, or is absent.  For details of dependencies, see <a href="#priority" class="xref">Section 5.3</a> and <a href="#RFC7540" class="xref">[RFC7540]</a>, Section 5.3.</dd>
 <dt>Weight:</dt>
-<dd style="margin-left: 8">An unsigned 8-bit integer representing a priority weight for the stream (see <a href="#RFC7540" class="xref">[RFC7540]</a>, Section 5.3). Add one to the value to obtain a weight between 1 and 256.</dd>
+<dd style="margin-left: 8">An unsigned 8-bit integer representing a priority weight for the prioritized element (see <a href="#RFC7540" class="xref">[RFC7540]</a>, Section 5.3). Add one to the value to obtain a weight between 1 and 256.</dd>
 </dl>
 <p id="rfc.section.4.2.3.p.6">A PRIORITY frame identifies an element to prioritize, and an element upon which it depends.  A Prioritized ID or Dependency ID identifies a client-initiated request using the corresponding stream ID, a server push using a Push ID (see <a href="#frame-push-promise" class="xref">Section 4.2.6</a>), or a placeholder using a Placeholder ID (see <a href="#placeholders" class="xref">Section 5.3.1</a>).</p>
 <p id="rfc.section.4.2.3.p.7">The values for the Prioritized Element Type and Element Dependency Type imply the interpretation of the associated Element ID fields.</p>
@@ -1101,9 +1100,10 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <h3 id="rfc.section.5.3.1">
 <a href="#rfc.section.5.3.1">5.3.1.</a> <a href="#placeholders" id="placeholders">Placeholders</a>
 </h3>
-<p id="rfc.section.5.3.1.p.1">In HTTP/2, certain implementations used closed or unused streams as placeholders in describing the relative priority of requests.  However, this created confusion as servers could not reliably identify which elements of the priority tree could safely be discarded. Clients could potentially reference closed streams long after the server had discarded state, leading to disparate views of the prioritization the client had attempted to express.</p>
+<p id="rfc.section.5.3.1.p.1">In HTTP/2, certain implementations used closed or unused streams as placeholders in describing the relative priority of requests.  This created confusion as servers could not reliably identify which elements of the priority tree could be discarded safely. Clients could potentially reference closed streams long after the server had discarded state, leading to disparate views of the prioritization the client had attempted to express.</p>
 <p id="rfc.section.5.3.1.p.2">In HTTP/3, a number of placeholders are explicitly permitted by the server using the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting. Because the server commits to maintaining these IDs in the tree, clients can use them with confidence that the server will not have discarded the state.  Clients MUST NOT send the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting; receipt of this setting by a server MUST be treated as a connection error of type <samp>HTTP_WRONG_SETTING_DIRECTION</samp>.</p>
 <p id="rfc.section.5.3.1.p.3">Placeholders are identified by an ID between zero and one less than the number of placeholders the server has permitted.</p>
+<p id="rfc.section.5.3.1.p.4">Like streams, placeholders have priority information associated with them.</p>
 <h3 id="rfc.section.5.3.2">
 <a href="#rfc.section.5.3.2">5.3.2.</a> <a href="#priority-tree-maintenance" id="priority-tree-maintenance">Priority Tree Maintenance</a>
 </h3>
@@ -1841,7 +1841,20 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 </h2>
 <p></p>
 
-<ul><li>Rename &#8220;HTTP/QUIC&#8221; to &#8220;HTTP/3&#8221; (#1973)</li></ul>
+<ul>
+<li>Rename &#8220;HTTP/QUIC&#8221; to &#8220;HTTP/3&#8221; (#1973)</li>
+<li>Changes to PRIORITY frame (#1865, #2075) <ul>
+<li>Permitted as first frame of request streams</li>
+<li>Remove exclusive reprioritization</li>
+<li>Changes to Prioritized Element Type bits</li>
+</ul>
+</li>
+<li>Define DUPLICATE_PUSH frame to refer to another PUSH_PROMISE (#2072)</li>
+<li>Set defaults for settings, allow request before receiving SETTINGS (#1809, #1846, #2038)</li>
+<li>Clarify message processing rules for streams that aren&#8217;t closed (#1972, #2003)</li>
+<li>Removed reservation of error code 0 and moved HTTP_NO_ERROR to this value (#1922)</li>
+<li>Removed prohibition of zero-length DATA frames (#2098)</li>
+</ul>
 <h2 id="rfc.appendix.B.2">
 <a href="#rfc.appendix.B.2">B.2.</a> <a href="#since-draft-ietf-quic-http-15" id="since-draft-ietf-quic-http-15">Since draft-ietf-quic-http-15</a>
 </h2>

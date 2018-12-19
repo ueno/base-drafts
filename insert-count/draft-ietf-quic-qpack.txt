@@ -77,25 +77,26 @@ Table of Contents
 
    1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
      1.1.  Conventions and Definitions . . . . . . . . . . . . . . .   4
-     1.2.  Notational Conventions  . . . . . . . . . . . . . . . . .   4
+     1.2.  Notational Conventions  . . . . . . . . . . . . . . . . .   5
    2.  Compression Process Overview  . . . . . . . . . . . . . . . .   5
      2.1.  Encoder . . . . . . . . . . . . . . . . . . . . . . . . .   5
        2.1.1.  Reference Tracking  . . . . . . . . . . . . . . . . .   6
        2.1.2.  Blocked Dynamic Table Insertions  . . . . . . . . . .   6
        2.1.3.  Avoiding Head-of-Line Blocking  . . . . . . . . . . .   7
-       2.1.4.  Known Received Count  . . . . . . . . . . . . . . . .   7
+       2.1.4.  Known Received Count  . . . . . . . . . . . . . . . .   8
      2.2.  Decoder . . . . . . . . . . . . . . . . . . . . . . . . .   8
        2.2.1.  State Synchronization . . . . . . . . . . . . . . . .   8
        2.2.2.  Blocked Decoding  . . . . . . . . . . . . . . . . . .   9
    3.  Header Tables . . . . . . . . . . . . . . . . . . . . . . . .   9
      3.1.  Static Table  . . . . . . . . . . . . . . . . . . . . . .   9
      3.2.  Dynamic Table . . . . . . . . . . . . . . . . . . . . . .   9
-       3.2.1.  Maximum Table Size  . . . . . . . . . . . . . . . . .  10
-       3.2.2.  Calculating Table Size  . . . . . . . . . . . . . . .  10
-       3.2.3.  Absolute Indexing . . . . . . . . . . . . . . . . . .  11
-       3.2.4.  Relative Indexing . . . . . . . . . . . . . . . . . .  11
-       3.2.5.  Post-Base Indexing  . . . . . . . . . . . . . . . . .  12
-       3.2.6.  Invalid References  . . . . . . . . . . . . . . . . .  13
+       3.2.1.  Calculating Table Size  . . . . . . . . . . . . . . .  10
+       3.2.2.  Eviction  . . . . . . . . . . . . . . . . . . . . . .  10
+       3.2.3.  Maximum Table Size  . . . . . . . . . . . . . . . . .  10
+       3.2.4.  Absolute Indexing . . . . . . . . . . . . . . . . . .  11
+       3.2.5.  Relative Indexing . . . . . . . . . . . . . . . . . .  11
+       3.2.6.  Post-Base Indexing  . . . . . . . . . . . . . . . . .  12
+       3.2.7.  Invalid References  . . . . . . . . . . . . . . . . .  13
    4.  Wire Format . . . . . . . . . . . . . . . . . . . . . . . . .  13
      4.1.  Primitives  . . . . . . . . . . . . . . . . . . . . . . .  13
        4.1.1.  Prefixed Integers . . . . . . . . . . . . . . . . . .  13
@@ -105,7 +106,6 @@ Table of Contents
        4.3.1.  Insert With Name Reference  . . . . . . . . . . . . .  15
        4.3.2.  Insert Without Name Reference . . . . . . . . . . . .  15
        4.3.3.  Duplicate . . . . . . . . . . . . . . . . . . . . . .  16
-       4.3.4.  Dynamic Table Size Update . . . . . . . . . . . . . .  16
 
 
 
@@ -114,6 +114,7 @@ Krasic, et al.            Expires June 22, 2019                 [Page 2]
 Internet-Draft                    QPACK                    December 2018
 
 
+       4.3.4.  Dynamic Table Size Update . . . . . . . . . . . . . .  16
      4.4.  Decoder Stream  . . . . . . . . . . . . . . . . . . . . .  17
        4.4.1.  Table State Synchronize . . . . . . . . . . . . . . .  17
        4.4.2.  Header Acknowledgement  . . . . . . . . . . . . . . .  17
@@ -139,13 +140,14 @@ Internet-Draft                    QPACK                    December 2018
    Appendix A.  Static Table . . . . . . . . . . . . . . . . . . . .  27
    Appendix B.  Sample One Pass Encoding Algorithm . . . . . . . . .  32
    Appendix C.  Change Log . . . . . . . . . . . . . . . . . . . . .  34
-     C.1.  Since draft-ietf-quic-qpack-03  . . . . . . . . . . . . .  34
-     C.2.  Since draft-ietf-quic-qpack-02  . . . . . . . . . . . . .  34
-     C.3.  Since draft-ietf-quic-qpack-01  . . . . . . . . . . . . .  34
-     C.4.  Since draft-ietf-quic-qpack-00  . . . . . . . . . . . . .  34
-     C.5.  Since draft-ietf-quic-qcram-00  . . . . . . . . . . . . .  35
+     C.1.  Since draft-ietf-quic-qpack-04  . . . . . . . . . . . . .  34
+     C.2.  Since draft-ietf-quic-qpack-03  . . . . . . . . . . . . .  34
+     C.3.  Since draft-ietf-quic-qpack-02  . . . . . . . . . . . . .  34
+     C.4.  Since draft-ietf-quic-qpack-01  . . . . . . . . . . . . .  34
+     C.5.  Since draft-ietf-quic-qpack-00  . . . . . . . . . . . . .  34
+     C.6.  Since draft-ietf-quic-qcram-00  . . . . . . . . . . . . .  35
    Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . .  35
-   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  35
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  36
 
 1.  Introduction
 
@@ -158,9 +160,7 @@ Internet-Draft                    QPACK                    December 2018
    used for HTTP/3, it would induce head-of-line blocking due to built-
    in assumptions of a total ordering across frames on all streams.
 
-   QUIC is described in [QUIC-TRANSPORT].  The HTTP/3 mapping is
-   described in [HTTP3].  For a full description of HTTP/2, see
-   [RFC7540].  The description of HPACK is [RFC7541].
+
 
 
 
@@ -169,6 +169,10 @@ Krasic, et al.            Expires June 22, 2019                 [Page 3]
 
 Internet-Draft                    QPACK                    December 2018
 
+
+   QUIC is described in [QUIC-TRANSPORT].  The HTTP/3 mapping is
+   described in [HTTP3].  For a full description of HTTP/2, see
+   [RFC7540].  The description of HPACK is [RFC7541].
 
    QPACK reuses core concepts from HPACK, but is redesigned to allow
    correctness in the presence of out-of-order delivery, with
@@ -212,12 +216,8 @@ Internet-Draft                    QPACK                    December 2018
 
    QPACK is a name, not an acronym.
 
-1.2.  Notational Conventions
 
-   Diagrams use the format described in Section 3.1 of [RFC2360], with
-   the following additional conventions:
 
-   x (A)  Indicates that x is A bits long
 
 
 
@@ -225,6 +225,13 @@ Krasic, et al.            Expires June 22, 2019                 [Page 4]
 
 Internet-Draft                    QPACK                    December 2018
 
+
+1.2.  Notational Conventions
+
+   Diagrams use the format described in Section 3.1 of [RFC2360], with
+   the following additional conventions:
+
+   x (A)  Indicates that x is A bits long
 
    x (A+)  Indicates that x uses the prefixed integer encoding defined
       in Section 5.1 of [RFC7541], beginning with an A-bit prefix.
@@ -267,13 +274,6 @@ Internet-Draft                    QPACK                    December 2018
    An encoder MAY insert any entry in the dynamic table it chooses; it
    is not limited to header fields it is compressing.
 
-   QPACK preserves the ordering of header fields within each header
-   list.  An encoder MUST emit header field representations in the order
-   they appear in the input header list.
-
-   QPACK is designed to contain the more complex state tracking to the
-   encoder, while the decoder is relatively simple.
-
 
 
 
@@ -281,6 +281,13 @@ Krasic, et al.            Expires June 22, 2019                 [Page 5]
 
 Internet-Draft                    QPACK                    December 2018
 
+
+   QPACK preserves the ordering of header fields within each header
+   list.  An encoder MUST emit header field representations in the order
+   they appear in the input header list.
+
+   QPACK is designed to contain the more complex state tracking to the
+   encoder, while the decoder is relatively simple.
 
 2.1.1.  Reference Tracking
 
@@ -316,16 +323,9 @@ Internet-Draft                    QPACK                    December 2018
    number of unacknowledged references to those entries will eventually
    become zero, allowing them to be evicted.
 
-      +----------+---------------------------------+--------+
-      | Draining |          Referenceable          | Unused |
-      | Entries  |             Entries             | Space  |
-      +----------+---------------------------------+--------+
-      ^          ^                                 ^
-      |          |                                 |
-    Dropping    Draining Index               Insertion Point
-     Point
 
-                 Figure 1: Draining Dynamic Table Entries
+
+
 
 
 
@@ -337,6 +337,17 @@ Krasic, et al.            Expires June 22, 2019                 [Page 6]
 
 Internet-Draft                    QPACK                    December 2018
 
+
+      +----------+---------------------------------+--------+
+      | Draining |          Referenceable          | Unused |
+      | Entries  |             Entries             | Space  |
+      +----------+---------------------------------+--------+
+      ^          ^                                 ^
+      |          |                                 |
+    Dropping    Draining Index               Insertion Point
+     Point
+
+                 Figure 1: Draining Dynamic Table Entries
 
 2.1.3.  Avoiding Head-of-Line Blocking
 
@@ -375,6 +386,14 @@ Internet-Draft                    QPACK                    December 2018
    table entries that are still in transit, but if there is loss or
    reordering the stream can become blocked at the decoder.  An encoder
    avoids the risk of blocking by only referencing dynamic table entries
+
+
+
+Krasic, et al.            Expires June 22, 2019                 [Page 7]
+
+Internet-Draft                    QPACK                    December 2018
+
+
    which have been acknowledged, but this could mean using literals.
    Since literals make the header block larger, this can result in the
    encoder becoming blocked on congestion or flow control limits.
@@ -385,14 +404,6 @@ Internet-Draft                    QPACK                    December 2018
    without a stream becoming blocked, the encoder tracks the number of
    entries received by the decoder.  TheKnown Received Count tracks the
    total number of acknowledged insertions.
-
-
-
-
-Krasic, et al.            Expires June 22, 2019                 [Page 7]
-
-Internet-Draft                    QPACK                    December 2018
-
 
    When blocking references are permitted, the encoder uses header block
    acknowledgement to identify the Known Received Count, as described in
@@ -431,6 +442,14 @@ Internet-Draft                    QPACK                    December 2018
    stream is reset or abandoned, the indication that these header blocks
    will never be processed serves a similar function; see Section 4.4.3.
 
+
+
+
+Krasic, et al.            Expires June 22, 2019                 [Page 8]
+
+Internet-Draft                    QPACK                    December 2018
+
+
    The decoder chooses when to emit Table State Synchronize instructions
    (see Section 4.4.1).  Emitting an instruction after adding each new
    dynamic table entry will provide the most timely feedback to the
@@ -441,14 +460,6 @@ Internet-Draft                    QPACK                    December 2018
    Section 4.4.2).  However, delaying too long may lead to compression
    inefficiencies if the encoder waits for an entry to be acknowledged
    before using it.
-
-
-
-
-Krasic, et al.            Expires June 22, 2019                 [Page 8]
-
-Internet-Draft                    QPACK                    December 2018
-
 
 2.2.2.  Blocked Decoding
 
@@ -485,19 +496,8 @@ Internet-Draft                    QPACK                    December 2018
    Entries are added by instructions on the encoder stream (see
    Section 4.3).
 
-   The maximum size of the dynamic table can be modified by the encoder,
-   subject to a decoder-controlled limit (see Section 5 and
-   Section 4.3.4).  The initial maximum size is determined by the
-   corresponding setting when HTTP requests or responses are first
-   permitted to be sent.  For clients using 0-RTT data in HTTP/3, the
-   table size is the remembered value of the setting, even if the server
-   later specifies a larger maximum in its SETTINGS frame.  For HTTP/3
-   servers and HTTP/3 clients when 0-RTT is not attempted or is
-   rejected, the initial maximum table size is the value of the setting
-   in the peer's SETTINGS frame.
 
-   Before a new entry is added to the dynamic table, entries are evicted
-   from the end of the dynamic table until the size of the dynamic table
+
 
 
 
@@ -506,6 +506,24 @@ Krasic, et al.            Expires June 22, 2019                 [Page 9]
 Internet-Draft                    QPACK                    December 2018
 
 
+   The dynamic table can contain duplicate entries (i.e., entries with
+   the same name and same value).  Therefore, duplicate entries MUST NOT
+   be treated as an error by the decoder.
+
+3.2.1.  Calculating Table Size
+
+   The size of the dynamic table is the sum of the size of its entries.
+
+   The size of an entry is the sum of its name's length in bytes (as
+   defined in Section 4.1.2), its value's length in bytes, and 32.
+
+   The size of an entry is calculated using the length of its name and
+   value without any Huffman encoding applied.
+
+3.2.2.  Eviction
+
+   Before a new entry is added to the dynamic table, entries are evicted
+   from the end of the dynamic table until the size of the dynamic table
    is less than or equal to (maximum size - new entry size) or until the
    table is empty.  The encoder MUST NOT evict a dynamic table entry
    unless it has first been acknowledged by the decoder.
@@ -522,38 +540,20 @@ Internet-Draft                    QPACK                    December 2018
    if the referenced entry is evicted from the dynamic table prior to
    inserting the new entry.
 
-   The dynamic table can contain duplicate entries (i.e., entries with
-   the same name and same value).  Therefore, duplicate entries MUST NOT
-   be treated as an error by the decoder.
+   Whenever the maximum size for the dynamic table is reduced by the
+   encoder, entries are evicted from the end of the dynamic table until
+   the size of the dynamic table is less than or equal to the new
+   maximum size.  This mechanism can be used to completely clear entries
+   from the dynamic table by setting a maxiumum size of 0, which can
+   subsequently be restored.
 
-3.2.1.  Maximum Table Size
+3.2.3.  Maximum Table Size
 
-   The encoder decides how to update the dynamic table and as such can
-   control how much memory is used by the dynamic table.  To limit the
-   memory requirements of the decoder, the dynamic table size is
-   strictly bounded.
-
-   The decoder determines the maximum size that the encoder is permitted
-   to use for the dynamic table.  In HTTP/3, this value is determined by
-   the SETTINGS_HEADER_TABLE_SIZE setting (see Section 5).
-
-   An encoder can choose to use less capacity than this maximum size
-   (see Section 4.3.4), but the chosen size MUST stay lower than or
-   equal to the maximum set by the decoder.  Whenever the maximum size
-   for the dynamic table is reduced, entries are evicted from the end of
-   the dynamic table until the size of the dynamic table is less than or
-   equal to the maximum size.
-
-   This mechanism can be used to completely clear entries from the
-   dynamic table by setting a maximum size of 0, which can subsequently
-   be restored.
-
-3.2.2.  Calculating Table Size
-
-   The size of the dynamic table is the sum of the size of its entries.
-
-   The size of an entry is the sum of its name's length in bytes (as
-   defined in Section 4.1.2), its value's length in bytes, and 32.
+   The encoder decides how to update the dynamic table size and as such
+   can control how much memory is used by the dynamic table.  To limit
+   the memory requirements of the decoder, the dynamic table size is
+   strictly bounded.  The decoder determines the maximum size that the
+   encoder is permitted to set for the dynamic table.  In HTTP/3, this
 
 
 
@@ -562,19 +562,20 @@ Krasic, et al.            Expires June 22, 2019                [Page 10]
 Internet-Draft                    QPACK                    December 2018
 
 
-   The size of an entry is calculated using the length of its name and
-   value without any Huffman encoding applied.
+   value is determined by the SETTINGS_HEADER_TABLE_SIZE setting (see
+   Section 5).  The encoder MUST not set a dynamic table size that
+   exceeds this maximum, but it can choose to use a lower dynamic table
+   size (see Section 4.3.4).
 
-   "MaxEntries" is the maximum number of entries that the dynamic table
-   can have.  The smallest entry has empty name and value strings and
-   has the size of 32.  The MaxEntries is calculated as
+   The initial maximum size is determined by the corresponding setting
+   when HTTP requests or responses are first permitted to be sent.  For
+   clients using 0-RTT data in HTTP/3, the table size is the remembered
+   value of the setting, even if the server later specifies a larger
+   maximum in its SETTINGS frame.  For HTTP/3 servers and HTTP/3 clients
+   when 0-RTT is not attempted or is rejected, the initial maximum table
+   size is the value of the setting in the peer's SETTINGS frame.
 
-      MaxEntries = floor( MaxTableSize / 32 )
-
-   MaxTableSize is the maximum size of the dynamic table as specified by
-   the decoder (see Section 3.2.1).
-
-3.2.3.  Absolute Indexing
+3.2.4.  Absolute Indexing
 
    Each entry possesses both an absolute index which is fixed for the
    lifetime of that entry and a relative index which changes based on
@@ -582,7 +583,7 @@ Internet-Draft                    QPACK                    December 2018
    absolute index of "1"; indices increase sequentially with each
    insertion.
 
-3.2.4.  Relative Indexing
+3.2.5.  Relative Indexing
 
    The relative index begins at zero and increases in the opposite
    direction from the absolute index.  Determining which entry has a
@@ -609,7 +610,6 @@ Internet-Draft                    QPACK                    December 2018
 
    Because frames from request streams can be delivered out of order
    with instructions on the encoder stream, relative indices are
-   relative to the Base at the beginning of the header block (see
 
 
 
@@ -618,6 +618,7 @@ Krasic, et al.            Expires June 22, 2019                [Page 11]
 Internet-Draft                    QPACK                    December 2018
 
 
+   relative to the Base at the beginning of the header block (see
    Section 4.5.1).  The Base is encoded as a value relative to the
    Required Insert Count.  The Base identifies which dynamic table
    entries can be referenced using relative indexing, starting with 0 at
@@ -625,7 +626,7 @@ Internet-Draft                    QPACK                    December 2018
 
    Post-base references are used for entries inserted after base,
    starting at 0 for the first entry added after Base, see
-   Section 3.2.5.
+   Section 3.2.6.
 
    Though new entries could be added while processing a header block,
    the relative indices of entries do not change.
@@ -646,7 +647,7 @@ Internet-Draft                    QPACK                    December 2018
 
      Example Dynamic Table Indexing - Relative Index on Request Stream
 
-3.2.5.  Post-Base Indexing
+3.2.6.  Post-Base Indexing
 
    A header block on the request stream can reference entries added
    after the entry identified by the Base.  This allows an encoder to
@@ -656,7 +657,6 @@ Internet-Draft                    QPACK                    December 2018
    for Post-Base instructions increase in the same direction as absolute
    indices, with the zero value being the first entry inserted after
    Base.
-
 
 
 
@@ -688,7 +688,7 @@ Internet-Draft                    QPACK                    December 2018
 
     Example Dynamic Table Indexing - Post-Base Index on Request Stream
 
-3.2.6.  Invalid References
+3.2.7.  Invalid References
 
    If the decoder encounters a reference on a request or push stream to
    a dynamic table entry which has already been evicted or which has an
@@ -876,11 +876,11 @@ Internet-Draft                    QPACK                    December 2018
                 Figure 3: Maximum Dynamic Table Size Change
 
    The new maximum size MUST be lower than or equal to the limit
-   determined by the protocol using QPACK.  A value that exceeds this
-   limit MUST be treated as a connection error of type
-   "HTTP_QPACK_ENCODER_STREAM_ERROR".  In HTTP/3, this limit is the
-   value of the SETTINGS_HEADER_TABLE_SIZE parameter (see Section 5)
-   received from the decoder.
+   described in Section 3.2.3.  In HTTP/3, this limit is the value of
+   the SETTINGS_HEADER_TABLE_SIZE parameter (see Section 5) received
+   from the decoder.  The decoder MUST treat a value that exceeds this
+   limit as a connection error of type
+   "HTTP_QPACK_ENCODER_STREAM_ERROR".
 
    Reducing the maximum size of the dynamic table can cause entries to
    be evicted (see Section 4.3 of [RFC7541]).  This MUST NOT cause the
@@ -1011,8 +1011,8 @@ Internet-Draft                    QPACK                    December 2018
 
 
    outstanding.  A decoder with a maximum dynamic table size equal to
-   zero MAY omit sending Stream Cancellations, because the encoder
-   cannot have any dynamic table references.
+   zero (see Section 3.2.3) MAY omit sending Stream Cancellations,
+   because the encoder cannot have any dynamic table references.
 
    An encoder cannot infer from this instruction that any updates to the
    dynamic table have been received.
@@ -1049,14 +1049,14 @@ Internet-Draft                    QPACK                    December 2018
 
       EncodedInsertCount = (InsertCount mod (2 * MaxEntries)) + 1
 
-   The decoder reconstructs the Insert Count using the following
-   algorithm:
+   Here "MaxEntries" is the maximum number of entries that the dynamic
+   table can have.  The smallest entry has empty name and value strings
+   and has the size of 32.  Hence "MaxEntries" is calculated as
 
+      MaxEntries = floor( MaxTableSize / 32 )
 
-
-
-
-
+   "MaxTableSize" is the maximum size of the dynamic table as specified
+   by the decoder (see Section 3.2.3).
 
 
 
@@ -1065,6 +1065,9 @@ Krasic, et al.            Expires June 22, 2019                [Page 19]
 
 Internet-Draft                    QPACK                    December 2018
 
+
+   The decoder reconstructs the Required Insert Count using the
+   following algorithm:
 
       if EncodedInsertCount == 0:
          InsertCount = 0
@@ -1093,7 +1096,7 @@ Internet-Draft                    QPACK                    December 2018
 4.5.1.2.  Base
 
    "Base" is used to resolve references in the dynamic table as
-   described in Section 3.2.4.
+   described in Section 3.2.5.
 
    To save space, Base is encoded relative to the Insert Count using a
    one-bit sign and the "Delta Base" value.  A sign bit of 0 indicates
@@ -1111,9 +1114,6 @@ Internet-Draft                    QPACK                    December 2018
    block.  If the encoder inserted entries in the dynamic table while
    encoding the header block, Insert Count will be greater than the
    Base, so the encoded difference is negative and the sign bit is set
-   to 1.  If the header block did not reference the most recent entry in
-   the table and did not insert any new entries, Base will be greater
-
 
 
 
@@ -1122,6 +1122,8 @@ Krasic, et al.            Expires June 22, 2019                [Page 20]
 Internet-Draft                    QPACK                    December 2018
 
 
+   to 1.  If the header block did not reference the most recent entry in
+   the table and did not insert any new entries, Base will be greater
    than the Insert Count, so the delta will be positive and the sign bit
    is set to 0.
 
@@ -1164,11 +1166,9 @@ Internet-Draft                    QPACK                    December 2018
 
    If the entry is in the dynamic table with an absolute index greater
    than Base, the representation starts with the '0001' 4-bit pattern,
-   followed by the post-base index (see Section 3.2.5) of the matching
+   followed by the post-base index (see Section 3.2.6) of the matching
    header field, represented as an integer with a 4-bit prefix (see
    Section 5.1 of [RFC7541]).
-
-
 
 
 
@@ -1238,7 +1238,7 @@ Internet-Draft                    QPACK                    December 2018
 
    For entries in the dynamic table with an absolute index greater than
    the Base, the header field name is represented using the post-base
-   index of that entry (see Section 3.2.5) encoded as an integer with a
+   index of that entry (see Section 3.2.6) encoded as an integer with a
    3-bit prefix.
 
         0   1   2   3   4   5   6   7
@@ -1855,11 +1855,18 @@ Appendix C.  Change Log
       *RFC Editor's Note:* Please remove this section prior to
       publication of a final version of this document.
 
-C.1.  Since draft-ietf-quic-qpack-03
+C.1.  Since draft-ietf-quic-qpack-04
 
-   Substantial editorial reorganization; no technical changes.
+   o  Changed calculation of Delta Base Index to avoid an illegal value
+      (#2002, #2005)
 
-C.2.  Since draft-ietf-quic-qpack-02
+C.2.  Since draft-ietf-quic-qpack-03
+
+   o  Change HTTP settings defaults (#2038)
+
+   o  Substantial editorial reorganization
+
+C.3.  Since draft-ietf-quic-qpack-02
 
    o  Largest Reference encoded modulo MaxEntries (#1763)
 
@@ -1881,23 +1888,16 @@ C.2.  Since draft-ietf-quic-qpack-02
    o  Initial table size is the maximum permitted when table is first
       usable (#1642)
 
-C.3.  Since draft-ietf-quic-qpack-01
+C.4.  Since draft-ietf-quic-qpack-01
 
    o  Only header blocks that reference the dynamic table are
       acknowledged (#1603, #1605)
 
-C.4.  Since draft-ietf-quic-qpack-00
+C.5.  Since draft-ietf-quic-qpack-00
 
    o  Renumbered instructions for consistency (#1471, #1472)
 
    o  Decoder is allowed to validate largest reference (#1404, #1469)
-
-   o  Header block acknowledgments also acknowledge the associated
-      largest reference (#1370, #1400)
-
-   o  Added an acknowledgment for unread streams (#1371, #1400)
-
-   o  Removed framing from encoder stream (#1361,#1467)
 
 
 
@@ -1906,10 +1906,17 @@ Krasic, et al.            Expires June 22, 2019                [Page 34]
 Internet-Draft                    QPACK                    December 2018
 
 
+   o  Header block acknowledgments also acknowledge the associated
+      largest reference (#1370, #1400)
+
+   o  Added an acknowledgment for unread streams (#1371, #1400)
+
+   o  Removed framing from encoder stream (#1361,#1467)
+
    o  Control streams use typed unidirectional streams rather than fixed
       stream IDs (#910,#1359)
 
-C.5.  Since draft-ietf-quic-qcram-00
+C.6.  Since draft-ietf-quic-qcram-00
 
    o  Separate instruction sets for table updates and header blocks
       (#1235, #1142, #1141)
@@ -1946,13 +1953,6 @@ Acknowledgments
    Buck's contribution was supported by Google during his employment
    there.
 
-   A substantial portion of Mike's contribution was supported by
-   Microsoft during his employment there.
-
-Authors' Addresses
-
-
-
 
 
 
@@ -1961,6 +1961,11 @@ Krasic, et al.            Expires June 22, 2019                [Page 35]
 
 Internet-Draft                    QPACK                    December 2018
 
+
+   A substantial portion of Mike's contribution was supported by
+   Microsoft during his employment there.
+
+Authors' Addresses
 
    Charles 'Buck' Krasic
    Netflix
@@ -1978,11 +1983,6 @@ Internet-Draft                    QPACK                    December 2018
    Facebook
 
    Email: afrind@fb.com
-
-
-
-
-
 
 
 
