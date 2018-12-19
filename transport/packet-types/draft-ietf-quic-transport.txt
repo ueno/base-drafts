@@ -185,15 +185,13 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    16. Variable-Length Integer Encoding  . . . . . . . . . . . . . .  77
    17. Packet Formats  . . . . . . . . . . . . . . . . . . . . . . .  77
      17.1.  Packet Number Encoding and Decoding  . . . . . . . . . .  78
-       17.1.1.  Starting Packet Numbers  . . . . . . . . . . . . . .  79
-       17.1.2.  0-RTT Packet Numbers . . . . . . . . . . . . . . . .  79
-     17.2.  Long Header Packet . . . . . . . . . . . . . . . . . . .  79
-       17.2.1.  Version Negotiation Packet . . . . . . . . . . . . .  82
-       17.2.2.  Initial Packet . . . . . . . . . . . . . . . . . . .  84
-       17.2.3.  0-RTT Protected  . . . . . . . . . . . . . . . . . .  86
+     17.2.  Long Header Packets  . . . . . . . . . . . . . . . . . .  79
+       17.2.1.  Version Negotiation Packet . . . . . . . . . . . . .  81
+       17.2.2.  Initial Packet . . . . . . . . . . . . . . . . . . .  83
+       17.2.3.  0-RTT  . . . . . . . . . . . . . . . . . . . . . . .  85
        17.2.4.  Handshake Packet . . . . . . . . . . . . . . . . . .  86
        17.2.5.  Retry Packet . . . . . . . . . . . . . . . . . . . .  87
-     17.3.  Short Header Packet  . . . . . . . . . . . . . . . . . .  90
+     17.3.  Short Header Packets . . . . . . . . . . . . . . . . . .  89
    18. Transport Parameter Encoding  . . . . . . . . . . . . . . . .  91
      18.1.  Transport Parameter Definitions  . . . . . . . . . . . .  93
    19. Frame Types and Formats . . . . . . . . . . . . . . . . . . .  95
@@ -218,6 +216,8 @@ Internet-Draft           QUIC Transport Protocol           December 2018
      19.17. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 111
      19.18. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 111
      19.19. CONNECTION_CLOSE Frames  . . . . . . . . . . . . . . . . 111
+     19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 112
+   20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 113
 
 
 
@@ -226,8 +226,6 @@ Iyengar & Thomson         Expires June 22, 2019                 [Page 4]
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
-     19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 112
-   20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 113
      20.1.  Application Protocol Error Codes . . . . . . . . . . . . 114
    21. Security Considerations . . . . . . . . . . . . . . . . . . . 114
      21.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 114
@@ -274,6 +272,8 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    QUIC is a multiplexed and secure general-purpose transport protocol
    that provides:
 
+   o  Stream multiplexing
+
 
 
 
@@ -281,8 +281,6 @@ Iyengar & Thomson         Expires June 22, 2019                 [Page 5]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-   o  Stream multiplexing
 
    o  Stream and connection-level flow control
 
@@ -331,14 +329,14 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    o  Packets and frames are the basic unit used by QUIC to communicate.
 
+      *  Section 12 describes concepts related to packets and frames,
+
 
 
 Iyengar & Thomson         Expires June 22, 2019                 [Page 6]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-      *  Section 12 describes concepts related to packets and frames,
 
       *  Section 13 defines models for the transmission, retransmission,
          and acknowledgement of data, and
@@ -384,7 +382,9 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       UDP datagram.  Multiple QUIC packets can be encapsulated in a
       single UDP datagram.
 
-
+   Endpoint:  An entity that can participate in a QUIC connection by
+      generating, receiving, and processing QUIC packets.  There are
+      only two types of endpoint in QUIC: client and server.
 
 
 
@@ -393,10 +393,6 @@ Iyengar & Thomson         Expires June 22, 2019                 [Page 7]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-   Endpoint:  An entity that can participate in a QUIC connection by
-      generating, receiving, and processing QUIC packets.  There are
-      only two types of endpoint in QUIC: client and server.
 
    Client:  The endpoint initiating a QUIC connection.
 
@@ -442,6 +438,10 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    for, and close a stream.  Streams can also be long-lived and can last
    the entire duration of a connection.
 
+   Streams can be created by either endpoint, can concurrently send data
+   interleaved with other streams, and can be cancelled.  Any stream can
+   be initiated by either endpoint.  QUIC does not provide any means of
+   ensuring ordering between bytes on different streams.
 
 
 
@@ -449,11 +449,6 @@ Iyengar & Thomson         Expires June 22, 2019                 [Page 8]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-   Streams can be created by either endpoint, can concurrently send data
-   interleaved with other streams, and can be cancelled.  Any stream can
-   be initiated by either endpoint.  QUIC does not provide any means of
-   ensuring ordering between bytes on different streams.
 
    QUIC allows for an arbitrary number of streams to operate
    concurrently and for an arbitrary amount of data to be sent on any
@@ -498,6 +493,11 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
                          Table 1: Stream ID Types
 
+   Within each type, streams are created with numerically increasing
+   stream IDs.  A stream ID that is used out of order results in all
+   streams of that type with lower-numbered stream IDs also being
+   opened.
+
 
 
 
@@ -505,11 +505,6 @@ Iyengar & Thomson         Expires June 22, 2019                 [Page 9]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
-
-   Within each type, streams are created with numerically increasing
-   stream IDs.  A stream ID that is used out of order results in all
-   streams of that type with lower-numbered stream IDs also being
-   opened.
 
    The first bidirectional stream opened by the client has a stream ID
    of 0.
@@ -552,7 +547,12 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    performance if resources allocated to streams are correctly
    prioritized.
 
+   QUIC does not provide frames for exchanging prioritization
+   information.  Instead it relies on receiving priority information
+   from the application that uses QUIC.
 
+   A QUIC implementation SHOULD provide ways in which an application can
+   indicate the relative priority of streams.  When deciding which
 
 
 
@@ -562,12 +562,6 @@ Iyengar & Thomson         Expires June 22, 2019                [Page 10]
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
-   QUIC does not provide frames for exchanging prioritization
-   information.  Instead it relies on receiving priority information
-   from the application that uses QUIC.
-
-   A QUIC implementation SHOULD provide ways in which an application can
-   indicate the relative priority of streams.  When deciding which
    streams to dedicate resources to, the implementation SHOULD use the
    information provided by the application.
 
@@ -603,6 +597,12 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    Figure 1 shows the states for the part of a stream that sends data to
    a peer.
+
+
+
+
+
+
 
 
 
@@ -1575,7 +1575,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    A client MAY attempt 0-RTT after receiving a Version Negotiation
    packet.  A client that sends additional 0-RTT packets MUST NOT reset
-   the packet number to 0 as a result, see Section 17.1.2.
+   the packet number to 0 as a result, see Section 17.2.3.
 
    Version negotiation packets have no cryptographic protection.  The
    result of the negotiation MUST be revalidated as part of the
@@ -3328,16 +3328,15 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    carried in UDP datagrams (see Section 12.2).
 
    This version of QUIC uses the long packet header (see Section 17.2)
-   during connection establishment.  Packets that carry the long header
-   are Initial (Section 17.2.2), 0-RTT Protected (Section 17.2.3),
-   Handshake (Section 17.2.4), and Retry (Section 17.2.5).
+   during connection establishment.  Packets with the long header are
+   Initial (Section 17.2.2), 0-RTT (Section 17.2.3), Handshake
+   (Section 17.2.4), and Retry (Section 17.2.5).  Version negotiation
+   uses a version-independent packet with a long header (see
+   Section 17.2.1).
 
    Packets with the short header (Section 17.3) are designed for minimal
    overhead and are used after a connection is established and 1-RTT
    keys are available.
-
-   Version negotiation uses a packet with a special format (see
-   Section 17.2.1).
 
 12.1.  Protected Packets
 
@@ -3354,6 +3353,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    packet from a client can recover the keys necessary to remove packet
    protection or to generate packets that will be successfully
    authenticated.
+
 
 
 
@@ -3381,8 +3381,8 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
    Initial (Section 17.2.2), 0-RTT (Section 17.2.3), and Handshake
    (Section 17.2.4) packets contain a Length field, which determines the
-   end of the packet.  The Length field includes both the Packet Number
-   and Payload fields, both of which are confidentiality protected and
+   end of the packet.  The length includes both the Packet Number and
+   Payload fields, both of which are confidentiality protected and
    initially of unknown length.  The length of the Payload field is
    learned once header protection is removed.
 
@@ -4370,61 +4370,7 @@ Iyengar & Thomson         Expires June 22, 2019                [Page 78]
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
-17.1.1.  Starting Packet Numbers
-
-   The first Initial packet sent by either endpoint MUST contain a
-   packet number of 1.  The packet number MUST increase monotonically
-   thereafter.  Initial packets are in a different packet number space
-   to other packets (see Section 12.3).
-
-17.1.2.  0-RTT Packet Numbers
-
-   Packet numbers for 0-RTT protected packets use the same space as
-   1-RTT protected packets.
-
-   After a client receives a Retry or Version Negotiation packet, 0-RTT
-   packets are likely to have been lost or discarded by the server.  A
-   client MAY attempt to resend data in 0-RTT packets after it sends a
-   new Initial packet.
-
-   A client MUST NOT reset the packet number it uses for 0-RTT packets.
-   The keys used to protect 0-RTT packets will not change as a result of
-   responding to a Retry or Version Negotiation packet unless the client
-   also regenerates the cryptographic handshake message.  Sending
-   packets with the same packet number in that case is likely to
-   compromise the packet protection for all 0-RTT packets because the
-   same key and nonce could be used to protect different content.
-
-   Receiving a Retry or Version Negotiation packet, especially a Retry
-   that changes the connection ID used for subsequent packets, indicates
-   a strong possibility that 0-RTT packets could be lost.  A client only
-   receives acknowledgments for its 0-RTT packets once the handshake is
-   complete.  Consequently, a server might expect 0-RTT packets to start
-   with a packet number of 0.  Therefore, in determining the length of
-   the packet number encoding for 0-RTT packets, a client MUST assume
-   that all packets up to the current packet number are in flight,
-   starting from a packet number of 0.  Thus, 0-RTT packets could need
-   to use a longer packet number encoding.
-
-   A client SHOULD instead generate a fresh cryptographic handshake
-   message and start packet numbers from 0.  This ensures that new 0-RTT
-   packets will not use the same keys, avoiding any risk of key and
-   nonce reuse; this also prevents 0-RTT packets from previous handshake
-   attempts from being accepted as part of the connection.
-
-17.2.  Long Header Packet
-
-
-
-
-
-
-
-
-Iyengar & Thomson         Expires June 22, 2019                [Page 79]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
+17.2.  Long Header Packets
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -4472,16 +4418,16 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    Packet Number Length (P):  The least significant two bits (those with
       a mask of 0x03) of byte 0 contain the length of the packet number,
       encoded as an unsigned, two-bit integer that is one less than the
-      length of the packet number field in bytes.  That is, the length
-      of the packet number field is the value of this field, plus one.
 
 
 
-Iyengar & Thomson         Expires June 22, 2019                [Page 80]
+Iyengar & Thomson         Expires June 22, 2019                [Page 79]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
+      length of the packet number field in bytes.  That is, the length
+      of the packet number field is the value of this field, plus one.
       These bits are protected using header protection (see Section 5.4
       of [QUIC-TLS]).
 
@@ -4511,33 +4457,34 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       between 4 and 18 bytes.  Section 7.2 describes the use of this
       field in more detail.
 
-   The following packet types are defined:
+   In this version of QUIC, the following packet types with the long
+   header are defined:
 
-                +------+-----------------+----------------+
-                | Type | Name            | Section        |
-                +------+-----------------+----------------+
-                |  0x0 | Initial         | Section 17.2.2 |
-                |      |                 |                |
-                |  0x1 | 0-RTT Protected | Section 17.2.3 |
-                |      |                 |                |
-                |  0x2 | Handshake       | Section 17.2.4 |
-                |      |                 |                |
-                |  0x3 | Retry           | Section 17.2.5 |
-                +------+-----------------+----------------+
+                   +------+-----------+----------------+
+                   | Type | Name      | Section        |
+                   +------+-----------+----------------+
+                   |  0x0 | Initial   | Section 17.2.2 |
+                   |      |           |                |
+                   |  0x1 | 0-RTT     | Section 17.2.3 |
+                   |      |           |                |
+                   |  0x2 | Handshake | Section 17.2.4 |
+                   |      |           |                |
+                   |  0x3 | Retry     | Section 17.2.5 |
+                   +------+-----------+----------------+
 
                      Table 5: Long Header Packet Types
 
-   The header form bit, connection ID lengths byte, Destination and
-   Source Connection ID fields, and Version fields of a long header
-   packet are version-independent.  The other fields in the first byte
 
 
 
-Iyengar & Thomson         Expires June 22, 2019                [Page 81]
+Iyengar & Thomson         Expires June 22, 2019                [Page 80]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
 
+   The header form bit, connection ID lengths byte, Destination and
+   Source Connection ID fields, and Version fields of a long header
+   packet are version-independent.  The other fields in the first byte
    are version-specific.  See [QUIC-INVARIANTS] for details on how
    packets from different versions of QUIC are interpreted.
 
@@ -4586,10 +4533,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
 
 
-
-
-
-Iyengar & Thomson         Expires June 22, 2019                [Page 82]
+Iyengar & Thomson         Expires June 22, 2019                [Page 81]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
@@ -4645,7 +4589,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
 
 
-Iyengar & Thomson         Expires June 22, 2019                [Page 83]
+Iyengar & Thomson         Expires June 22, 2019                [Page 82]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
@@ -4701,7 +4645,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
 
 
-Iyengar & Thomson         Expires June 22, 2019                [Page 84]
+Iyengar & Thomson         Expires June 22, 2019                [Page 83]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
@@ -4757,7 +4701,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
 
 
 
-Iyengar & Thomson         Expires June 22, 2019                [Page 85]
+Iyengar & Thomson         Expires June 22, 2019                [Page 84]
 
 Internet-Draft           QUIC Transport Protocol           December 2018
 
@@ -4768,13 +4712,13 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    Any data in CRYPTO frames is discarded - and no longer retransmitted
    - when Initial keys are discarded.
 
-17.2.3.  0-RTT Protected
+17.2.3.  0-RTT
 
-   A 0-RTT Protected packet uses long headers with a type value of 0x1,
-   followed by the Length and Packet Number fields.  It is used to carry
-   "early" data from the client to the server as part of the first
-   flight, prior to handshake completion.  As part of the TLS handshake,
-   the server can accept or reject this early data.
+   A 0-RTT packet uses long headers with a type value of 0x1, followed
+   by the Length and Packet Number fields.  It is used to carry "early"
+   data from the client to the server as part of the first flight, prior
+   to handshake completion.  As part of the TLS handshake, the server
+   can accept or reject this early data.
 
    See Sections 2.3 of [TLS13] for a discussion of 0-RTT data and its
    limitations.
@@ -4797,7 +4741,48 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    |                          Payload (*)                        ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-                          0-RTT Protected Packet
+                               0-RTT Packet
+
+   Packet numbers for 0-RTT protected packets use the same space as
+   1-RTT protected packets.
+
+   After a client receives a Retry or Version Negotiation packet, 0-RTT
+   packets are likely to have been lost or discarded by the server.  A
+   client MAY attempt to resend data in 0-RTT packets after it sends a
+   new Initial packet.
+
+   A client MUST NOT reset the packet number it uses for 0-RTT packets.
+   The keys used to protect 0-RTT packets will not change as a result of
+   responding to a Retry or Version Negotiation packet unless the client
+
+
+
+Iyengar & Thomson         Expires June 22, 2019                [Page 85]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
+
+   also regenerates the cryptographic handshake message.  Sending
+   packets with the same packet number in that case is likely to
+   compromise the packet protection for all 0-RTT packets because the
+   same key and nonce could be used to protect different content.
+
+   Receiving a Retry or Version Negotiation packet, especially a Retry
+   that changes the connection ID used for subsequent packets, indicates
+   a strong possibility that 0-RTT packets could be lost.  A client only
+   receives acknowledgments for its 0-RTT packets once the handshake is
+   complete.  Consequently, a server might expect 0-RTT packets to start
+   with a packet number of 0.  Therefore, in determining the length of
+   the packet number encoding for 0-RTT packets, a client MUST assume
+   that all packets up to the current packet number are in flight,
+   starting from a packet number of 0.  Thus, 0-RTT packets could need
+   to use a longer packet number encoding.
+
+   A client SHOULD instead generate a fresh cryptographic handshake
+   message and start packet numbers from 0.  This ensures that new 0-RTT
+   packets will not use the same keys, avoiding any risk of key and
+   nonce reuse; this also prevents 0-RTT packets from previous handshake
+   attempts from being accepted as part of the connection.
 
 17.2.4.  Handshake Packet
 
@@ -4805,18 +4790,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    followed by the Length and Packet Number fields.  It is used to carry
    acknowledgments and cryptographic handshake messages from the server
    and client.
-
-
-
-
-
-
-
-
-Iyengar & Thomson         Expires June 22, 2019                [Page 86]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
 
    +-+-+-+-+-+-+-+-+
    |1|1| 0 |R R|P P|
@@ -4837,6 +4810,13 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                    Figure 13: Handshake Protected Packet
+
+
+
+Iyengar & Thomson         Expires June 22, 2019                [Page 86]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
 
    Once a client has received a Handshake packet from a server, it uses
    Handshake packets to send subsequent cryptographic handshake messages
@@ -4867,13 +4847,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    used by a server that wishes to perform a stateless retry (see
    Section 8.1).
 
-
-
-Iyengar & Thomson         Expires June 22, 2019                [Page 87]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
-
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+
@@ -4893,6 +4866,13 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                           Figure 14: Retry Packet
+
+
+
+Iyengar & Thomson         Expires June 22, 2019                [Page 87]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
 
    A Retry packet (shown in Figure 14) does not contain any protected
    fields.  In addition to the long header, it contains these additional
@@ -4923,13 +4903,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    MUST use this connection ID in the Destination Connection ID of
    subsequent packets that it sends.
 
-
-
-Iyengar & Thomson         Expires June 22, 2019                [Page 88]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
-
    A server MAY send Retry packets in response to Initial and 0-RTT
    packets.  A server can either discard or buffer 0-RTT packets that it
    receives.  A server can send multiple Retry packets as it receives
@@ -4948,6 +4921,14 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    The client responds to a Retry packet with an Initial packet that
    includes the provided Retry Token to continue connection
    establishment.
+
+
+
+
+Iyengar & Thomson         Expires June 22, 2019                [Page 88]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
 
    A client sets the Destination Connection ID field of this Initial
    packet to the value from the Source Connection ID in the Retry
@@ -4969,7 +4950,7 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    0-RTT packets to the connection ID provided by the server.  A client
    that sends additional 0-RTT packets without constructing a new
    cryptographic handshake message MUST NOT reset the packet number to 0
-   after a Retry packet, see Section 17.1.2.
+   after a Retry packet, see Section 17.2.3.
 
    A server acknowledges the use of a Retry packet for a connection
    using the original_connection_id transport parameter (see
@@ -4977,14 +4958,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    the value of the Original Destination Connection ID field of the
    Retry packet (that is, the Destination Connection ID field from the
    client's first Initial packet) in the transport parameter.
-
-
-
-
-Iyengar & Thomson         Expires June 22, 2019                [Page 89]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
 
    If the client received and processed a Retry packet, it MUST validate
    that the original_connection_id transport parameter is present and
@@ -4995,7 +4968,23 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    A Retry packet does not include a packet number and cannot be
    explicitly acknowledged by a client.
 
-17.3.  Short Header Packet
+17.3.  Short Header Packets
+
+   This version of QUIC defines a single packet type which uses the
+   short packet header.
+
+
+
+
+
+
+
+
+
+Iyengar & Thomson         Expires June 22, 2019                [Page 89]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -5033,15 +5022,6 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       removing protection as a connection error of type
       PROTOCOL_VIOLATION.
 
-
-
-
-
-Iyengar & Thomson         Expires June 22, 2019                [Page 90]
-
-Internet-Draft           QUIC Transport Protocol           December 2018
-
-
    Key Phase (K):  The next bit (0x04) of byte 0 indicates the key
       phase, which allows a recipient of a packet to identify the packet
       protection keys that are used to protect the packet.  See
@@ -5053,6 +5033,15 @@ Internet-Draft           QUIC Transport Protocol           December 2018
       encoded as an unsigned, two-bit integer that is one less than the
       length of the packet number field in bytes.  That is, the length
       of the packet number field is the value of this field, plus one.
+
+
+
+
+Iyengar & Thomson         Expires June 22, 2019                [Page 90]
+
+Internet-Draft           QUIC Transport Protocol           December 2018
+
+
       These bits are protected using header protection (see Section 5.4
       of [QUIC-TLS]).
 
@@ -5079,6 +5068,17 @@ Internet-Draft           QUIC Transport Protocol           December 2018
    The format of the transport parameters is the TransportParameters
    struct from Figure 16.  This is described using the presentation
    language from Section 3 of [TLS13].
+
+
+
+
+
+
+
+
+
+
+
 
 
 
