@@ -312,7 +312,7 @@ ul.toc li {
 <link href="#rfc.section.5.6" rel="Chapter" title="5.6 Use of 0-RTT Keys">
 <link href="#rfc.section.5.7" rel="Chapter" title="5.7 Receiving Out-of-Order Protected Frames">
 <link href="#rfc.section.6" rel="Chapter" title="6 Key Update">
-<link href="#rfc.section.6.1" rel="Chapter" title="6.1 Initiating Key Update">
+<link href="#rfc.section.6.1" rel="Chapter" title="6.1 Initiating a Key Update">
 <link href="#rfc.section.6.2" rel="Chapter" title="6.2 Responding to a Key Update">
 <link href="#rfc.section.6.3" rel="Chapter" title="6.3 Key Update Frequency">
 <link href="#rfc.section.7" rel="Chapter" title="7 Security of Initial Messages">
@@ -475,7 +475,7 @@ ul.toc li {
 </li>
 </ul><li>6.   <a href="#rfc.section.6">Key Update</a>
 </li>
-<ul><li>6.1.   <a href="#rfc.section.6.1">Initiating Key Update</a>
+<ul><li>6.1.   <a href="#rfc.section.6.1">Initiating a Key Update</a>
 </li>
 <li>6.2.   <a href="#rfc.section.6.2">Responding to a Key Update</a>
 </li>
@@ -938,7 +938,7 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
 <a href="#rfc.section.5.4">5.4.</a> <a href="#header-protect" id="header-protect">Header Protection</a>
 </h2>
 <p id="rfc.section.5.4.p.1">Parts of QUIC packet headers, in particular the Packet Number field, are protected using a key that is derived separate to the packet protection key and IV.  The key derived using the &#8220;quic hp&#8221; label is used to provide confidentiality protection for those fields that are not exposed to on-path elements.</p>
-<p id="rfc.section.5.4.p.2">This protection applies to the least-significant bits of the first byte, plus the Packet Number field.  The four least-significant bits of the first byte are protected for packets with long headers; the five least significant bits of the first byte are protected for packets with short headers.  For both header forms, this covers the reserved bits and the Packet Number Length field; the Key Phase bit is also protected for packets with a short header.</p>
+<p id="rfc.section.5.4.p.2">This protection applies to the least-significant bits of the first byte, plus the Packet Number field.  The four least-significant bits of the first byte are protected for packets with long headers; the five least significant bits of the first byte are protected for packets with short headers.  For both header forms, this covers the reserved bits and the Packet Number Length field; the Key Phase bits are also protected for packets with a short header.</p>
 <p id="rfc.section.5.4.p.3">The same header protection key is used for the duration of the connection, with the value not changing after a key update (see <a href="#key-update" class="xref">Section 6</a>).  This allows header protection to be used to protect the key phase.</p>
 <p id="rfc.section.5.4.p.4">This process does not apply to Retry or Version Negotiation packets, which do not contain a protected payload or any of the fields that are protected by this process.</p>
 <h3 id="rfc.section.5.4.1">
@@ -1066,10 +1066,10 @@ mask = ChaCha20(pn_key, counter, nonce, {0,0,0,0,0})
 <h1 id="rfc.section.6">
 <a href="#rfc.section.6">6.</a> <a href="#key-update" id="key-update">Key Update</a>
 </h1>
-<p id="rfc.section.6.p.1">Once the 1-RTT keys are established and the short header is in use, it is possible to update the keys used to protect packets. The KEY_PHASE bit in the short header is used to indicate whether key updates have occurred. The KEY_PHASE bit is initially set to 0 and then inverted with each key update.</p>
-<p id="rfc.section.6.p.2">The KEY_PHASE bit allows a recipient to detect a change in keying material without needing to receive the first packet that triggered the change.  An endpoint that notices a changed KEY_PHASE bit can update keys and decrypt the packet that contains the changed bit.</p>
+<p id="rfc.section.6.p.1">Once the 1-RTT keys are established and the short header is in use, it is possible to update the keys used to protect packets. The Key Phase bits in the short header are used to indicate whether key updates have occurred. The Key Phase is initially set to 0 and then incremented with each key update.</p>
+<p id="rfc.section.6.p.2">The Key Phase allows a recipient to detect a change in keying material without needing to receive the first packet that triggered the change.  An endpoint that notices a changed Key Phase bit can update keys and decrypt the packet that contains the changed bit.</p>
 <p id="rfc.section.6.p.3">This mechanism replaces the TLS KeyUpdate message.  Endpoints MUST NOT send a TLS KeyUpdate message.  Endpoints MUST treat the receipt of a TLS KeyUpdate message as a connection error of type 0x10a, equivalent to a fatal TLS alert of unexpected_message (see <a href="#tls-errors" class="xref">Section 4.8</a>).</p>
-<p id="rfc.section.6.p.4">This process ensures that once the handshake is complete, packets with the same KEY_PHASE will have the same packet protection keys, unless there are multiple key updates in short succession and significant packet reordering.</p>
+<p id="rfc.section.6.p.4">This process ensures that once the handshake is complete, packets with the same Key Phase will have the same packet protection keys, unless there are multiple key updates in short succession and significant packet reordering.</p>
 <div id="rfc.figure.6"></div>
 <div id="ex-key-update"></div>
 <pre>
@@ -1086,19 +1086,21 @@ mask = ChaCha20(pn_key, counter, nonce, {0,0,0,0,0})
 </pre>
 <p class="figure">Figure 6: Key Update</p>
 <h2 id="rfc.section.6.1">
-<a href="#rfc.section.6.1">6.1.</a> <a href="#initiating-key-update" id="initiating-key-update">Initiating Key Update</a>
+<a href="#rfc.section.6.1">6.1.</a> <a href="#initiating-a-key-update" id="initiating-a-key-update">Initiating a Key Update</a>
 </h2>
 <p id="rfc.section.6.1.p.1">Endpoints maintain separate read and write secrets for packet protection.  An endpoint initiates a key update by updating its packet protection write secret and using that to protect new packets.  The endpoint creates a new write secret from the existing write secret as performed in Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>.  This uses the KDF function provided by TLS with a label of &#8220;quic ku&#8221;.  The corresponding key and IV are created from that secret as defined in <a href="#protection-keys" class="xref">Section 5.1</a>.  The header protection key is not updated.</p>
-<p id="rfc.section.6.1.p.2">The endpoint uses the key and IV to protect all subsequent packets, and inverts the value of the KEY_PHASE bit to signal the change of keys.</p>
-<p id="rfc.section.6.1.p.3">An endpoint MUST NOT initiate more than one key update at a time.  A new key cannot be used until the endpoint has received an acknowledgment for a packet it sends with the new keys.  An endpoint that receives a packet protected with old keys that includes an acknowledgement for a packet protected with newer keys MAY treat that as a connection error of type PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.6.1.p.2">The endpoint uses the key and IV to protect all subsequent packets, and increments the value of the Key Phase bits modulo 4 in the short packet header to signal the change of keys.</p>
+<p id="rfc.section.6.1.p.3">An endpoint MUST NOT initiate more than one key update at a time.  A new key cannot be used until the endpoint has received an indication that its peer is using the same key phase.</p>
+<p id="rfc.section.6.1.p.4">An endpoint that receives a packet protected with old keys that includes an acknowledgement for a packet protected with newer keys MAY treat that as a connection error of type PROTOCOL_VIOLATION.</p>
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#responding-to-a-key-update" id="responding-to-a-key-update">Responding to a Key Update</a>
 </h2>
-<p id="rfc.section.6.2.p.1">A receiving endpoint detects an update when the KEY_PHASE bit does not match what it is expecting.  The endpoint creates a new read secret and the corresponding read key and IV using the same process as its peer.</p>
-<p id="rfc.section.6.2.p.2">If the packet can be decrypted and authenticated using the updated key and IV, then the keys the endpoint uses for packet protection (the write secret) are also updated using the same KDF and label as for the read secret.  The next packet sent by the endpoint MUST use the new packet protection keys.</p>
-<p id="rfc.section.6.2.p.3">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends will simply use the new keys.  If an endpoint detects a second update before it has sent any packets with updated keys, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a fatal error and abort the connection.</p>
-<p id="rfc.section.6.2.p.4">An endpoint SHOULD retain old read keys for a period of no more than three times the Probe Timeout (PTO, see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).  After this period, old read keys and their corresponding secrets SHOULD be discarded.  Retaining keys allows endpoints to process packets that were sent with old keys and delayed in the network.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
-<p id="rfc.section.6.2.p.5">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
+<p id="rfc.section.6.2.p.1">A receiving endpoint detects an update when the Key Phase is one greater than what it is expecting.  The endpoint creates a new read secret and the corresponding read key and IV using the same process as its peer.</p>
+<p id="rfc.section.6.2.p.2">A packet with a Key Phase other than the expected or next value MUST be discarded.  However, endpoints MUST NOT generate a timing side-channel signal that might indicate that this specific field was invalid (see <a href="#header-protect-analysis" class="xref">Section 9.3</a>).</p>
+<p id="rfc.section.6.2.p.3">If the packet can be decrypted and authenticated using the updated key and IV, then the keys the endpoint uses for packet protection (the write secret) are also updated using the same KDF and label as for the read secret.  The next packet sent by the endpoint MUST use the new packet protection keys.</p>
+<p id="rfc.section.6.2.p.4">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends will simply use the new keys.  If an endpoint detects a second update before it has sent any packets with updated keys, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a fatal error and abort the connection.</p>
+<p id="rfc.section.6.2.p.5">An endpoint SHOULD retain old read keys for a period of no more than three times the Probe Timeout (PTO, see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).  After this period, old read keys and their corresponding secrets SHOULD be discarded.  Retaining keys allows endpoints to process packets that were sent with old keys and delayed in the network.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
+<p id="rfc.section.6.2.p.6">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
 <h2 id="rfc.section.6.3">
 <a href="#rfc.section.6.3">6.3.</a> <a href="#key-update-frequency" id="key-update-frequency">Key Update Frequency</a>
 </h2>
@@ -1173,7 +1175,7 @@ protected_field = field XOR PRF(pn_key, sample)
 <dd style="margin-left: 8">In some cases, inputs shorter than the full size required by the packet protection algorithm might be used.</dd>
 </dl>
 <p id="rfc.section.9.3.p.6">To prevent an attacker from modifying packet headers, the header is transitively authenticated using packet protection; the entire packet header is part of the authenticated additional data.  Protected fields that are falsified or modified can only be detected once the packet protection is removed.</p>
-<p id="rfc.section.9.3.p.7">An attacker could guess values for packet numbers and have an endpoint confirm guesses through timing side channels.  Similarly, guesses for the packet number length can be trialed and exposed.  If the recipient of a packet discards packets with duplicate packet numbers without attempting to remove packet protection they could reveal through timing side-channels that the packet number matches a received packet.  For authentication to be free from side-channels, the entire process of header protection removal, packet number recovery, and packet protection removal MUST be applied together without timing and other side-channels.</p>
+<p id="rfc.section.9.3.p.7">An attacker could guess values for packet numbers or key phase and have an endpoint confirm guesses through timing side channels.  Similarly, guesses for the packet number length can be trialed and exposed.  If the recipient of a packet discards packets with duplicate packet numbers without attempting to remove packet protection they could reveal through timing side-channels that the packet number matches a received packet.  For authentication to be free from side-channels, the entire process of header protection removal, packet number recovery, and packet protection removal MUST be applied together without timing and other side-channels.</p>
 <p id="rfc.section.9.3.p.8">For the sending of packets, construction and protection of packet payloads and packet numbers MUST be free from side-channels that would reveal the packet number or its encoded size.</p>
 <h2 id="rfc.section.9.4">
 <a href="#rfc.section.9.4">9.4.</a> <a href="#key-diversity" id="key-diversity">Key Diversity</a>
