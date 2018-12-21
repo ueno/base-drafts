@@ -1622,7 +1622,10 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <a href="#rfc.section.8.6">8.6.</a> <a href="#failed-path-validation" id="failed-path-validation">Failed Path Validation</a>
 </h2>
 <p id="rfc.section.8.6.p.1">Path validation only fails when the endpoint attempting to validate the path abandons its attempt to validate the path.</p>
-<p id="rfc.section.8.6.p.2">Endpoints SHOULD abandon path validation based on a timer. When setting this timer, implementations are cautioned that the new path could have a longer round-trip time than the original.  A value of three times the current Retransmittion Timeout (RTO) as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a> is RECOMMENDED.</p>
+<p id="rfc.section.8.6.p.2">Endpoints SHOULD abandon path validation based on a timer. When setting this timer, implementations are cautioned that the new path could have a longer round-trip time than the original.  A value of three times the larger of the current Probe Timeout (PTO) or the initial timeout (that is, 2*kInitialRtt) as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a> is RECOMMENDED.  That is:</p>
+<pre>
+   validation_timeout = max(3*PTO, 6*kInitialRtt)
+</pre>
 <p id="rfc.section.8.6.p.3">Note that the endpoint might receive packets containing other frames on the new path, but a PATH_RESPONSE frame with appropriate data is required for path validation to succeed.</p>
 <p id="rfc.section.8.6.p.4">When an endpoint abandons path validation, it determines that the path is unusable.  This does not necessarily imply a failure of the connection - endpoints can continue sending packets over other paths as appropriate.  If no paths are available, an endpoint can wait for a new path to become available or close the connection.</p>
 <p id="rfc.section.8.6.p.5">A path validation might be abandoned for other reasons besides failure. Primarily, this happens if a connection migration to a new path is initiated while a path validation on the old path is in progress.</p>
@@ -1744,7 +1747,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.10.1">
 <a href="#rfc.section.10.1">10.1.</a> <a href="#draining" id="draining">Closing and Draining Connection States</a>
 </h2>
-<p id="rfc.section.10.1.p.1">The closing and draining connection states exist to ensure that connections close cleanly and that delayed or reordered packets are properly discarded.  These states SHOULD persist for three times the current Retransmission Timeout (RTO) interval as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.</p>
+<p id="rfc.section.10.1.p.1">The closing and draining connection states exist to ensure that connections close cleanly and that delayed or reordered packets are properly discarded.  These states SHOULD persist for three times the current Probe Timeout (PTO) interval as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.</p>
 <p id="rfc.section.10.1.p.2">An endpoint enters a closing period after initiating an immediate close (<a href="#immediate-close" class="xref">Section 10.3</a>).  While closing, an endpoint MUST NOT send packets unless they contain a CONNECTION_CLOSE frame (see <a href="#immediate-close" class="xref">Section 10.3</a> for details).  An endpoint retains only enough information to generate a packet containing a CONNECTION_CLOSE frame and to identify packets as belonging to the connection.  The connection ID and QUIC version is sufficient information to identify packets for a closing connection; an endpoint can discard all other connection state.  An endpoint MAY retain packet protection keys for incoming packets to allow it to read and process a CONNECTION_CLOSE frame.</p>
 <p id="rfc.section.10.1.p.3">The draining state is entered once an endpoint receives a signal that its peer is closing or draining.  While otherwise identical to the closing state, an endpoint in the draining state MUST NOT send any packets.  Retaining packet protection keys is unnecessary once a connection is in the draining state.</p>
 <p id="rfc.section.10.1.p.4">An endpoint MAY transition from the closing period to the draining period if it can confirm that its peer is also closing or draining.  Receiving a CONNECTION_CLOSE frame is sufficient confirmation, as is receiving a stateless reset.  The draining period SHOULD end when the closing period would have ended.  In other words, the endpoint can use the same end time, but cease retransmission of the closing packet.</p>
@@ -1758,7 +1761,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </h2>
 <p id="rfc.section.10.2.p.1">If the idle timeout is enabled, a connection that remains idle for longer than the advertised idle timeout (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>) is closed.  A connection enters the draining state when the idle timeout expires.</p>
 <p id="rfc.section.10.2.p.2">Each endpoint advertises its own idle timeout to its peer. The idle timeout starts from the last packet received.  In order to ensure that initiating new activity postpones an idle timeout, an endpoint restarts this timer when sending a packet.  An endpoint does not postpone the idle timeout if another packet has been sent containing frames other than ACK or PADDING, and that other packet has not been acknowledged or declared lost.  Packets that contain only ACK or PADDING frames are not acknowledged until an endpoint has other frames to send, so they could prevent the timeout from being refreshed.</p>
-<p id="rfc.section.10.2.p.3">The value for an idle timeout can be asymmetric.  The value advertised by an endpoint is only used to determine whether the connection is live at that endpoint.  An endpoint that sends packets near the end of the idle timeout period of a peer risks having those packets discarded if its peer enters the draining state before the packets arrive.  If a peer could timeout within an RTO (see Section 5.3.3 of <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), it is advisable to test for liveness before sending any data that cannot be retried safely.</p>
+<p id="rfc.section.10.2.p.3">The value for an idle timeout can be asymmetric.  The value advertised by an endpoint is only used to determine whether the connection is live at that endpoint.  An endpoint that sends packets near the end of the idle timeout period of a peer risks having those packets discarded if its peer enters the draining state before the packets arrive.  If a peer could timeout within an Probe Timeout (PTO, see Section 5.3.3 of <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), it is advisable to test for liveness before sending any data that cannot be retried safely.</p>
 <h2 id="rfc.section.10.3">
 <a href="#rfc.section.10.3">10.3.</a> <a href="#immediate-close" id="immediate-close">Immediate Close</a>
 </h2>
@@ -2729,7 +2732,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.19.3.1.p.6">Each Gap indicates a range of packets that are not being acknowledged.  The number of packets in the gap is one higher than the encoded value of the Gap Field.</p>
 <p id="rfc.section.19.3.1.p.7">The value of the Gap field establishes the largest packet number value for the ACK Block that follows the gap using the following formula:</p>
 <pre>
-  largest = previous_smallest - gap - 2
+   largest = previous_smallest - gap - 2
 </pre>
 <p id="rfc.section.19.3.1.p.8">If the calculated value for largest or smallest packet number for any ACK Block is negative, an endpoint MUST generate a connection error of type FRAME_ENCODING_ERROR indicating an error in an ACK frame.</p>
 <p id="rfc.section.19.3.1.p.9">The fields in the ACK Block Section are:</p>
