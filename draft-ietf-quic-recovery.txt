@@ -1313,11 +1313,14 @@ Internet-Draft             QUIC Loss Detection              January 2019
    acknowledgement is received that establishes loss or delivery of
    packets.
 
-   If a threshold number of consecutive PTOs have occurred (pto_count is
-   more than kPersistentCongestionThreshold, see Section 7.9.1), the
-   network is considered to be experiencing persistent congestion, and
-   the sender's congestion window MUST be reduced to the minimum
-   congestion window.
+   When an ACK frame is received that establishes loss after a threshold
+   number of consecutive PTOs (pto_count is more than
+   kPersistentCongestionThreshold, see Section 7.9.1), the network is
+   considered to be experiencing persistent congestion, and the sender's
+   congestion window MUST be reduced to the minimum congestion window
+   (kMinimumWindow).  This response of collapsing the congestion window
+   on persistent congestion is functionally similar to a sender's
+   response on a Retransmission Timeout (RTO) in TCP [RFC5681].
 
 7.6.  Pacing
 
@@ -1334,9 +1337,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
    congestion window, or a pacer might pace out packets handed to it by
    the congestion controller.  Timely delivery of ACK frames is
    important for efficient loss recovery.  Packets containing only ACK
-   frames should therefore not be paced, to avoid delaying their
-   delivery to the peer.
-
 
 
 
@@ -1345,6 +1345,9 @@ Iyengar & Swett           Expires July 8, 2019                 [Page 24]
 
 Internet-Draft             QUIC Loss Detection              January 2019
 
+
+   frames should therefore not be paced, to avoid delaying their
+   delivery to the peer.
 
    As an example of a well-known and publicly available implementation
    of a flow pacer, implementers are referred to the Fair Queue packet
@@ -1390,9 +1393,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
 
    kInitialWindow:  Default limit on the initial amount of data in
       flight, in bytes.  Taken from [RFC6928].  The RECOMMENDED value is
-      the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize,
-      14600)).
-
 
 
 
@@ -1402,23 +1402,23 @@ Iyengar & Swett           Expires July 8, 2019                 [Page 25]
 Internet-Draft             QUIC Loss Detection              January 2019
 
 
+      the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize,
+      14600)).
+
    kMinimumWindow:  Minimum congestion window in bytes.  The RECOMMENDED
       value is 2 * kMaxDatagramSize.
 
    kLossReductionFactor:  Reduction in congestion window when a new loss
       event is detected.  The RECOMMENDED value is 0.5.
 
-   kPersistentCongestionThreshold:  Number of consecutive PTOs after
-      which network is considered to be experiencing persistent
-      congestion.  The rationale for this threshold is to enable a
-      sender to use initial PTOs for aggressive probing, similar to Tail
-      Loss Probe (TLP) in TCP [TLP] [RACK].  Once the number of
-      consecutive PTOs reaches this threshold - that is, persistent
-      congestion is established - the sender responds by collapsing its
-      congestion window to kMinimumWindow, similar to a Retransmission
-      Timeout (RTO) in TCP [RFC5681].  The RECOMMENDED value for
-      kPersistentCongestionThreshold is 2, which is equivalent to having
-      two TLPs before an RTO in TCP.
+   kPersistentCongestionThreshold:  Number of consecutive PTOs required
+      for persistent congestion to be established.  The rationale for
+      this threshold is to enable a sender to use initial PTOs for
+      aggressive probing, as TCP does with Tail Loss Probe (TLP) [TLP]
+      [RACK], before establishing persistent congestion, as TCP does
+      with a Retransmission Timeout (RTO) [RFC5681].  The RECOMMENDED
+      value for kPersistentCongestionThreshold is 2, which is equivalent
+      to having two TLPs before an RTO in TCP.
 
 7.9.2.  Variables of interest
 
