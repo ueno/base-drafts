@@ -3763,12 +3763,14 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
 13.1.1.  Sending ACK Frames
 
-   To avoid creating an indefinite feedback loop, an endpoint MUST NOT
-   send an ACK frame in response to a packet containing only ACK or
-   PADDING frames, even if there are packet gaps which precede the
-   received packet.  The endpoint MUST however acknowledge packets
-   containing only ACK or PADDING frames when sending ACK frames in
-   response to other packets.
+   An endpoint MUST NOT send more than one packet containing only an ACK
+   frame per received packet that contains frames other than ACK and
+   PADDING frames.  An endpoint MUST NOT send a packet containing only
+   an ACK frame in response to a packet containing only ACK or PADDING
+   frames, even if there are packet gaps which precede the received
+   packet.  This prevents an indefinite feedback loop of ACKs.  The
+   endpoint MUST however acknowledge packets containing only ACK or
+   PADDING frames when sending ACK frames in response to other packets.
 
    Packets containing PADDING frames are considered to be in flight for
    congestion control purposes [QUIC-RECOVERY].  Sending only PADDING
@@ -3777,10 +3779,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    forthcoming from the receiver.  Therefore, a sender SHOULD ensure
    that other frames are sent in addition to PADDING frames to elicit
    acknowledgments from the receiver.
-
-   An endpoint MUST NOT send more than one packet containing only an ACK
-   frame per received packet that contains frames other than ACK and
-   PADDING frames.
 
    The receiver's delayed acknowledgment timer SHOULD NOT exceed the
    current RTT estimate or the value it indicates in the "max_ack_delay"
@@ -3792,15 +3790,17 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    Strategies and implications of the frequency of generating
    acknowledgments are discussed in more detail in [QUIC-RECOVERY].
 
-   To limit the ranges of acknowledged packet numbers to those that have
-   not yet been received by the sender, the receiver SHOULD track which
-   ACK frames have been acknowledged by its peer.  The receiver SHOULD
+   To limit ACK Ranges (see Section 19.3.1) to those that have not yet
+   been received by the sender, the receiver SHOULD track which ACK
+   frames have been acknowledged by its peer.  The receiver SHOULD
    exclude already acknowledged packets from future ACK frames whenever
    these packets would unnecessarily contribute to the ACK frame size.
 
    Because ACK frames are not sent in response to ACK-only packets, a
    receiver that is only sending ACK frames will only receive
    acknowledgements for its packets if the sender includes them in
+   packets with non-ACK frames.  A sender SHOULD bundle ACK frames with
+   other frames when possible.
 
 
 
@@ -3809,9 +3809,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 68]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   packets with non-ACK frames.  A sender SHOULD bundle ACK frames with
-   other frames when possible.
 
    To limit receiver state or the size of ACK frames, a receiver MAY
    limit the number of ACK Ranges it sends.  A receiver can do this even
@@ -3857,7 +3854,10 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       CRYPTO frames for Initial and Handshake packets is discarded when
       keys for the corresponding encryption level are discarded.
 
-
+   o  Application data sent in STREAM frames is retransmitted in new
+      STREAM frames unless the endpoint has sent a RESET_STREAM for that
+      stream.  Once an endpoint sends a RESET_STREAM frame, no further
+      STREAM frames are needed.
 
 
 
@@ -3865,11 +3865,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 69]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   o  Application data sent in STREAM frames is retransmitted in new
-      STREAM frames unless the endpoint has sent a RESET_STREAM for that
-      stream.  Once an endpoint sends a RESET_STREAM frame, no further
-      STREAM frames are needed.
 
    o  The most recent set of acknowledgments are sent in ACK frames.  An
       ACK frame SHOULD contain all unacknowledged acknowledgments, as
@@ -3913,7 +3908,12 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       declared lost or when the limit is updated, with care taken to
       prevent the frame from being sent too often.
 
-
+   o  Blocked signals are carried in DATA_BLOCKED, STREAM_DATA_BLOCKED,
+      and STREAMS_BLOCKED frames.  DATA_BLOCKED frames have connection
+      scope, STREAM_DATA_BLOCKED frames have stream scope, and
+      STREAMS_BLOCKED frames are scoped to a specific stream type.  New
+      frames are sent if packets containing the most recent frame for a
+      scope is lost, but only while the endpoint is blocked on the
 
 
 
@@ -3922,12 +3922,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 70]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-   o  Blocked signals are carried in DATA_BLOCKED, STREAM_DATA_BLOCKED,
-      and STREAMS_BLOCKED frames.  DATA_BLOCKED frames have connection
-      scope, STREAM_DATA_BLOCKED frames have stream scope, and
-      STREAMS_BLOCKED frames are scoped to a specific stream type.  New
-      frames are sent if packets containing the most recent frame for a
-      scope is lost, but only while the endpoint is blocked on the
       corresponding limit.  These frames always include the limit that
       is causing blocking at the time that they are transmitted.
 
@@ -3970,6 +3964,12 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    To use ECN, QUIC endpoints first determine whether a path supports
    ECN marking and the peer is able to access the ECN codepoint in the
+   IP header.  A network path does not support ECN if ECN marked packets
+   get dropped or ECN markings are rewritten on the path.  An endpoint
+   verifies the path, both during connection establishment and when
+   migrating to a new path (see Section 9).
+
+
 
 
 
@@ -3977,11 +3977,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 71]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   IP header.  A network path does not support ECN if ECN marked packets
-   get dropped or ECN markings are rewritten on the path.  An endpoint
-   verifies the path, both during connection establishment and when
-   migrating to a new path (see Section 9).
 
 13.3.1.  ECN Counts
 
@@ -4027,17 +4022,17 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    feedback, an endpoint sets the ECT(0) codepoint in the IP header of
    all outgoing packets [RFC8311].
 
+   If an ECT codepoint set in the IP header is not corrupted by a
+   network device, then a received packet contains either the codepoint
+   sent by the peer or the Congestion Experienced (CE) codepoint set by
+   a network device that is experiencing congestion.
+
 
 
 Iyengar & Thomson         Expires July 12, 2019                [Page 72]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   If an ECT codepoint set in the IP header is not corrupted by a
-   network device, then a received packet contains either the codepoint
-   sent by the peer or the Congestion Experienced (CE) codepoint set by
-   a network device that is experiencing congestion.
 
    If a QUIC packet sent with an ECT codepoint is newly acknowledged by
    the peer in an ACK frame without ECN feedback, the endpoint stops
@@ -4082,6 +4077,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    codepoints in subsequent IP packets with the expectation that either
    the network path or the peer does not support ECN.
 
+   If an endpoint sets ECT codepoints on outgoing IP packets and
+   encounters a retransmission timeout due to the absence of
+   acknowledgments from the peer (see [QUIC-RECOVERY]), or if an
+   endpoint has reason to believe that an element on the network path
+   might be corrupting ECN codepoints, the endpoint MAY cease setting
 
 
 
@@ -4090,11 +4090,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 73]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-   If an endpoint sets ECT codepoints on outgoing IP packets and
-   encounters a retransmission timeout due to the absence of
-   acknowledgments from the peer (see [QUIC-RECOVERY]), or if an
-   endpoint has reason to believe that an element on the network path
-   might be corrupting ECN codepoints, the endpoint MAY cease setting
    ECT codepoints in subsequent packets.  Doing so allows the connection
    to be resilient to network elements that corrupt ECN codepoints in
    the IP header or drop packets with ECT or CE codepoints in the IP
@@ -4138,6 +4133,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    header, UDP header, and UDP payload.  The UDP payload includes the
    QUIC packet header, protected payload, and any authentication fields.
    The PMTU can depend upon the current path characteristics.
+   Therefore, the current largest UDP payload an implementation will
+   send is referred to as the QUIC maximum packet size.
+
+   QUIC depends on a PMTU of at least 1280 bytes.  This is the IPv6
+   minimum size [RFC8200] and is also supported by most modern IPv4
 
 
 
@@ -4146,11 +4146,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 74]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-   Therefore, the current largest UDP payload an implementation will
-   send is referred to as the QUIC maximum packet size.
-
-   QUIC depends on a PMTU of at least 1280 bytes.  This is the IPv6
-   minimum size [RFC8200] and is also supported by most modern IPv4
    networks.  All QUIC packets (except for PMTU probe packets) SHOULD be
    sized to fit within the maximum packet size to avoid the packet being
    fragmented or dropped [RFC8085].
@@ -4194,6 +4189,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    The requirements for generating ICMP ([RFC1812], [RFC4443]) state
    that the quoted packet should contain as much of the original packet
+   as possible without exceeding the minimum MTU for the IP version.
+   The size of the quoted packet can actually be smaller, or the
+   information unintelligible, as described in Section 1.1 of
+   [DPLPMTUD].
+
 
 
 
@@ -4201,11 +4201,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 75]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   as possible without exceeding the minimum MTU for the IP version.
-   The size of the quoted packet can actually be smaller, or the
-   information unintelligible, as described in Section 1.1 of
-   [DPLPMTUD].
 
    QUIC endpoints SHOULD validate ICMP messages to protect from off-path
    injection as specified in [RFC8201] and Section 5.2 of [RFC8085].
@@ -4249,6 +4244,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    them is lost.  However, these frames do consume congestion window,
    which could delay the transmission of subsequent application data.
 
+   A PING frame can be included in a PMTU probe to ensure that a valid
+   probe is acknowledged.
+
+   The considerations for processing ICMP messages in the previous
+   section also apply if these messages are used by DPLPMTUD.
 
 
 
@@ -4257,12 +4257,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 76]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   A PING frame can be included in a PMTU probe to ensure that a valid
-   probe is acknowledged.
-
-   The considerations for processing ICMP messages in the previous
-   section also apply if these messages are used by DPLPMTUD.
 
 15.  Versions
 
@@ -4306,6 +4300,12 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    the draft number to 0xff000000.  For example, draft-ietf-quic-
    transport-13 would be identified as 0xff00000D.
 
+   Implementors are encouraged to register version numbers of QUIC that
+   they are using for private experimentation on the GitHub wiki at
+   <https://github.com/quicwg/base-drafts/wiki/QUIC-Versions>.
+
+
+
 
 
 
@@ -4313,10 +4313,6 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 77]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   Implementors are encouraged to register version numbers of QUIC that
-   they are using for private experimentation on the GitHub wiki at
-   <https://github.com/quicwg/base-drafts/wiki/QUIC-Versions>.
 
 16.  Variable-Length Integer Encoding
 
@@ -4361,6 +4357,10 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    All numeric values are encoded in network byte order (that is, big-
    endian) and all field sizes are in bits.  Hexadecimal notation is
    used for describing the value of fields.
+
+
+
+
 
 
 
@@ -5446,11 +5446,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       contiguous packets preceding the Largest Acknowledged that are
       being acknowledged.  The First ACK Range is encoded as an ACK
       Range (see Section 19.3.1) starting from the Largest Acknowledged.
-      That is, the smallest packet number included in the range is
+      That is, the smallest packet acknowledged in the range is
       determined by subtracting the First ACK Range value from the
       Largest Acknowledged.
 
-   ACK Ranges:  Contains additional ranges of packet numbers which are
+   ACK Ranges:  Contains additional ranges of packets which are
       alternately not acknowledged (Gap) and acknowledged (ACK Range),
       see Section 19.3.1.
 
@@ -5536,8 +5536,8 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
       smallest = largest - ack_range
 
-   An ACK Range acknowledges all packet numbers between the smallest
-   packet number and the largest, inclusive.
+   An ACK Range acknowledges all packets between the smallest packet
+   number and the largest, inclusive.
 
 
 
