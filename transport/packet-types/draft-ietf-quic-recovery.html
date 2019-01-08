@@ -368,7 +368,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2018-12-19" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-01-08" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -392,12 +392,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: June 22, 2019</td>
+<td class="left">Expires: July 12, 2019</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">December 19, 2018</td>
+<td class="right">January 08, 2019</td>
 </tr>
 
     	
@@ -416,9 +416,9 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on June 22, 2019.</p>
+<p>This Internet-Draft will expire on July 12, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
-<p>Copyright (c) 2018 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
+<p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
 
   
@@ -718,7 +718,7 @@ ul.toc li {
 <li>the latest RTT sample is lower than the SRTT, perhaps due to reordering where packet whose ack triggered the Early Retransmit process encountered a shorter path;</li>
 <li>the latest RTT sample is higher than the SRTT, perhaps due to a sustained increase in the actual RTT, but the smoothed SRTT has not yet caught up.</li>
 </ul>
-<p id="rfc.section.6.1.2.p.5">Implementers MAY experiment with using other reordering thresholds, including absolute thresholds, bearing in mind that a lower multiplier reduces reordering resilience and increases spurious retransmissions, and a higher multiplier increases loss detection delay.</p>
+<p id="rfc.section.6.1.2.p.5">Implementations MAY experiment with absolute thresholds, thresholds from previous connections, adaptive thresholds, or including RTT variance.  Smaller thresholds reduce reordering resilience and increase spurious retransmissions, and larger thresholds increase loss detection delay.</p>
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#timeout-loss-detection" id="timeout-loss-detection">Timeout Loss Detection</a>
 </h2>
@@ -765,6 +765,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <p id="rfc.section.6.2.2.2.p.1">When a PTO timer expires, the sender MUST send one ack-eliciting packet as a probe. A sender MAY send up to two ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single packet loss.</p>
 <p id="rfc.section.6.2.2.2.p.2">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drops, thus reducing the probability of consecutive PTO events.</p>
 <p id="rfc.section.6.2.2.2.p.3">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
+<p id="rfc.section.6.2.2.2.p.4">When a PTO timer expires, new or previously-sent data may not be available to send and packets may still be in flight.  A sender can be blocked from sending new data in the future if packets are left in flight.  Under these conditions, a sender SHOULD mark any packets still in flight as lost.  If a sender wishes to establish delivery of packets still in flight, it MAY send an ack-eliciting packet and re-arm the PTO timer instead.</p>
 <h4 id="rfc.section.6.2.2.3">
 <a href="#rfc.section.6.2.2.3">6.2.2.3.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
 </h4>
@@ -883,10 +884,11 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
    sent_packets[packet_number].time_sent = now
    sent_packets[packet_number].ack_eliciting = ack_eliciting
    sent_packets[packet_number].in_flight = in_flight
-   if (ack_eliciting):
+   if (in_flight):
      if (is_crypto_packet):
        time_of_last_sent_crypto_packet = now
-     time_of_last_sent_ack_eliciting_packet = now
+     if (ack_eliciting):
+       time_of_last_sent_ack_eliciting_packet = now
      OnPacketSentCC(sent_bytes)
      sent_packets[packet_number].size = sent_bytes
      SetLossDetectionTimer()
@@ -921,10 +923,11 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
     for acked_packet in newly_acked_packets:
       OnPacketAcked(acked_packet.packet_number)
 
+    DetectLostPackets()
+
     crypto_count = 0
     pto_count = 0
 
-    DetectLostPackets()
     SetLossDetectionTimer()
 
 
@@ -1087,7 +1090,7 @@ DetectLostPackets():
 <a href="#rfc.section.7.5">7.5.</a> <a href="#probe-timeout" id="probe-timeout">Probe Timeout</a>
 </h2>
 <p id="rfc.section.7.5.p.1">Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST however count these packets as being additionally in flight, since these packets adds network load without establishing packet loss.  Note that sending probe packets might cause the sender&#8217;s bytes in flight to exceed the congestion window until an acknowledgement is received that establishes loss or delivery of packets.</p>
-<p id="rfc.section.7.5.p.2">If a threshold number of consecutive PTOs have occurred (pto_count is more than kPersistentCongestionThreshold, see <a href="#cc-consts-of-interest" class="xref">Section 7.9.1</a>), the network is considered to be experiencing persistent congestion, and the sender&#8217;s congestion window MUST be reduced to the minimum congestion window.</p>
+<p id="rfc.section.7.5.p.2">When an ACK frame is received that establishes loss of all in-flight packets sent prior to a threshold number of consecutive PTOs (pto_count is more than kPersistentCongestionThreshold, see <a href="#cc-consts-of-interest" class="xref">Section 7.9.1</a>), the network is considered to be experiencing persistent congestion, and the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a>.</p>
 <h2 id="rfc.section.7.6">
 <a href="#rfc.section.7.6">7.6.</a> <a href="#pacing" id="pacing">Pacing</a>
 </h2>
@@ -1097,7 +1100,7 @@ DetectLostPackets():
 <h2 id="rfc.section.7.7">
 <a href="#rfc.section.7.7">7.7.</a> <a href="#sending-data-after-an-idle-period" id="sending-data-after-an-idle-period">Sending data after an idle period</a>
 </h2>
-<p id="rfc.section.7.7.p.1">A sender becomes idle if it ceases to send data and has no bytes in flight.  A sender&#8217;s congestion window MUST not increase while it is idle.</p>
+<p id="rfc.section.7.7.p.1">A sender becomes idle if it ceases to send data and has no bytes in flight.  A sender&#8217;s congestion window MUST NOT increase while it is idle.</p>
 <p id="rfc.section.7.7.p.2">When sending data after becoming idle, a sender MUST reset its congestion window to the initial congestion window (see Section 4.1 of <a href="#RFC5681" class="xref">[RFC5681]</a>), unless it paces the sending of packets. A sender MAY retain its congestion window if it paces the sending of any packets in excess of the initial congestion window.</p>
 <p id="rfc.section.7.7.p.3">A sender MAY implement alternate mechanisms to update its congestion window after idle periods, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
 <h2 id="rfc.section.7.8">
@@ -1123,7 +1126,7 @@ DetectLostPackets():
 <dt>kLossReductionFactor:</dt>
 <dd style="margin-left: 8">Reduction in congestion window when a new loss event is detected.  The RECOMMENDED value is 0.5.</dd>
 <dt>kPersistentCongestionThreshold:</dt>
-<dd style="margin-left: 8">Number of consecutive PTOs after which network is considered to be experiencing persistent congestion.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, similar to Tail Loss Probe (TLP) in TCP <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>.  Once the number of consecutive PTOs reaches this threshold - that is, persistent congestion is established - the sender responds by collapsing its congestion window to kMinimumWindow, similar to a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 2, which is equivalent to having two TLPs before an RTO in TCP.</dd>
+<dd style="margin-left: 8">Number of consecutive PTOs required for persistent congestion to be established.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP) <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>, before establishing persistent congestion, as TCP does with a Retransmission Timeout (RTO) <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 2, which is equivalent to having two TLPs before an RTO in TCP.</dd>
 </dl>
 <h3 id="rfc.section.7.9.2">
 <a href="#rfc.section.7.9.2">7.9.2.</a> <a href="#vars-of-interest" id="vars-of-interest">Variables of interest</a>
@@ -1261,7 +1264,7 @@ DetectLostPackets():
 <tr>
 <td class="reference"><b id="QUIC-TRANSPORT">[QUIC-TRANSPORT]</b></td>
 <td class="top">
-<a title="Fastly">Iyengar, J.</a> and <a title="Mozilla">M. Thomson</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-transport">QUIC: A UDP-Based Multiplexed and Secure Transport</a>", Internet-Draft draft-ietf-quic-transport, December 2018.</td>
+<a title="Fastly">Iyengar, J.</a> and <a title="Mozilla">M. Thomson</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-transport">QUIC: A UDP-Based Multiplexed and Secure Transport</a>", Internet-Draft draft-ietf-quic-transport, January 2019.</td>
 </tr>
 <tr>
 <td class="reference"><b id="RFC2119">[RFC2119]</b></td>
