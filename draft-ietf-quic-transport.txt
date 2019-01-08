@@ -93,7 +93,7 @@ Table of Contents
      4.1.  Data Flow Control . . . . . . . . . . . . . . . . . . . .  20
      4.2.  Flow Credit Increments  . . . . . . . . . . . . . . . . .  21
      4.3.  Handling Stream Cancellation  . . . . . . . . . . . . . .  22
-     4.4.  Stream Final Offset . . . . . . . . . . . . . . . . . . .  22
+     4.4.  Stream Final Size . . . . . . . . . . . . . . . . . . . .  22
      4.5.  Controlling Concurrency . . . . . . . . . . . . . . . . .  23
    5.  Connections . . . . . . . . . . . . . . . . . . . . . . . . .  24
      5.1.  Connection ID . . . . . . . . . . . . . . . . . . . . . .  24
@@ -818,10 +818,10 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    available, the endpoint sends MAX_STREAM_DATA frames to allow the
    peer to send more data.
 
-   When a STREAM frame with a FIN bit is received, the final offset is
-   known (see Section 4.4).  The receiving part of the stream then
-   enters the "Size Known" state.  In this state, the endpoint no longer
-   needs to send MAX_STREAM_DATA frames, it only receives any
+   When a STREAM frame with a FIN bit is received, the final size of the
+   stream is known (see Section 4.4).  The receiving part of the stream
+   then enters the "Size Known" state.  In this state, the endpoint no
+   longer needs to send MAX_STREAM_DATA frames, it only receives any
    retransmissions of stream data.
 
    Once all data for the stream has been received, the receiving part
@@ -1199,11 +1199,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    the number of bytes that count towards connection flow control.
 
    To remedy this issue, a RESET_STREAM frame (Section 19.4) includes
-   the final offset of data sent on the stream.  On receiving a
+   the final size of data sent on the stream.  On receiving a
    RESET_STREAM frame, a receiver definitively knows how many bytes were
    sent on that stream before the RESET_STREAM frame, and the receiver
-   MUST use the final offset to account for all bytes sent on the stream
-   in its connection level flow controller.
+   MUST use the final size of the stream to account for all bytes sent
+   on the stream in its connection level flow controller.
 
    RESET_STREAM terminates one direction of a stream abruptly.  For a
    bidirectional stream, RESET_STREAM has no effect on data flow in the
@@ -1212,20 +1212,20 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    enters a terminal state, or until one of the endpoints sends
    CONNECTION_CLOSE.
 
-4.4.  Stream Final Offset
+4.4.  Stream Final Size
 
-   The final offset is the count of the number of bytes that are
-   transmitted on a stream.  For a stream that is reset, the final
-   offset is carried explicitly in a RESET_STREAM frame.  Otherwise, the
-   final offset is the offset of the end of the data carried in a STREAM
-   frame marked with a FIN flag.
+   The final size is the amount of flow control credit that is consumed
+   by a stream.  Assuming that every contiguous byte on the stream was
+   sent once, the final size is the number of bytes sent.  More
+   generally, this is one higher than the largest byte offset sent on
+   the stream.
 
-   An endpoint will know the final offset for a stream when the
-   receiving part of the stream enters the "Size Known" or "Reset Recvd"
-   state (Section 3).
+   For a stream that is reset, the final size is carried explicitly in a
+   RESET_STREAM frame.  Otherwise, the final size is the offset plus the
+   length of a STREAM frame marked with a FIN flag, or 0 in the case of
+   incoming unidirectional streams.
 
-   An endpoint MUST NOT send data on a stream at or beyond the final
-   offset.
+
 
 
 
@@ -1234,15 +1234,22 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 22]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-   Once a final offset for a stream is known, it cannot change.  If a
+   An endpoint will know the final size for a stream when the receiving
+   part of the stream enters the "Size Known" or "Reset Recvd" state
+   (Section 3).
+
+   An endpoint MUST NOT send data on a stream at or beyond the final
+   size.
+
+   Once a final size for a stream is known, it cannot change.  If a
    RESET_STREAM or STREAM frame is received indicating a change in the
-   final offset for the stream, an endpoint SHOULD respond with a
-   FINAL_OFFSET_ERROR error (see Section 11).  A receiver SHOULD treat
-   receipt of data at or beyond the final offset as a FINAL_OFFSET_ERROR
+   final size for the stream, an endpoint SHOULD respond with a
+   FINAL_SIZE_ERROR error (see Section 11).  A receiver SHOULD treat
+   receipt of data at or beyond the final size as a FINAL_SIZE_ERROR
    error, even after a stream is closed.  Generating these errors is not
    mandatory, but only because requiring that an endpoint generate these
-   errors also means that the endpoint needs to maintain the final
-   offset state for closed streams, which could mean a significant state
+   errors also means that the endpoint needs to maintain the final size
+   state for closed streams, which could mean a significant state
    commitment.
 
 4.5.  Controlling Concurrency
@@ -1275,13 +1282,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    limits SHOULD send a STREAMS_BLOCKED frame (Section 19.14).  This
    signal is considered useful for debugging.  An endpoint MUST NOT wait
    to receive this signal before advertising additional credit, since
-   doing so will mean that the peer will be blocked for at least an
-   entire round trip, and potentially for longer if the peer chooses to
-   not send STREAMS_BLOCKED frames.
-
-
-
-
 
 
 
@@ -1289,6 +1289,10 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 23]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
+
+   doing so will mean that the peer will be blocked for at least an
+   entire round trip, and potentially for longer if the peer chooses to
+   not send STREAMS_BLOCKED frames.
 
 5.  Connections
 
@@ -1333,10 +1337,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    could encode an explicit length, which allows the entire connection
    ID to vary in length and still be used by the load balancer.
 
-   A Version Negotiation (Section 17.4) packet echoes the connection IDs
-   selected by the client, both to ensure correct routing toward the
-   client and to allow the client to validate that the packet is in
-   response to an Initial packet.
 
 
 
@@ -1345,6 +1345,11 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 24]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
+
+   A Version Negotiation (Section 17.4) packet echoes the connection IDs
+   selected by the client, both to ensure correct routing toward the
+   client and to allow the client to validate that the packet is in
+   response to an Initial packet.
 
    A zero-length connection ID MAY be used when the connection ID is not
    needed for routing and the address/port tuple of packets is
@@ -1388,12 +1393,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    issues connection IDs cannot expect its peer to store and use all
    issued connection IDs.
 
-   An endpoint SHOULD ensure that its peer has a sufficient number of
-   available and unused connection IDs.  While each endpoint
-   independently chooses how many connection IDs to issue, endpoints
-   SHOULD provide and maintain at least eight connection IDs.  The
-   endpoint SHOULD do this by always supplying a new connection ID when
-   a connection ID is retired by its peer or when the endpoint receives
+
 
 
 
@@ -1402,6 +1402,12 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 25]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   An endpoint SHOULD ensure that its peer has a sufficient number of
+   available and unused connection IDs.  While each endpoint
+   independently chooses how many connection IDs to issue, endpoints
+   SHOULD provide and maintain at least eight connection IDs.  The
+   endpoint SHOULD do this by always supplying a new connection ID when
+   a connection ID is retired by its peer or when the endpoint receives
    a packet with a previously unused connection ID.  Endpoints that
    initiate migration and require non-zero-length connection IDs SHOULD
    provide their peers with new connection IDs before migration, or risk
@@ -1444,12 +1450,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    require connection IDs, QUIC processes the packet as part of that
    connection.  Endpoints SHOULD either reject connection attempts that
    use the same addresses as existing connections, or use a non-zero-
-   length Destination Connection ID so that packets can be correctly
-   attributed to connections.
-
-   Endpoints can send a Stateless Reset (Section 10.4) for any packets
-   that cannot be attributed to an existing connection.  A stateless
-
 
 
 
@@ -1458,6 +1458,11 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 26]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   length Destination Connection ID so that packets can be correctly
+   attributed to connections.
+
+   Endpoints can send a Stateless Reset (Section 10.4) for any packets
+   that cannot be attributed to an existing connection.  A stateless
    reset allows a peer to more quickly identify when a connection
    becomes unusable.
 
@@ -1501,11 +1506,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    Packets with a supported version, or no version field, are matched to
    a connection using the connection ID or - for packets with zero-
-   length connection IDs - the address tuple.  If the packet doesn't
-   match an existing connection, the server continues below.
-
-
-
 
 
 
@@ -1513,6 +1513,9 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 27]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
+
+   length connection IDs - the address tuple.  If the packet doesn't
+   match an existing connection, the server continues below.
 
    If the packet is an Initial packet fully conforming with the
    specification, the server proceeds with the handshake (Section 7).
@@ -1558,10 +1561,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
               Figure 3: Example Version Negotiation Exchange
 
-   The size of the first packet sent by a client will determine whether
-   a server sends a Version Negotiation packet.  Clients that support
-   multiple QUIC versions SHOULD pad the first packet they send to the
-   largest of the minimum packet sizes across all versions they support.
+
 
 
 
@@ -1570,6 +1570,10 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 28]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   The size of the first packet sent by a client will determine whether
+   a server sends a Version Negotiation packet.  Clients that support
+   multiple QUIC versions SHOULD pad the first packet they send to the
+   largest of the minimum packet sizes across all versions they support.
    This ensures that the server responds if there is a mutually
    supported version.
 
@@ -1613,11 +1617,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    version on all packets until it has 1-RTT keys and it has received a
    packet from the server which is not a Version Negotiation packet.
 
-   A client MUST NOT change the version it uses unless it is in response
-   to a Version Negotiation packet from the server.  Once a client
-   receives a packet from the server which is not a Version Negotiation
-   packet, it MUST discard other Version Negotiation packets on the same
-   connection.  Similarly, a client MUST ignore a Version Negotiation
+
 
 
 
@@ -1626,6 +1626,11 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 29]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   A client MUST NOT change the version it uses unless it is in response
+   to a Version Negotiation packet from the server.  Once a client
+   receives a packet from the server which is not a Version Negotiation
+   packet, it MUST discard other Version Negotiation packets on the same
+   connection.  Similarly, a client MUST ignore a Version Negotiation
    packet if it has already received and acted on a Version Negotiation
    packet.
 
@@ -1669,11 +1674,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    QUIC provides reliable, ordered delivery of the cryptographic
    handshake data.  QUIC packet protection is used to encrypt as much of
-   the handshake protocol as possible.  The cryptographic handshake MUST
-   provide the following properties:
-
-   o  authenticated key exchange, where
-
 
 
 
@@ -1681,6 +1681,11 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 30]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
+
+   the handshake protocol as possible.  The cryptographic handshake MUST
+   provide the following properties:
+
+   o  authenticated key exchange, where
 
       *  a server is always authenticated,
 
@@ -1724,11 +1729,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    Details of how TLS is integrated with QUIC are provided in
    [QUIC-TLS], but some examples are provided here.  An extension of
-   this exchange to support client address validation is shown in
-   Section 8.1.1.
-
-   Once any version negotiation and address validation exchanges are
-   complete, the cryptographic handshake is used to agree on
 
 
 
@@ -1738,6 +1738,11 @@ Iyengar & Thomson         Expires July 12, 2019                [Page 31]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   this exchange to support client address validation is shown in
+   Section 8.1.1.
+
+   Once any version negotiation and address validation exchanges are
+   complete, the cryptographic handshake is used to agree on
    cryptographic keys.  The cryptographic handshake is carried in
    Initial (Section 17.5) and Handshake (Section 17.6) packets.
 
@@ -1778,11 +1783,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    Section 12.3, the server acknowledges 0-RTT data at the 1-RTT
    encryption level, and the client sends 1-RTT packets in the same
    packet number space.
-
-
-
-
-
 
 
 
@@ -5624,7 +5624,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |  Application Error Code (16)  |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                       Final Offset (i)                     ...
+   |                        Final Size (i)                       ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
    RESET_STREAM frames contain the following fields:
@@ -5636,9 +5636,8 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       code (see Section 20.1) which indicates why the stream is being
       closed.
 
-   Final Offset:  A variable-length integer indicating the absolute byte
-      offset of the end of data written on this stream by the
-      RESET_STREAM sender.
+   Final Size:  A variable-length integer indicating the final size of
+      the stream by the RESET_STREAM sender, in unit of bytes.
 
 19.5.  STOP_SENDING Frame
 
@@ -5650,6 +5649,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    stream that has not yet been created or is in the "Ready" state (see
    Section 3.1).  Receiving a STOP_SENDING frame for a locally-initiated
    stream that is "Ready" or not yet created MUST be treated as a
+   connection error of type STREAM_STATE_ERROR.  An endpoint that
 
 
 
@@ -5658,7 +5658,6 @@ Iyengar & Thomson         Expires July 12, 2019               [Page 101]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-   connection error of type STREAM_STATE_ERROR.  An endpoint that
    receives a STOP_SENDING frame for a receive-only stream MUST
    terminate the connection with error STREAM_STATE_ERROR.
 
@@ -5705,6 +5704,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
                       Figure 19: CRYPTO Frame Format
 
    CRYPTO frames contain the following fields:
+
 
 
 
@@ -5783,8 +5783,8 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       the packet.  If this bit is set to 1, the Length field is present.
 
    o  The FIN bit (0x01) of the frame type is set only on frames that
-      contain the final offset of the stream.  Setting this bit
-      indicates that the frame marks the end of the stream.
+      contain the final size of the stream.  Setting this bit indicates
+      that the frame marks the end of the stream.
 
    An endpoint that receives a STREAM frame for a send-only stream MUST
    terminate the connection with error STREAM_STATE_ERROR.
@@ -6333,13 +6333,13 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    STREAM_STATE_ERROR (0x5):  An endpoint received a frame for a stream
       that was not in a state that permitted that frame (see Section 3).
 
-   FINAL_OFFSET_ERROR (0x6):  An endpoint received a STREAM frame
+   FINAL_SIZE_ERROR (0x6):  An endpoint received a STREAM frame
       containing data that exceeded the previously established final
-      offset.  Or an endpoint received a STREAM frame or a RESET_STREAM
-      frame containing a final offset that was lower than the maximum
-      offset of data that was already received.  Or an endpoint received
-      a STREAM frame or a RESET_STREAM frame containing a different
-      final offset to the one already established.
+      size.  Or an endpoint received a STREAM frame or a RESET_STREAM
+      frame containing a final size that was lower than the size of
+      stream data that was already received.  Or an endpoint received a
+      STREAM frame or a RESET_STREAM frame containing a different final
+      size to the one already established.
 
    FRAME_ENCODING_ERROR (0x7):  An endpoint received a frame that was
       badly formatted.  For instance, a frame of an unknown type, or an
@@ -6856,9 +6856,8 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    |      |                           | in invalid     |               |
    |      |                           | stream state   |               |
    |      |                           |                |               |
-   | 0x6  | FINAL_OFFSET_ERROR        | Change to      | Section 20    |
-   |      |                           | final stream   |               |
-   |      |                           | offset         |               |
+   | 0x6  | FINAL_SIZE_ERROR          | Change to      | Section 20    |
+   |      |                           | final size     |               |
    |      |                           |                |               |
    | 0x7  | FRAME_ENCODING_ERROR      | Frame encoding | Section 20    |
    |      |                           | error          |               |
@@ -6881,6 +6880,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    +------+---------------------------+----------------+---------------+
 
             Table 7: Initial QUIC Transport Error Codes Entries
+
 
 
 

@@ -299,7 +299,7 @@ ul.toc li {
 <link href="#rfc.section.4.1" rel="Chapter" title="4.1 Data Flow Control">
 <link href="#rfc.section.4.2" rel="Chapter" title="4.2 Flow Credit Increments">
 <link href="#rfc.section.4.3" rel="Chapter" title="4.3 Handling Stream Cancellation">
-<link href="#rfc.section.4.4" rel="Chapter" title="4.4 Stream Final Offset">
+<link href="#rfc.section.4.4" rel="Chapter" title="4.4 Stream Final Size">
 <link href="#rfc.section.4.5" rel="Chapter" title="4.5 Controlling Concurrency">
 <link href="#rfc.section.5" rel="Chapter" title="5 Connections">
 <link href="#rfc.section.5.1" rel="Chapter" title="5.1 Connection ID">
@@ -552,7 +552,7 @@ ul.toc li {
 </li>
 <li>4.3.   <a href="#rfc.section.4.3">Handling Stream Cancellation</a>
 </li>
-<li>4.4.   <a href="#rfc.section.4.4">Stream Final Offset</a>
+<li>4.4.   <a href="#rfc.section.4.4">Stream Final Size</a>
 </li>
 <li>4.5.   <a href="#rfc.section.4.5">Controlling Concurrency</a>
 </li>
@@ -1145,7 +1145,7 @@ ul.toc li {
 <p id="rfc.section.3.2.p.4">An endpoint opens a bidirectional stream when a MAX_STREAM_DATA or STOP_SENDING frame is received from the peer for that stream.  Receiving a MAX_STREAM_DATA frame for an unopened stream indicates that the remote peer has opened the stream and is providing flow control credit.  Receiving a STOP_SENDING frame for an unopened stream indicates that the remote peer no longer wishes to receive data on this stream.  Either frame might arrive before a STREAM or STREAM_DATA_BLOCKED frame if packets are lost or reordered.</p>
 <p id="rfc.section.3.2.p.5">Before creating a stream, all streams of the same type with lower-numbered stream IDs MUST be created.  This ensures that the creation order for streams is consistent on both endpoints.</p>
 <p id="rfc.section.3.2.p.6">In the &#8220;Recv&#8221; state, the endpoint receives STREAM and STREAM_DATA_BLOCKED frames.  Incoming data is buffered and can be reassembled into the correct order for delivery to the application.  As data is consumed by the application and buffer space becomes available, the endpoint sends MAX_STREAM_DATA frames to allow the peer to send more data.</p>
-<p id="rfc.section.3.2.p.7">When a STREAM frame with a FIN bit is received, the final offset is known (see <a href="#final-offset" class="xref">Section 4.4</a>).  The receiving part of the stream then enters the &#8220;Size Known&#8221; state.  In this state, the endpoint no longer needs to send MAX_STREAM_DATA frames, it only receives any retransmissions of stream data.</p>
+<p id="rfc.section.3.2.p.7">When a STREAM frame with a FIN bit is received, the final size of the stream is known (see <a href="#final-size" class="xref">Section 4.4</a>).  The receiving part of the stream then enters the &#8220;Size Known&#8221; state.  In this state, the endpoint no longer needs to send MAX_STREAM_DATA frames, it only receives any retransmissions of stream data.</p>
 <p id="rfc.section.3.2.p.8">Once all data for the stream has been received, the receiving part enters the &#8220;Data Recvd&#8221; state.  This might happen as a result of receiving the same STREAM frame that causes the transition to &#8220;Size Known&#8221;.  In this state, the endpoint has all stream data.  Any STREAM or STREAM_DATA_BLOCKED frames it receives for the stream can be discarded.</p>
 <p id="rfc.section.3.2.p.9">The &#8220;Data Recvd&#8221; state persists until stream data has been delivered to the application.  Once stream data has been delivered, the stream enters the &#8220;Data Read&#8221; state, which is a terminal state.</p>
 <p id="rfc.section.3.2.p.10">Receiving a RESET_STREAM frame in the &#8220;Recv&#8221; or &#8220;Size Known&#8221; states causes the stream to enter the &#8220;Reset Recvd&#8221; state.  This might cause the delivery of stream data to the application to be interrupted.</p>
@@ -1277,15 +1277,16 @@ ul.toc li {
 </h2>
 <p id="rfc.section.4.3.p.1">Endpoints need to eventually agree on the amount of flow control credit that has been consumed, to avoid either exceeding flow control limits or deadlocking.</p>
 <p id="rfc.section.4.3.p.2">On receipt of a RESET_STREAM frame, an endpoint will tear down state for the matching stream and ignore further data arriving on that stream.  If a RESET_STREAM frame is reordered with stream data for the same stream, the receiver&#8217;s estimate of the number of bytes received on that stream can be lower than the sender&#8217;s estimate of the number sent.  As a result, the two endpoints could disagree on the number of bytes that count towards connection flow control.</p>
-<p id="rfc.section.4.3.p.3">To remedy this issue, a RESET_STREAM frame (<a href="#frame-reset-stream" class="xref">Section 19.4</a>) includes the final offset of data sent on the stream.  On receiving a RESET_STREAM frame, a receiver definitively knows how many bytes were sent on that stream before the RESET_STREAM frame, and the receiver MUST use the final offset to account for all bytes sent on the stream in its connection level flow controller.</p>
+<p id="rfc.section.4.3.p.3">To remedy this issue, a RESET_STREAM frame (<a href="#frame-reset-stream" class="xref">Section 19.4</a>) includes the final size of data sent on the stream.  On receiving a RESET_STREAM frame, a receiver definitively knows how many bytes were sent on that stream before the RESET_STREAM frame, and the receiver MUST use the final size of the stream to account for all bytes sent on the stream in its connection level flow controller.</p>
 <p id="rfc.section.4.3.p.4">RESET_STREAM terminates one direction of a stream abruptly.  For a bidirectional stream, RESET_STREAM has no effect on data flow in the opposite direction.  Both endpoints MUST maintain flow control state for the stream in the unterminated direction until that direction enters a terminal state, or until one of the endpoints sends CONNECTION_CLOSE.</p>
 <h2 id="rfc.section.4.4">
-<a href="#rfc.section.4.4">4.4.</a> <a href="#final-offset" id="final-offset">Stream Final Offset</a>
+<a href="#rfc.section.4.4">4.4.</a> <a href="#final-size" id="final-size">Stream Final Size</a>
 </h2>
-<p id="rfc.section.4.4.p.1">The final offset is the count of the number of bytes that are transmitted on a stream.  For a stream that is reset, the final offset is carried explicitly in a RESET_STREAM frame.  Otherwise, the final offset is the offset of the end of the data carried in a STREAM frame marked with a FIN flag.</p>
-<p id="rfc.section.4.4.p.2">An endpoint will know the final offset for a stream when the receiving part of the stream enters the &#8220;Size Known&#8221; or &#8220;Reset Recvd&#8221; state (<a href="#stream-states" class="xref">Section 3</a>).</p>
-<p id="rfc.section.4.4.p.3">An endpoint MUST NOT send data on a stream at or beyond the final offset.</p>
-<p id="rfc.section.4.4.p.4">Once a final offset for a stream is known, it cannot change.  If a RESET_STREAM or STREAM frame is received indicating a change in the final offset for the stream, an endpoint SHOULD respond with a FINAL_OFFSET_ERROR error (see <a href="#error-handling" class="xref">Section 11</a>).  A receiver SHOULD treat receipt of data at or beyond the final offset as a FINAL_OFFSET_ERROR error, even after a stream is closed.  Generating these errors is not mandatory, but only because requiring that an endpoint generate these errors also means that the endpoint needs to maintain the final offset state for closed streams, which could mean a significant state commitment.</p>
+<p id="rfc.section.4.4.p.1">The final size is the amount of flow control credit that is consumed by a stream.  Assuming that every contiguous byte on the stream was sent once, the final size is the number of bytes sent.  More generally, this is one higher than the largest byte offset sent on the stream.</p>
+<p id="rfc.section.4.4.p.2">For a stream that is reset, the final size is carried explicitly in a RESET_STREAM frame.  Otherwise, the final size is the offset plus the length of a STREAM frame marked with a FIN flag, or 0 in the case of incoming unidirectional streams.</p>
+<p id="rfc.section.4.4.p.3">An endpoint will know the final size for a stream when the receiving part of the stream enters the &#8220;Size Known&#8221; or &#8220;Reset Recvd&#8221; state (<a href="#stream-states" class="xref">Section 3</a>).</p>
+<p id="rfc.section.4.4.p.4">An endpoint MUST NOT send data on a stream at or beyond the final size.</p>
+<p id="rfc.section.4.4.p.5">Once a final size for a stream is known, it cannot change.  If a RESET_STREAM or STREAM frame is received indicating a change in the final size for the stream, an endpoint SHOULD respond with a FINAL_SIZE_ERROR error (see <a href="#error-handling" class="xref">Section 11</a>).  A receiver SHOULD treat receipt of data at or beyond the final size as a FINAL_SIZE_ERROR error, even after a stream is closed.  Generating these errors is not mandatory, but only because requiring that an endpoint generate these errors also means that the endpoint needs to maintain the final size state for closed streams, which could mean a significant state commitment.</p>
 <h2 id="rfc.section.4.5">
 <a href="#rfc.section.4.5">4.5.</a> <a href="#controlling-concurrency" id="controlling-concurrency">Controlling Concurrency</a>
 </h2>
@@ -2791,7 +2792,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |  Application Error Code (16)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Final Offset (i)                     ...
+|                        Final Size (i)                       ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p id="rfc.section.19.4.p.5">RESET_STREAM frames contain the following fields:</p>
@@ -2802,8 +2803,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">A variable-length integer encoding of the Stream ID of the stream being terminated.</dd>
 <dt>Application Protocol Error Code:</dt>
 <dd style="margin-left: 8">A 16-bit application protocol error code (see <a href="#app-error-codes" class="xref">Section 20.1</a>) which indicates why the stream is being closed.</dd>
-<dt>Final Offset:</dt>
-<dd style="margin-left: 8">A variable-length integer indicating the absolute byte offset of the end of data written on this stream by the RESET_STREAM sender.</dd>
+<dt>Final Size:</dt>
+<dd style="margin-left: 8">A variable-length integer indicating the final size of the stream by the RESET_STREAM sender, in unit of bytes.</dd>
 </dl>
 <h2 id="rfc.section.19.5">
 <a href="#rfc.section.19.5">19.5.</a> <a href="#frame-stop-sending" id="frame-stop-sending">STOP_SENDING Frame</a>
@@ -2893,7 +2894,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <ul>
 <li>The OFF bit (0x04) in the frame type is set to indicate that there is an Offset field present.  When set to 1, the Offset field is present.  When set to 0, the Offset field is absent and the Stream Data starts at an offset of 0 (that is, the frame contains the first bytes of the stream, or the end of a stream that includes no data).</li>
 <li>The LEN bit (0x02) in the frame type is set to indicate that there is a Length field present.  If this bit is set to 0, the Length field is absent and the Stream Data field extends to the end of the packet.  If this bit is set to 1, the Length field is present.</li>
-<li>The FIN bit (0x01) of the frame type is set only on frames that contain the final offset of the stream.  Setting this bit indicates that the frame marks the end of the stream.</li>
+<li>The FIN bit (0x01) of the frame type is set only on frames that contain the final size of the stream.  Setting this bit indicates that the frame marks the end of the stream.</li>
 </ul>
 <p id="rfc.section.19.8.p.3">An endpoint that receives a STREAM frame for a send-only stream MUST terminate the connection with error STREAM_STATE_ERROR.</p>
 <p id="rfc.section.19.8.p.4">The STREAM frames are as follows:</p>
@@ -3209,8 +3210,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">An endpoint received a frame for a stream identifier that exceeded its advertised stream limit for the corresponding stream type.</dd>
 <dt>STREAM_STATE_ERROR (0x5):</dt>
 <dd style="margin-left: 8">An endpoint received a frame for a stream that was not in a state that permitted that frame (see <a href="#stream-states" class="xref">Section 3</a>).</dd>
-<dt>FINAL_OFFSET_ERROR (0x6):</dt>
-<dd style="margin-left: 8">An endpoint received a STREAM frame containing data that exceeded the previously established final offset.  Or an endpoint received a STREAM frame or a RESET_STREAM frame containing a final offset that was lower than the maximum offset of data that was already received.  Or an endpoint received a STREAM frame or a RESET_STREAM frame containing a different final offset to the one already established.</dd>
+<dt>FINAL_SIZE_ERROR (0x6):</dt>
+<dd style="margin-left: 8">An endpoint received a STREAM frame containing data that exceeded the previously established final size.  Or an endpoint received a STREAM frame or a RESET_STREAM frame containing a final size that was lower than the size of stream data that was already received.  Or an endpoint received a STREAM frame or a RESET_STREAM frame containing a different final size to the one already established.</dd>
 <dt>FRAME_ENCODING_ERROR (0x7):</dt>
 <dd style="margin-left: 8">An endpoint received a frame that was badly formatted.  For instance, a frame of an unknown type, or an ACK frame that has more acknowledgment ranges than the remainder of the packet could carry.</dd>
 <dt>TRANSPORT_PARAMETER_ERROR (0x8):</dt>
@@ -3470,8 +3471,8 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 </tr>
 <tr>
 <td class="left">0x6</td>
-<td class="left">FINAL_OFFSET_ERROR</td>
-<td class="left">Change to final stream offset</td>
+<td class="left">FINAL_SIZE_ERROR</td>
+<td class="left">Change to final size</td>
 <td class="left"><a href="#error-codes" class="xref">Section 20</a></td>
 </tr>
 <tr>
