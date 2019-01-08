@@ -390,8 +390,8 @@ ul.toc li {
 <link href="#rfc.section.19.1" rel="Chapter" title="19.1 PADDING Frame">
 <link href="#rfc.section.19.2" rel="Chapter" title="19.2 PING Frame">
 <link href="#rfc.section.19.3" rel="Chapter" title="19.3 ACK Frames">
-<link href="#rfc.section.19.3.1" rel="Chapter" title="19.3.1 ACK Block Section">
-<link href="#rfc.section.19.3.2" rel="Chapter" title="19.3.2 ECN section">
+<link href="#rfc.section.19.3.1" rel="Chapter" title="19.3.1 ACK Ranges">
+<link href="#rfc.section.19.3.2" rel="Chapter" title="19.3.2 ECN Counts">
 <link href="#rfc.section.19.4" rel="Chapter" title="19.4 RESET_STREAM Frame">
 <link href="#rfc.section.19.5" rel="Chapter" title="19.5 STOP_SENDING Frame">
 <link href="#rfc.section.19.6" rel="Chapter" title="19.6 CRYPTO Frame">
@@ -734,9 +734,9 @@ ul.toc li {
 </li>
 <li>19.3.   <a href="#rfc.section.19.3">ACK Frames</a>
 </li>
-<ul><li>19.3.1.   <a href="#rfc.section.19.3.1">ACK Block Section</a>
+<ul><li>19.3.1.   <a href="#rfc.section.19.3.1">ACK Ranges</a>
 </li>
-<li>19.3.2.   <a href="#rfc.section.19.3.2">ECN section</a>
+<li>19.3.2.   <a href="#rfc.section.19.3.2">ECN Counts</a>
 </li>
 </ul><li>19.4.   <a href="#rfc.section.19.4">RESET_STREAM Frame</a>
 </li>
@@ -2062,9 +2062,9 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.13.1.1.p.3">An endpoint MUST NOT send more than one packet containing only an ACK frame per received packet that contains frames other than ACK and PADDING frames.</p>
 <p id="rfc.section.13.1.1.p.4">The receiver&#8217;s delayed acknowledgment timer SHOULD NOT exceed the current RTT estimate or the value it indicates in the <samp>max_ack_delay</samp> transport parameter.  This ensures an acknowledgment is sent at least once per RTT when packets needing acknowledgement are received.  The sender can use the receiver&#8217;s <samp>max_ack_delay</samp> value in determining timeouts for timer-based retransmission.</p>
 <p id="rfc.section.13.1.1.p.5">Strategies and implications of the frequency of generating acknowledgments are discussed in more detail in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.</p>
-<p id="rfc.section.13.1.1.p.6">To limit ACK Blocks to those that have not yet been received by the sender, the receiver SHOULD track which ACK frames have been acknowledged.  The receiver SHOULD exclude already acknowledged packets from future ACK frames whenever these packets would unnecessarily contribute to the ACK frame size.</p>
+<p id="rfc.section.13.1.1.p.6">To limit the ranges of acknowledged packet numbers to those that have not yet been received by the sender, the receiver SHOULD track which ACK frames have been acknowledged by its peer.  The receiver SHOULD exclude already acknowledged packets from future ACK frames whenever these packets would unnecessarily contribute to the ACK frame size.</p>
 <p id="rfc.section.13.1.1.p.7">Because ACK frames are not sent in response to ACK-only packets, a receiver that is only sending ACK frames will only receive acknowledgements for its packets if the sender includes them in packets with non-ACK frames.  A sender SHOULD bundle ACK frames with other frames when possible.</p>
-<p id="rfc.section.13.1.1.p.8">To limit receiver state or the size of ACK frames, a receiver MAY limit the number of ACK Blocks it sends.  A receiver can do this even without receiving acknowledgment of its ACK frames, with the knowledge this could cause the sender to unnecessarily retransmit some data.  Standard QUIC <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a> algorithms declare packets lost after sufficiently newer packets are acknowledged.  Therefore, the receiver SHOULD repeatedly acknowledge newly received packets in preference to packets received in the past.</p>
+<p id="rfc.section.13.1.1.p.8">To limit receiver state or the size of ACK frames, a receiver MAY limit the number of ACK Ranges it sends.  A receiver can do this even without receiving acknowledgment of its ACK frames, with the knowledge this could cause the sender to unnecessarily retransmit some data.  Standard QUIC <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a> algorithms declare packets lost after sufficiently newer packets are acknowledged.  Therefore, the receiver SHOULD repeatedly acknowledge newly received packets in preference to packets received in the past.</p>
 <h3 id="rfc.section.13.1.2">
 <a href="#rfc.section.13.1.2">13.1.2.</a> <a href="#ack-frames-and-packet-protection" id="ack-frames-and-packet-protection">ACK Frames and Packet Protection</a>
 </h3>
@@ -2657,7 +2657,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <h2 id="rfc.section.19.3">
 <a href="#rfc.section.19.3">19.3.</a> <a href="#frame-ack" id="frame-ack">ACK Frames</a>
 </h2>
-<p id="rfc.section.19.3.p.1">Receivers send ACK frames (types 0x02 and 0x03) to inform senders of packets they have received and processed. The ACK frame contains one or more ACK Blocks.  ACK Blocks are ranges of acknowledged packets. If the frame type is 0x03, ACK frames also contain the sum of QUIC packets with associated ECN marks received on the connection up until this point. QUIC implementations MUST properly handle both types and, if they have enabled ECN for packets they send, they SHOULD use the information in the ECN section to manage their congestion state.</p>
+<p id="rfc.section.19.3.p.1">Receivers send ACK frames (types 0x02 and 0x03) to inform senders of packets they have received and processed. The ACK frame contains one or more ACK Ranges.  ACK Ranges identify acknowledged packets. If the frame type is 0x03, ACK frames also contain the sum of QUIC packets with associated ECN marks received on the connection up until this point.  QUIC implementations MUST properly handle both types and, if they have enabled ECN for packets they send, they SHOULD use the information in the ECN section to manage their congestion state.</p>
 <p id="rfc.section.19.3.p.2">QUIC acknowledgements are irrevocable.  Once acknowledged, a packet remains acknowledged, even if it does not appear in a future ACK frame.  This is unlike TCP SACKs (<a href="#RFC2018" class="xref">[RFC2018]</a>).</p>
 <p id="rfc.section.19.3.p.3">It is expected that a sender will reuse the same packet number across different packet number spaces.  ACK frames only acknowledge the packet numbers that were transmitted by the sender in the same packet number space of the packet that the ACK was received in.</p>
 <p id="rfc.section.19.3.p.4">Version Negotiation and Retry packets cannot be acknowledged because they do not contain a packet number.  Rather than relying on ACK frames, these packets are implicitly acknowledged by the next Initial packet sent by the client.</p>
@@ -2672,11 +2672,13 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          ACK Delay (i)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       ACK Block Count (i)                   ...
+|                       ACK Range Count (i)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                          ACK Blocks (*)                     ...
+|                       First ACK Range (i)                   ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                         [ECN Section]                       ...
+|                          ACK Ranges (*)                     ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          [ECN Counts]                       ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 17: ACK Frame Format</p>
@@ -2688,67 +2690,69 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">A variable-length integer representing the largest packet number the peer is acknowledging; this is usually the largest packet number that the peer has received prior to generating the ACK frame.  Unlike the packet number in the QUIC long or short header, the value in an ACK frame is not truncated.</dd>
 <dt>ACK Delay:</dt>
 <dd style="margin-left: 8">A variable-length integer including the time in microseconds that the largest acknowledged packet, as indicated in the Largest Acknowledged field, was received by this peer to when this ACK was sent.  The value of the ACK Delay field is scaled by multiplying the encoded value by 2 to the power of the value of the <samp>ack_delay_exponent</samp> transport parameter set by the sender of the ACK frame.  The <samp>ack_delay_exponent</samp> defaults to 3, or a multiplier of 8 (see <a href="#transport-parameter-definitions" class="xref">Section 18.1</a>).  Scaling in this fashion allows for a larger range of values with a shorter encoding at the cost of lower resolution.</dd>
-<dt>ACK Block Count:</dt>
-<dd style="margin-left: 8">A variable-length integer specifying the number of Additional ACK Block (and Gap) fields after the First ACK Block.</dd>
-<dt>ACK Blocks:</dt>
-<dd style="margin-left: 8">Contains one or more blocks of packet numbers which have been successfully received, see <a href="#ack-block-section" class="xref">Section 19.3.1</a>.</dd>
+<dt>ACK Range Count:</dt>
+<dd style="margin-left: 8">A variable-length integer specifying the number of Gap and ACK Range fields in the frame.</dd>
+<dt>First ACK Range:</dt>
+<dd style="margin-left: 8">A variable-length integer indicating the number of contiguous packets preceding the Largest Acknowledged that are being acknowledged.  The First ACK Range is encoded as an ACK Range (see <a href="#ack-ranges" class="xref">Section 19.3.1</a>) starting from the Largest Acknowledged.  That is, the smallest packet number included in the range is determined by subtracting the First ACK Range value from the Largest Acknowledged.</dd>
+<dt>ACK Ranges:</dt>
+<dd style="margin-left: 8">Contains additional ranges of packet numbers which are alternately not acknowledged (Gap) and acknowledged (ACK Range), see <a href="#ack-ranges" class="xref">Section 19.3.1</a>.</dd>
+<dt>ECN Counts:</dt>
+<dd style="margin-left: 8">The three ECN Counts, see <a href="#ack-ecn-counts" class="xref">Section 19.3.2</a>.</dd>
 </dl>
 <h3 id="rfc.section.19.3.1">
-<a href="#rfc.section.19.3.1">19.3.1.</a> <a href="#ack-block-section" id="ack-block-section">ACK Block Section</a>
+<a href="#rfc.section.19.3.1">19.3.1.</a> <a href="#ack-ranges" id="ack-ranges">ACK Ranges</a>
 </h3>
-<p id="rfc.section.19.3.1.p.1">The ACK Block Section consists of alternating Gap and ACK Block fields in descending packet number order.  A First Ack Block field is followed by a variable number of alternating Gap and Additional ACK Blocks.  The number of Gap and Additional ACK Block fields is determined by the ACK Block Count field.</p>
-<p id="rfc.section.19.3.1.p.2">Gap and ACK Block fields use a relative integer encoding for efficiency.  Though each encoded value is positive, the values are subtracted, so that each ACK Block describes progressively lower-numbered packets.  As long as contiguous ranges of packets are small, the variable-length integer encoding ensures that each range can be expressed in a small number of bytes.</p>
+<p id="rfc.section.19.3.1.p.1">The ACK Ranges field consists of alternating Gap and ACK Range values in descending packet number order.  The number of Gap and ACK Range values is determined by the ACK Range Count field; one of each value is present for each value in the ACK Range Count field.</p>
+<p id="rfc.section.19.3.1.p.2">ACK Ranges are structured as follows:</p>
 <div id="rfc.figure.18"></div>
-<div id="ack-block-format"></div>
+<div id="ack-range-format"></div>
 <pre>
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                      First ACK Block (i)                    ...
+|                           [Gap (i)]                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Gap (i)                         ...
+|                          [ACK Range (i)]                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Additional ACK Block (i)                 ...
+|                           [Gap (i)]                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Gap (i)                         ...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Additional ACK Block (i)                 ...
+|                          [ACK Range (i)]                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                             Gap (i)                         ...
+|                           [Gap (i)]                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                    Additional ACK Block (i)                 ...
+|                          [ACK Range (i)]                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p class="figure">Figure 18: ACK Block Section</p>
-<p id="rfc.section.19.3.1.p.3">Each ACK Block acknowledges a contiguous range of packets by indicating the number of acknowledged packets that precede the largest packet number in that block.  A value of zero indicates that only the largest packet number is acknowledged.  Larger ACK Block values indicate a larger range, with corresponding lower values for the smallest packet number in the range.  Thus, given a largest packet number for the ACK, the smallest value is determined by the formula:</p>
-<pre>
-   smallest = largest - ack_block
-</pre>
-<p id="rfc.section.19.3.1.p.4">The range of packets that are acknowledged by the ACK Block include the range from the smallest packet number to the largest, inclusive.</p>
-<p id="rfc.section.19.3.1.p.5">The largest value for the First ACK Block is determined by the Largest Acknowledged field; the largest for Additional ACK Blocks is determined by cumulatively subtracting the size of all preceding ACK Blocks and Gaps.</p>
-<p id="rfc.section.19.3.1.p.6">Each Gap indicates a range of packets that are not being acknowledged.  The number of packets in the gap is one higher than the encoded value of the Gap Field.</p>
-<p id="rfc.section.19.3.1.p.7">The value of the Gap field establishes the largest packet number value for the ACK Block that follows the gap using the following formula:</p>
-<pre>
-   largest = previous_smallest - gap - 2
-</pre>
-<p id="rfc.section.19.3.1.p.8">If the calculated value for largest or smallest packet number for any ACK Block is negative, an endpoint MUST generate a connection error of type FRAME_ENCODING_ERROR indicating an error in an ACK frame.</p>
-<p id="rfc.section.19.3.1.p.9">The fields in the ACK Block Section are:</p>
+<p class="figure">Figure 18: ACK Ranges</p>
+<p id="rfc.section.19.3.1.p.3">The fields that form the ACK Ranges are:</p>
 <p></p>
 
 <dl>
-<dt>First ACK Block:</dt>
-<dd style="margin-left: 8">A variable-length integer indicating the number of contiguous packets preceding the Largest Acknowledged that are being acknowledged.</dd>
 <dt>Gap (repeated):</dt>
-<dd style="margin-left: 8">A variable-length integer indicating the number of contiguous unacknowledged packets preceding the packet number one lower than the smallest in the preceding ACK Block.</dd>
-<dt>Additional ACK Block (repeated):</dt>
+<dd style="margin-left: 8">A variable-length integer indicating the number of contiguous unacknowledged packets preceding the packet number one lower than the smallest in the preceding ACK Range.</dd>
+<dt>ACK Range (repeated):</dt>
 <dd style="margin-left: 8">A variable-length integer indicating the number of contiguous acknowledged packets preceding the largest packet number, as determined by the preceding Gap.</dd>
 </dl>
+<p id="rfc.section.19.3.1.p.5">Gap and ACK Range value use a relative integer encoding for efficiency.  Though each encoded value is positive, the values are subtracted, so that each ACK Range describes progressively lower-numbered packets.</p>
+<p id="rfc.section.19.3.1.p.6">Each ACK Range acknowledges a contiguous range of packets by indicating the number of acknowledged packets that precede the largest packet number in that range.  A value of zero indicates that only the largest packet number is acknowledged.  Larger ACK Range values indicate a larger range, with corresponding lower values for the smallest packet number in the range.  Thus, given a largest packet number for the range, the smallest value is determined by the formula:</p>
+<pre>
+   smallest = largest - ack_range
+</pre>
+<p id="rfc.section.19.3.1.p.7">An ACK Range acknowledges all packet numbers between the smallest packet number and the largest, inclusive.</p>
+<p id="rfc.section.19.3.1.p.8">The largest value for an ACK Range is determined by cumulatively subtracting the size of all preceding ACK Ranges and Gaps.</p>
+<p id="rfc.section.19.3.1.p.9">Each Gap indicates a range of packets that are not being acknowledged.  The number of packets in the gap is one higher than the encoded value of the Gap field.</p>
+<p id="rfc.section.19.3.1.p.10">The value of the Gap field establishes the largest packet number value for the subsequent ACK Range using the following formula:</p>
+<pre>
+   largest = previous_smallest - gap - 2
+</pre>
+<p id="rfc.section.19.3.1.p.11">If any computed packet number is negative, an endpoint MUST generate a connection error of type FRAME_ENCODING_ERROR indicating an error in an ACK frame.</p>
 <h3 id="rfc.section.19.3.2">
-<a href="#rfc.section.19.3.2">19.3.2.</a> <a href="#ecn-section" id="ecn-section">ECN section</a>
+<a href="#rfc.section.19.3.2">19.3.2.</a> <a href="#ack-ecn-counts" id="ack-ecn-counts">ECN Counts</a>
 </h3>
-<p id="rfc.section.19.3.2.p.1">The ECN section should only be parsed when the ACK frame type is 0x03.  The ECN section consists of 3 ECN counts as shown below.</p>
+<p id="rfc.section.19.3.2.p.1">The ACK frame uses the least significant bit (that is, type 0x03) to indicate ECN feedback and report receipt of QUIC packets with associated ECN codepoints of ECT(0), ECT(1), or CE in the packet&#8217;s IP header.  ECN Counts are only present when the ACK frame type is 0x03.</p>
+<p id="rfc.section.19.3.2.p.2">ECN Counts are only parsed when the ACK frame type is 0x03.  There are 3 ECN counts, as follows:</p>
 <pre>
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -2760,6 +2764,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 |                        ECN-CE Count (i)                     ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
+<p id="rfc.section.19.3.2.p.3">The three ECN Counts are:</p>
 <p></p>
 
 <dl>
@@ -2770,7 +2775,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>CE Count:</dt>
 <dd style="margin-left: 8">A variable-length integer representing the total number packets received with the CE codepoint.</dd>
 </dl>
-<p id="rfc.section.19.3.2.p.3">ECN counts are maintained separately for each packet number space.</p>
+<p id="rfc.section.19.3.2.p.5">ECN counts are maintained separately for each packet number space.</p>
 <h2 id="rfc.section.19.4">
 <a href="#rfc.section.19.4">19.4.</a> <a href="#frame-reset-stream" id="frame-reset-stream">RESET_STREAM Frame</a>
 </h2>
