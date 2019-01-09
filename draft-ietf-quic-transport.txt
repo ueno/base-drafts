@@ -16,8 +16,7 @@ Abstract
 
    This document defines the core of the QUIC transport protocol.
    Accompanying documents describe QUIC's loss detection and congestion
-   control [QUIC-RECOVERY] and the use of TLS for key negotiation
-   [QUIC-TLS].
+   control and the use of TLS for key negotiation.
 
 Note to Readers
 
@@ -46,9 +45,10 @@ Status of This Memo
 
    This Internet-Draft will expire on July 13, 2019.
 
+Copyright Notice
 
-
-
+   Copyright (c) 2019 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
 
 
 
@@ -57,11 +57,6 @@ Iyengar & Thomson         Expires July 13, 2019                 [Page 1]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-Copyright Notice
-
-   Copyright (c) 2019 IETF Trust and the persons identified as the
-   document authors.  All rights reserved.
 
    This document is subject to BCP 78 and the IETF Trust's Legal
    Provisions Relating to IETF Documents
@@ -106,6 +101,11 @@ Table of Contents
    6.  Version Negotiation . . . . . . . . . . . . . . . . . . . . .  27
      6.1.  Sending Version Negotiation Packets . . . . . . . . . . .  28
      6.2.  Handling Version Negotiation Packets  . . . . . . . . . .  28
+     6.3.  Using Reserved Versions . . . . . . . . . . . . . . . . .  29
+   7.  Cryptographic and Transport Handshake . . . . . . . . . . . .  30
+     7.1.  Example Handshake Flows . . . . . . . . . . . . . . . . .  31
+     7.2.  Negotiating Connection IDs  . . . . . . . . . . . . . . .  32
+     7.3.  Transport Parameters  . . . . . . . . . . . . . . . . . .  34
 
 
 
@@ -114,11 +114,6 @@ Iyengar & Thomson         Expires July 13, 2019                 [Page 2]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-     6.3.  Using Reserved Versions . . . . . . . . . . . . . . . . .  29
-   7.  Cryptographic and Transport Handshake . . . . . . . . . . . .  30
-     7.1.  Example Handshake Flows . . . . . . . . . . . . . . . . .  31
-     7.2.  Negotiating Connection IDs  . . . . . . . . . . . . . . .  32
-     7.3.  Transport Parameters  . . . . . . . . . . . . . . . . . .  34
        7.3.1.  Values of Transport Parameters for 0-RTT  . . . . . .  34
        7.3.2.  New Transport Parameters  . . . . . . . . . . . . . .  35
        7.3.3.  Version Negotiation Validation  . . . . . . . . . . .  36
@@ -162,6 +157,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
      12.3.  Packet Numbers . . . . . . . . . . . . . . . . . . . . .  62
      12.4.  Frames and Frame Types . . . . . . . . . . . . . . . . .  64
    13. Packetization and Reliability . . . . . . . . . . . . . . . .  66
+     13.1.  Packet Processing and Acknowledgment . . . . . . . . . .  67
+       13.1.1.  Sending ACK Frames . . . . . . . . . . . . . . . . .  67
+       13.1.2.  ACK Frames and Packet Protection . . . . . . . . . .  68
+     13.2.  Retransmission of Information  . . . . . . . . . . . . .  68
+     13.3.  Explicit Congestion Notification . . . . . . . . . . . .  71
 
 
 
@@ -170,11 +170,6 @@ Iyengar & Thomson         Expires July 13, 2019                 [Page 3]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-     13.1.  Packet Processing and Acknowledgment . . . . . . . . . .  67
-       13.1.1.  Sending ACK Frames . . . . . . . . . . . . . . . . .  67
-       13.1.2.  ACK Frames and Packet Protection . . . . . . . . . .  68
-     13.2.  Retransmission of Information  . . . . . . . . . . . . .  68
-     13.3.  Explicit Congestion Notification . . . . . . . . . . . .  71
        13.3.1.  ECN Counts . . . . . . . . . . . . . . . . . . . . .  71
        13.3.2.  ECN Verification . . . . . . . . . . . . . . . . . .  72
    14. Packet Size . . . . . . . . . . . . . . . . . . . . . . . . .  73
@@ -218,6 +213,11 @@ Internet-Draft           QUIC Transport Protocol            January 2019
      19.19. CONNECTION_CLOSE Frames  . . . . . . . . . . . . . . . . 113
      19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 114
    20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 114
+     20.1.  Application Protocol Error Codes . . . . . . . . . . . . 115
+   21. Security Considerations . . . . . . . . . . . . . . . . . . . 116
+     21.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 116
+     21.2.  Amplification Attack . . . . . . . . . . . . . . . . . . 117
+     21.3.  Optimistic ACK Attack  . . . . . . . . . . . . . . . . . 117
 
 
 
@@ -226,11 +226,6 @@ Iyengar & Thomson         Expires July 13, 2019                 [Page 4]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-     20.1.  Application Protocol Error Codes . . . . . . . . . . . . 115
-   21. Security Considerations . . . . . . . . . . . . . . . . . . . 116
-     21.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 116
-     21.2.  Amplification Attack . . . . . . . . . . . . . . . . . . 117
-     21.3.  Optimistic ACK Attack  . . . . . . . . . . . . . . . . . 117
      21.4.  Slowloris Attacks  . . . . . . . . . . . . . . . . . . . 117
      21.5.  Stream Fragmentation and Reassembly Attacks  . . . . . . 118
      21.6.  Stream Commitment Attack . . . . . . . . . . . . . . . . 118
@@ -275,16 +270,17 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    o  Stream multiplexing
 
+   o  Stream and connection-level flow control
+
+   o  Low-latency connection establishment
+
+
 
 
 Iyengar & Thomson         Expires July 13, 2019                 [Page 5]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   o  Stream and connection-level flow control
-
-   o  Low-latency connection establishment
 
    o  Connection migration and resilience to NAT rebinding
 
@@ -331,15 +327,16 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
       *  Section 12 describes concepts related to packets and frames,
 
+      *  Section 13 defines models for the transmission, retransmission,
+         and acknowledgement of data, and
+
+
 
 
 Iyengar & Thomson         Expires July 13, 2019                 [Page 6]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-      *  Section 13 defines models for the transmission, retransmission,
-         and acknowledgement of data, and
 
       *  Section 14 specifies rules for managing the size of packets.
 
@@ -386,6 +383,9 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       generating, receiving, and processing QUIC packets.  There are
       only two types of endpoint in QUIC: client and server.
 
+   Client:  The endpoint initiating a QUIC connection.
+
+   Server:  The endpoint accepting incoming QUIC connections.
 
 
 
@@ -393,10 +393,6 @@ Iyengar & Thomson         Expires July 13, 2019                 [Page 7]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   Client:  The endpoint initiating a QUIC connection.
-
-   Server:  The endpoint accepting incoming QUIC connections.
 
    Connection ID:  An opaque identifier that is used to identify a QUIC
       connection at an endpoint.  Each endpoint sets a value for its
@@ -443,6 +439,10 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    be initiated by either endpoint.  QUIC does not provide any means of
    ensuring ordering between bytes on different streams.
 
+   QUIC allows for an arbitrary number of streams to operate
+   concurrently and for an arbitrary amount of data to be sent on any
+
+
 
 
 Iyengar & Thomson         Expires July 13, 2019                 [Page 8]
@@ -450,8 +450,6 @@ Iyengar & Thomson         Expires July 13, 2019                 [Page 8]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-   QUIC allows for an arbitrary number of streams to operate
-   concurrently and for an arbitrary amount of data to be sent on any
    stream, subject to flow control constraints (see Section 4) and
    stream limits.
 
@@ -498,6 +496,8 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    streams of that type with lower-numbered stream IDs also being
    opened.
 
+   The first bidirectional stream opened by the client has a stream ID
+   of 0.
 
 
 
@@ -505,9 +505,6 @@ Iyengar & Thomson         Expires July 13, 2019                 [Page 9]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   The first bidirectional stream opened by the client has a stream ID
-   of 0.
 
 2.2.  Sending and Receiving Data
 
@@ -553,6 +550,9 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    A QUIC implementation SHOULD provide ways in which an application can
    indicate the relative priority of streams.  When deciding which
+   streams to dedicate resources to, the implementation SHOULD use the
+   information provided by the application.
+
 
 
 
@@ -561,9 +561,6 @@ Iyengar & Thomson         Expires July 13, 2019                [Page 10]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
-
-   streams to dedicate resources to, the implementation SHOULD use the
-   information provided by the application.
 
 3.  Stream States
 
@@ -597,6 +594,9 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    Figure 1 shows the states for the part of a stream that sends data to
    a peer.
+
+
+
 
 
 
