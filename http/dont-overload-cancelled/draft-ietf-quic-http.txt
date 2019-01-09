@@ -116,7 +116,7 @@ Internet-Draft                   HTTP/3                     January 2019
 
      5.2.  The CONNECT Method  . . . . . . . . . . . . . . . . . . .  24
      5.3.  Request Prioritization  . . . . . . . . . . . . . . . . .  25
-       5.3.1.  Placeholders  . . . . . . . . . . . . . . . . . . . .  25
+       5.3.1.  Placeholders  . . . . . . . . . . . . . . . . . . . .  26
        5.3.2.  Priority Tree Maintenance . . . . . . . . . . . . . .  26
      5.4.  Server Push . . . . . . . . . . . . . . . . . . . . . . .  27
    6.  Connection Closure  . . . . . . . . . . . . . . . . . . . . .  28
@@ -1278,10 +1278,10 @@ Internet-Draft                   HTTP/3                     January 2019
    requests rejected by the server as though they had never been sent at
    all, thereby allowing them to be retried later on a new connection.
    Servers MUST NOT use the HTTP_REQUEST_REJECTED error code for
-   requests which were partially or fully processed.
-
-   If a stream is cancelled after receiving a complete response, the
-   client MAY ignore the cancellation and use the response.  However, if
+   requests which were partially or fully processed.  When a client
+   sends a STOP_SENDING with HTTP_REQUEST_CANCELLED, a server MAY
+   indicate the error code HTTP_REQUEST_REJECTED in the corresponding
+   RESET_STREAM if no processing was performed.
 
 
 
@@ -1290,6 +1290,8 @@ Bishop                    Expires July 13, 2019                [Page 23]
 Internet-Draft                   HTTP/3                     January 2019
 
 
+   If a stream is cancelled after receiving a complete response, the
+   client MAY ignore the cancellation and use the response.  However, if
    a stream is cancelled after receiving a partial response, the
    response SHOULD NOT be used.  Automatically retrying such requests is
    not possible, unless this is otherwise permitted (e.g., idempotent
@@ -1336,8 +1338,6 @@ Internet-Draft                   HTTP/3                     January 2019
 
    A TCP connection error is signaled with QUIC RESET_STREAM frame.  A
    proxy treats any error in the TCP connection, which includes
-   receiving a TCP segment with the RST bit set, as a stream error of
-   type HTTP_CONNECT_ERROR (Section 8.1).  Correspondingly, a proxy MUST
 
 
 
@@ -1346,6 +1346,8 @@ Bishop                    Expires July 13, 2019                [Page 24]
 Internet-Draft                   HTTP/3                     January 2019
 
 
+   receiving a TCP segment with the RST bit set, as a stream error of
+   type HTTP_CONNECT_ERROR (Section 8.1).  Correspondingly, a proxy MUST
    send a TCP segment with the RST bit set if it detects an error with
    the stream or the QUIC connection.
 
@@ -1388,12 +1390,10 @@ Internet-Draft                   HTTP/3                     January 2019
    which is not yet in the tree.  Such elements are added to the tree
    with the requested priority.
 
-5.3.1.  Placeholders
 
-   In HTTP/2, certain implementations used closed or unused streams as
-   placeholders in describing the relative priority of requests.  This
-   created confusion as servers could not reliably identify which
-   elements of the priority tree could be discarded safely.  Clients
+
+
+
 
 
 
@@ -1402,6 +1402,12 @@ Bishop                    Expires July 13, 2019                [Page 25]
 Internet-Draft                   HTTP/3                     January 2019
 
 
+5.3.1.  Placeholders
+
+   In HTTP/2, certain implementations used closed or unused streams as
+   placeholders in describing the relative priority of requests.  This
+   created confusion as servers could not reliably identify which
+   elements of the priority tree could be discarded safely.  Clients
    could potentially reference closed streams long after the server had
    discarded state, leading to disparate views of the prioritization the
    client had attempted to express.
@@ -1440,12 +1446,6 @@ Internet-Draft                   HTTP/3                     January 2019
 
    o  Identify and condense interior regions of the tree containing only
       inactive nodes, allocating weight appropriately
-
-
-
-
-
-
 
 
 
@@ -2546,12 +2546,11 @@ Internet-Draft                   HTTP/3                     January 2019
    FRAME_SIZE_ERROR (0x6):  HTTP_MALFORMED_FRAME error codes defined in
       Section 8.1.
 
-   REFUSED_STREAM (0x7):  When used to indicate that a request was not
-      processed, HTTP_REQUEST_REJECTED in Section 8.1.
-
-      When used to indicate that an active stream limit was exceeded,
-      not applicable because QUIC handles stream management.  Would
-      provoke a STREAM_ID_ERROR from the QUIC layer.
+   REFUSED_STREAM (0x7):  HTTP_REQUEST_REJECTED (in Section 8.1) is used
+      to indicate that a request was not processed.  Otherwise, not
+      applicable because QUIC handles stream management.  A
+      STREAM_ID_ERROR at the QUIC layer is used for streams that are
+      improperly opened.
 
    CANCEL (0x8):  HTTP_REQUEST_CANCELLED in Section 8.1.
 
@@ -2569,6 +2568,7 @@ Internet-Draft                   HTTP/3                     January 2019
 
    Error codes need to be defined for HTTP/2 and HTTP/3 separately.  See
    Section 10.5.
+
 
 
 
