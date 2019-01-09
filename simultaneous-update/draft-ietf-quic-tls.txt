@@ -101,11 +101,11 @@ Table of Contents
      5.6.  Use of 0-RTT Keys . . . . . . . . . . . . . . . . . . . .  24
      5.7.  Receiving Out-of-Order Protected Frames . . . . . . . . .  25
    6.  Key Update  . . . . . . . . . . . . . . . . . . . . . . . . .  25
-     6.1.  Initiating a Key Update . . . . . . . . . . . . . . . . .  26
+     6.1.  Initiating a Key Update . . . . . . . . . . . . . . . . .  27
      6.2.  Responding to a Key Update  . . . . . . . . . . . . . . .  27
      6.3.  Using Old Keys  . . . . . . . . . . . . . . . . . . . . .  28
-     6.4.  Key Update Frequency  . . . . . . . . . . . . . . . . . .  28
-     6.5.  Key Update Error Code . . . . . . . . . . . . . . . . . .  28
+     6.4.  Key Update Frequency  . . . . . . . . . . . . . . . . . .  29
+     6.5.  Key Update Error Code . . . . . . . . . . . . . . . . . .  29
 
 
 
@@ -1386,14 +1386,14 @@ Internet-Draft                QUIC over TLS                 January 2019
 
    Once the 1-RTT keys are established and the short header is in use,
    it is possible to update the keys used to protect packets.  The Key
-   Update field in the short header are used to indicate when key
-   updates are permitted and when they have occurred.
+   Update field in the short header is used to indicate when key updates
+   are permitted and when they have occurred.
 
-   The the low bit of the Key Update field (0x04) is the Key Phase bit.
-   The Key Phase is used to indicate which packet protection keys are in
-   use.  The Key Phase bit is initially set to 0 for the first set of
-   1-RTT packets.  The Key Phase is toggled to signal each key update.
-
+   The low bit of the Key Update field (0x04) is the Key Phase bit.  The
+   Key Phase is used to indicate which packet protection keys are used
+   to protect the packet.  The Key Phase bit is initially set to 0 for
+   the first set of 1-RTT packets.  The Key Phase is toggled to signal
+   each key update.
 
 
 
@@ -1430,26 +1430,26 @@ Internet-Draft                QUIC over TLS                 January 2019
       Initiating Peer                    Responding Peer
 
    @M [10] QUIC Packets
-   . Update to @N
-   @N [01] QUIC Packets
                          -------->
                                         QUIC Packets [10] @M
-                                              Update to @N .
+                         <--------
+   ... Update to @N
+   @N [01] QUIC Packets
+                         -------->
+                                            Update to @N ...
                                         QUIC Packets [11] @N
                          <--------
-   . Key Update Permitted
+   ... Key Update Permitted
    @N [11] QUIC Packets
                          -------->
-                                      Key Update Permitted .
+                                    Key Update Permitted ...
 
                            Figure 6: Key Update
 
-6.1.  Initiating a Key Update
 
-   Endpoints maintain separate read and write secrets for packet
-   protection.  An endpoint initiates a key update by updating its
-   packet protection write secret and using that to protect new packets.
-   The endpoint creates a new write secret from the existing write
+
+
+
 
 
 
@@ -1458,20 +1458,26 @@ Thomson & Turner          Expires July 13, 2019                [Page 26]
 Internet-Draft                QUIC over TLS                 January 2019
 
 
+6.1.  Initiating a Key Update
+
+   Endpoints maintain separate read and write secrets for packet
+   protection.  An endpoint initiates a key update by updating its
+   packet protection write secret and using that to protect new packets.
+   The endpoint creates a new write secret from the existing write
    secret as performed in Section 7.2 of [TLS13].  This uses the KDF
    function provided by TLS with a label of "quic ku".  The
    corresponding key and IV are created from that secret as defined in
    Section 5.1.  The header protection key is not updated.
 
-   The endpoint uses the key and IV to protect all subsequent packets,
-   clears the Key Update Permitted bit, and toggles the value of the low
-   Key Phase bit.
+   The endpoint clears the Key Update Permitted bit, and toggles the
+   value of the low Key Phase bit, and uses the updated key and IV to
+   protect all subsequent packets.
 
    An endpoint MUST NOT initiate more than one key update at a time.  A
-   new key cannot be used until the endpoint has successfully processed
-   a packet with a matching Key Phase and the Key Update Permitted bit
-   set.  Together, these indicate that the key update was received and
-   acted on.
+   subsequent key update can only be performed after the endpoint has
+   successfully processed a packet with a matching Key Phase and the Key
+   Update Permitted bit set.  Together, these indicate that the key
+   update was received and acted on.
 
    Once an endpoint has received and successfully processed packets with
    the same Key Phase value, this indicates that the peer has also
@@ -1499,12 +1505,6 @@ Internet-Draft                QUIC over TLS                 January 2019
    corresponding key and IV.  The endpoint uses the same key derivation
    process as its peer uses to generate keys for receiving.
 
-   If the packet protection is successfully removed using the updated
-   key and IV, then the keys the endpoint initiates a key update in
-   response, as described in Section 6.1.  However, as packets with a
-   matching Key Phase have been received, the Key Update Permitted bit
-   MAY be set to 1 on the next packet it sends.
-
 
 
 
@@ -1513,6 +1513,12 @@ Thomson & Turner          Expires July 13, 2019                [Page 27]
 
 Internet-Draft                QUIC over TLS                 January 2019
 
+
+   If the packet protection is successfully removed using the updated
+   key and IV, then the keys the endpoint initiates a key update in
+   response, as described in Section 6.1.  However, as packets with a
+   matching Key Phase have been received, the Key Update Permitted bit
+   can be set to 1 on the next packet it sends.
 
    An endpoint does not always need to send packets when it detects that
    its peer has updated keys.  The next packet that it sends will simply
@@ -1543,22 +1549,16 @@ Internet-Draft                QUIC over TLS                 January 2019
    period, old read keys and their corresponding secrets SHOULD be
    discarded.  An endpoint MAY keep the Key Update Permitted bit set to
    0 until it discards old read keys to limit the number of keys it
-   maintains.
+   maintains.  An endpoint MAY also prevent key update until it discards
+   keys from the handshake, including any 0-RTT keys.  An endpoint
+   SHOULD set the Key Update Permitted bit when possible.
 
    Endpoints MUST NOT generate a timing side-channel signal that might
    indicate that the Key Update field was invalid (see Section 9.3).
    Endpoints can use dummy packet protection keys in place of discarded
    keys when key updates are not permitted.
 
-6.4.  Key Update Frequency
 
-   In deciding when to update keys, endpoints MUST NOT exceed the limits
-   for use of specific keys, as described in Section 5.5 of [TLS13].
-
-6.5.  Key Update Error Code
-
-   The KEY_UPDATE_ERROR error code (0xD) is used to signal errors
-   related to key updates.
 
 
 
@@ -1569,6 +1569,16 @@ Thomson & Turner          Expires July 13, 2019                [Page 28]
 
 Internet-Draft                QUIC over TLS                 January 2019
 
+
+6.4.  Key Update Frequency
+
+   In deciding when to update keys, endpoints MUST NOT exceed the limits
+   for use of specific keys, as described in Section 5.5 of [TLS13].
+
+6.5.  Key Update Error Code
+
+   The KEY_UPDATE_ERROR error code (0xD) is used to signal errors
+   related to key updates.
 
 7.  Security of Initial Messages
 
@@ -1608,6 +1618,14 @@ Internet-Draft                QUIC over TLS                 January 2019
    handshake.  However, this packet is not authenticated, enabling an
    active attacker to force a version downgrade.
 
+
+
+
+Thomson & Turner          Expires July 13, 2019                [Page 29]
+
+Internet-Draft                QUIC over TLS                 January 2019
+
+
    To ensure that a QUIC version downgrade is not forced by an attacker,
    version information is copied into the TLS handshake, which provides
    integrity protection for the QUIC negotiation.  This does not prevent
@@ -1618,14 +1636,6 @@ Internet-Draft                QUIC over TLS                 January 2019
    protocol negotiation.  TLS uses Application Layer Protocol
    Negotiation (ALPN) [RFC7301] to select an application protocol.
    Unless another mechanism is used for agreeing on an application
-
-
-
-Thomson & Turner          Expires July 13, 2019                [Page 29]
-
-Internet-Draft                QUIC over TLS                 January 2019
-
-
    protocol, endpoints MUST use ALPN for this purpose.  When using ALPN,
    endpoints MUST abort a connection if an application protocol is not
    negotiated.
@@ -1665,22 +1675,17 @@ Internet-Draft                QUIC over TLS                 January 2019
    However, any tampering with the parameters will cause the handshake
    to fail.
 
-   Endpoints MUST NOT send this extension in a TLS connection that does
-   not use QUIC (such as the use of TLS with TCP defined in [TLS13]).  A
-   fatal unsupported_extension alert MUST be sent if this extension is
-   received when the transport is not QUIC.
-
-
-
-
-
-
 
 
 Thomson & Turner          Expires July 13, 2019                [Page 30]
 
 Internet-Draft                QUIC over TLS                 January 2019
 
+
+   Endpoints MUST NOT send this extension in a TLS connection that does
+   not use QUIC (such as the use of TLS with TCP defined in [TLS13]).  A
+   fatal unsupported_extension alert MUST be sent if this extension is
+   received when the transport is not QUIC.
 
 8.3.  Removing the EndOfEarlyData Message
 
@@ -1725,11 +1730,6 @@ Internet-Draft                QUIC over TLS                 January 2019
    in some contexts, but that can be abused to cause a peer to expend
    processing resources without having any observable impact on the
    state of the connection.  If processing is disproportionately large
-   in comparison to the observable effects on bandwidth or state, then
-   this could allow a malicious peer to exhaust processing capacity
-   without consequence.
-
-
 
 
 
@@ -1737,6 +1737,10 @@ Thomson & Turner          Expires July 13, 2019                [Page 31]
 
 Internet-Draft                QUIC over TLS                 January 2019
 
+
+   in comparison to the observable effects on bandwidth or state, then
+   this could allow a malicious peer to exhaust processing capacity
+   without consequence.
 
    QUIC prohibits the sending of empty "STREAM" frames unless they are
    marked with the FIN bit.  This prevents "STREAM" frames from being
@@ -1782,10 +1786,6 @@ Internet-Draft                QUIC over TLS                 January 2019
 
    An attacker could guess values for packet numbers or key phase and
    have an endpoint confirm guesses through timing side channels.
-   Similarly, guesses for the packet number length can be trialed and
-   exposed.  If the recipient of a packet discards packets with
-   duplicate packet numbers without attempting to remove packet
-   protection they could reveal through timing side-channels that the
 
 
 
@@ -1794,6 +1794,10 @@ Thomson & Turner          Expires July 13, 2019                [Page 32]
 Internet-Draft                QUIC over TLS                 January 2019
 
 
+   Similarly, guesses for the packet number length can be trialed and
+   exposed.  If the recipient of a packet discards packets with
+   duplicate packet numbers without attempting to remove packet
+   protection they could reveal through timing side-channels that the
    packet number matches a received packet.  For authentication to be
    free from side-channels, the entire process of header protection
    removal, packet number recovery, and packet protection removal MUST
@@ -1838,10 +1842,6 @@ Internet-Draft                QUIC over TLS                 January 2019
 
    o  QUIC Error Codes Registry [QUIC-TRANSPORT] - IANA is to register
       the KEY_UPDATE_ERROR (0xD), as described in Section 6.5.
-
-
-
-
 
 
 
