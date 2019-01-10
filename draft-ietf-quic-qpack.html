@@ -289,7 +289,7 @@ ul.toc li {
 <link href="#rfc.section.2.1.1" rel="Chapter" title="2.1.1 Reference Tracking">
 <link href="#rfc.section.2.1.2" rel="Chapter" title="2.1.2 Blocked Dynamic Table Insertions">
 <link href="#rfc.section.2.1.3" rel="Chapter" title="2.1.3 Avoiding Head-of-Line Blocking">
-<link href="#rfc.section.2.1.4" rel="Chapter" title="2.1.4 Largest Known Received">
+<link href="#rfc.section.2.1.4" rel="Chapter" title="2.1.4 Known Received Count">
 <link href="#rfc.section.2.2" rel="Chapter" title="2.2 Decoder">
 <link href="#rfc.section.2.2.1" rel="Chapter" title="2.2.1 State Synchronization">
 <link href="#rfc.section.2.2.2" rel="Chapter" title="2.2.2 Blocked Decoding">
@@ -314,11 +314,11 @@ ul.toc li {
 <link href="#rfc.section.4.3.3" rel="Chapter" title="4.3.3 Duplicate">
 <link href="#rfc.section.4.3.4" rel="Chapter" title="4.3.4 Dynamic Table Size Update">
 <link href="#rfc.section.4.4" rel="Chapter" title="4.4 Decoder Stream">
-<link href="#rfc.section.4.4.1" rel="Chapter" title="4.4.1 Table State Synchronize">
+<link href="#rfc.section.4.4.1" rel="Chapter" title="4.4.1 Insert Count Increment">
 <link href="#rfc.section.4.4.2" rel="Chapter" title="4.4.2 Header Acknowledgement">
 <link href="#rfc.section.4.4.3" rel="Chapter" title="4.4.3 Stream Cancellation">
 <link href="#rfc.section.4.5" rel="Chapter" title="4.5 Request and Push Streams">
-<link href="#rfc.section.4.5.1" rel="Chapter" title="4.5.1 Header Data Prefix">
+<link href="#rfc.section.4.5.1" rel="Chapter" title="4.5.1 Header Block Prefix">
 <link href="#rfc.section.4.5.2" rel="Chapter" title="4.5.2 Indexed Header Field">
 <link href="#rfc.section.4.5.3" rel="Chapter" title="4.5.3 Indexed Header Field With Post-Base Index">
 <link href="#rfc.section.4.5.4" rel="Chapter" title="4.5.4 Literal Header Field With Name Reference">
@@ -434,7 +434,7 @@ ul.toc li {
 </li>
 <li>2.1.3.   <a href="#rfc.section.2.1.3">Avoiding Head-of-Line Blocking</a>
 </li>
-<li>2.1.4.   <a href="#rfc.section.2.1.4">Largest Known Received</a>
+<li>2.1.4.   <a href="#rfc.section.2.1.4">Known Received Count</a>
 </li>
 </ul><li>2.2.   <a href="#rfc.section.2.2">Decoder</a>
 </li>
@@ -484,7 +484,7 @@ ul.toc li {
 </li>
 </ul><li>4.4.   <a href="#rfc.section.4.4">Decoder Stream</a>
 </li>
-<ul><li>4.4.1.   <a href="#rfc.section.4.4.1">Table State Synchronize</a>
+<ul><li>4.4.1.   <a href="#rfc.section.4.4.1">Insert Count Increment</a>
 </li>
 <li>4.4.2.   <a href="#rfc.section.4.4.2">Header Acknowledgement</a>
 </li>
@@ -492,7 +492,7 @@ ul.toc li {
 </li>
 </ul><li>4.5.   <a href="#rfc.section.4.5">Request and Push Streams</a>
 </li>
-<ul><li>4.5.1.   <a href="#rfc.section.4.5.1">Header Data Prefix</a>
+<ul><li>4.5.1.   <a href="#rfc.section.4.5.1">Header Block Prefix</a>
 </li>
 <li>4.5.2.   <a href="#rfc.section.4.5.2">Indexed Header Field</a>
 </li>
@@ -576,10 +576,10 @@ ul.toc li {
 <dd style="margin-left: 8">An implementation which transforms a header block into a header list.</dd>
 <dt>Absolute Index:</dt>
 <dd style="margin-left: 8">A unique index for each entry in the dynamic table.</dd>
-<dt>Base Index:</dt>
-<dd style="margin-left: 8">An absolute index in a header block from which relative indices are made.</dd>
-<dt>Largest Reference:</dt>
-<dd style="margin-left: 8">The largest absolute index of an entry referenced in a header block.</dd>
+<dt>Base:</dt>
+<dd style="margin-left: 8">A reference point for relative indicies.  Dynamic references are made relative to a Base in header blocks.</dd>
+<dt>Insert Count:</dt>
+<dd style="margin-left: 8">The total number of entries inserted in the dynamic table.</dd>
 </dl>
 <p id="rfc.section.1.1.p.4">QPACK is a name, not an acronym.</p>
 <h2 id="rfc.section.1.2">
@@ -622,7 +622,7 @@ ul.toc li {
 <h3 id="rfc.section.2.1.2">
 <a href="#rfc.section.2.1.2">2.1.2.</a> <a href="#blocked-insertion" id="blocked-insertion">Blocked Dynamic Table Insertions</a>
 </h3>
-<p id="rfc.section.2.1.2.p.1">An encoder MUST NOT insert an entry into the dynamic table (or duplicate an existing entry) if doing so would evict an entry with unacknowledged references.  For header blocks that might rely on the newly added entry, the encoder can use a literal representation and maybe insert the entry later.</p>
+<p id="rfc.section.2.1.2.p.1">An encoder MUST NOT insert an entry into the dynamic table (or duplicate an existing entry) if doing so would evict an entry with unacknowledged references.  For header blocks that might rely on the newly added entry, the encoder can use a literal representation.</p>
 <p id="rfc.section.2.1.2.p.2">To ensure that the encoder is not prevented from adding new entries, the encoder can avoid referencing entries that are close to eviction.  Rather than reference such an entry, the encoder can emit a Duplicate instruction (see <a href="#duplicate" class="xref">Section 4.3.3</a>), and reference the duplicate instead.</p>
 <p id="rfc.section.2.1.2.p.3">Determining which entries are too close to eviction to reference is an encoder preference.  One heuristic is to target a fixed amount of available space in the dynamic table: either unused space or space that can be reclaimed by evicting unreferenced entries.  To achieve this, the encoder can maintain a draining index, which is the smallest absolute index in the dynamic table that it will emit a reference for.  As new entries are inserted, the encoder increases the draining index to maintain the section of the table that it will not reference.  If the encoder does not create new references to entries with an absolute index lower than the draining index, the number of unacknowledged references to those entries will eventually become zero, allowing them to be evicted.</p>
 <div id="rfc.figure.1"></div>
@@ -634,23 +634,26 @@ ul.toc li {
    +----------+---------------------------------+--------+
    ^          ^                                 ^
    |          |                                 |
- Dropping    Draining Index               Base Index /
-  Point                                   Insertion Point
+ Dropping    Draining Index               Insertion Point
+  Point
 </pre>
 <p class="figure">Figure 1: Draining Dynamic Table Entries</p>
 <h3 id="rfc.section.2.1.3">
 <a href="#rfc.section.2.1.3">2.1.3.</a> <a href="#overview-hol-avoidance" id="overview-hol-avoidance">Avoiding Head-of-Line Blocking</a>
 </h3>
 <p id="rfc.section.2.1.3.p.1">Because QUIC does not guarantee order between data on different streams, a header block might reference an entry in the dynamic table that has not yet been received.</p>
-<p id="rfc.section.2.1.3.p.2">Each header block contains a Largest Reference (<a href="#header-prefix" class="xref">Section 4.5.1</a>) which identifies the table state necessary for decoding. If the greatest absolute index in the dynamic table is less than the value of the Largest Reference, the stream is considered &#8220;blocked.&#8221;  While blocked, header field data SHOULD remain in the blocked stream&#8217;s flow control window.  When the Largest Reference is zero, the frame contains no references to the dynamic table and can always be processed immediately. A stream becomes unblocked when the greatest absolute index in the dynamic table becomes greater than or equal to the Largest Reference for all header blocks the decoder has started reading from the stream.  If the decoder encounters a header block where the actual largest reference is not equal to the Largest Reference declared in the prefix, it MAY treat this as a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED.</p>
-<p id="rfc.section.2.1.3.p.3">The SETTINGS_QPACK_BLOCKED_STREAMS setting (see <a href="#configuration" class="xref">Section 5</a>) specifies an upper bound on the number of streams which can be blocked. An encoder MUST limit the number of streams which could become blocked to the value of SETTINGS_QPACK_BLOCKED_STREAMS at all times. Note that the decoder might not actually become blocked on every stream which risks becoming blocked.  If the decoder encounters more blocked streams than it promised to support, it MUST treat this as a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED.</p>
-<p id="rfc.section.2.1.3.p.4">An encoder can decide whether to risk having a stream become blocked. If permitted by the value of SETTINGS_QPACK_BLOCKED_STREAMS, compression efficiency can often be improved by referencing dynamic table entries that are still in transit, but if there is loss or reordering the stream can become blocked at the decoder.  An encoder avoids the risk of blocking by only referencing dynamic table entries which have been acknowledged, but this could mean using literals. Since literals make the header block larger, this can result in the encoder becoming blocked on congestion or flow control limits.</p>
+<p id="rfc.section.2.1.3.p.2">Each header block contains a Required Insert Count, the lowest possible value for the Insert Count with which the header block can be decoded. For a header block with no references to the dynamic table, the Required Insert Count is zero.</p>
+<p id="rfc.section.2.1.3.p.3">When the Required Insert Count is zero, the frame contains no references to the dynamic table and can always be processed immediately.</p>
+<p id="rfc.section.2.1.3.p.4">If the Required Insert Count is greater than the number of dynamic table entries received, the stream is considered &#8220;blocked.&#8221;  While blocked, header field data SHOULD remain in the blocked stream&#8217;s flow control window.  A stream becomes unblocked when the Insert Count becomes greater than or equal to the Required Insert Count for all header blocks the decoder has started reading from the stream.</p>
+<p id="rfc.section.2.1.3.p.5">If the decoder encounters a header block where the largest Absolute Index used is not equal to the largest value permitted by the Required Insert Count, it MAY treat this as a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED.</p>
+<p id="rfc.section.2.1.3.p.6">The SETTINGS_QPACK_BLOCKED_STREAMS setting (see <a href="#configuration" class="xref">Section 5</a>) specifies an upper bound on the number of streams which can be blocked. An encoder MUST limit the number of streams which could become blocked to the value of SETTINGS_QPACK_BLOCKED_STREAMS at all times. Note that the decoder might not actually become blocked on every stream which risks becoming blocked.  If the decoder encounters more blocked streams than it promised to support, it MUST treat this as a stream error of type HTTP_QPACK_DECOMPRESSION_FAILED.</p>
+<p id="rfc.section.2.1.3.p.7">An encoder can decide whether to risk having a stream become blocked. If permitted by the value of SETTINGS_QPACK_BLOCKED_STREAMS, compression efficiency can often be improved by referencing dynamic table entries that are still in transit, but if there is loss or reordering the stream can become blocked at the decoder.  An encoder avoids the risk of blocking by only referencing dynamic table entries which have been acknowledged, but this could mean using literals. Since literals make the header block larger, this can result in the encoder becoming blocked on congestion or flow control limits.</p>
 <h3 id="rfc.section.2.1.4">
-<a href="#rfc.section.2.1.4">2.1.4.</a> <a href="#largest-known-received" id="largest-known-received">Largest Known Received</a>
+<a href="#rfc.section.2.1.4">2.1.4.</a> <a href="#known-received-count" id="known-received-count">Known Received Count</a>
 </h3>
-<p id="rfc.section.2.1.4.p.1">In order to identify which dynamic table entries can be safely used without a stream becoming blocked, the encoder tracks the absolute index of the decoder&#8217;s Largest Known Received entry.</p>
-<p id="rfc.section.2.1.4.p.2">When blocking references are permitted, the encoder uses header block acknowledgement to identify the Largest Known Received index, as described in <a href="#header-acknowledgement" class="xref">Section 4.4.2</a>.</p>
-<p id="rfc.section.2.1.4.p.3">To acknowledge dynamic table entries which are not referenced by header blocks, for example because the encoder or the decoder have chosen not to risk blocked streams, the decoder sends a Table State Synchronize instruction (see <a href="#table-state-synchronize" class="xref">Section 4.4.1</a>).</p>
+<p id="rfc.section.2.1.4.p.1">In order to identify which dynamic table entries can be safely used without a stream becoming blocked, the encoder tracks the number of entries received by the decoder.  The Known Received Count tracks the total number of acknowledged insertions.</p>
+<p id="rfc.section.2.1.4.p.2">When blocking references are permitted, the encoder uses header block acknowledgement to maintain the Known Received Count, as described in <a href="#header-acknowledgement" class="xref">Section 4.4.2</a>.</p>
+<p id="rfc.section.2.1.4.p.3">To acknowledge dynamic table entries which are not referenced by header blocks, for example because the encoder or the decoder have chosen not to risk blocked streams, the decoder sends an Insert Count Increment instruction (see <a href="#insert-count-increment" class="xref">Section 4.4.1</a>).</p>
 <h2 id="rfc.section.2.2">
 <a href="#rfc.section.2.2">2.2.</a> <a href="#decoder" id="decoder">Decoder</a>
 </h2>
@@ -668,11 +671,11 @@ ul.toc li {
 <li>Receipt of new dynamic table entries</li>
 </ul>
 <p id="rfc.section.2.2.1.p.3">Knowledge that a header block with references to the dynamic table has been processed permits the encoder to evict entries to which no unacknowledged references remain, regardless of whether those references were potentially blocking (see <a href="#blocked-insertion" class="xref">Section 2.1.2</a>).  When a stream is reset or abandoned, the indication that these header blocks will never be processed serves a similar function; see <a href="#stream-cancellation" class="xref">Section 4.4.3</a>.</p>
-<p id="rfc.section.2.2.1.p.4">The decoder chooses when to emit Table State Synchronize instructions (see <a href="#table-state-synchronize" class="xref">Section 4.4.1</a>). Emitting an instruction after adding each new dynamic table entry will provide the most timely feedback to the encoder, but could be redundant with other decoder feedback. By delaying a Table State Synchronize instruction, the decoder might be able to coalesce multiple Table State Synchronize instructions, or replace them entirely with Header Acknowledgements (see <a href="#header-acknowledgement" class="xref">Section 4.4.2</a>). However, delaying too long may lead to compression inefficiencies if the encoder waits for an entry to be acknowledged before using it.</p>
+<p id="rfc.section.2.2.1.p.4">The decoder chooses when to emit Insert Count Increment instructions (see <a href="#insert-count-increment" class="xref">Section 4.4.1</a>). Emitting an instruction after adding each new dynamic table entry will provide the most timely feedback to the encoder, but could be redundant with other decoder feedback. By delaying an Insert Count Increment instruction, the decoder might be able to coalesce multiple Insert Count Increment instructions, or replace them entirely with Header Acknowledgements (see <a href="#header-acknowledgement" class="xref">Section 4.4.2</a>). However, delaying too long may lead to compression inefficiencies if the encoder waits for an entry to be acknowledged before using it.</p>
 <h3 id="rfc.section.2.2.2">
 <a href="#rfc.section.2.2.2">2.2.2.</a> <a href="#blocked-decoding" id="blocked-decoding">Blocked Decoding</a>
 </h3>
-<p id="rfc.section.2.2.2.p.1">To track blocked streams, the necessary Largest Reference value for each stream can be used.  Whenever the decoder processes a table update, it can begin decoding any blocked streams that now have their dependencies satisfied.</p>
+<p id="rfc.section.2.2.2.p.1">To track blocked streams, the Required Insert Count value for each stream can be used.  Whenever the decoder processes a table update, it can begin decoding any blocked streams that now have their dependencies satisfied.</p>
 <h1 id="rfc.section.3">
 <a href="#rfc.section.3">3.</a> <a href="#header-tables" id="header-tables">Header Tables</a>
 </h1>
@@ -709,54 +712,58 @@ ul.toc li {
 <h3 id="rfc.section.3.2.4">
 <a href="#rfc.section.3.2.4">3.2.4.</a> <a href="#indexing" id="indexing">Absolute Indexing</a>
 </h3>
-<p id="rfc.section.3.2.4.p.1">Each entry possesses both an absolute index which is fixed for the lifetime of that entry and a relative index which changes based on the context of the reference. The first entry inserted has an absolute index of &#8220;1&#8221;; indices increase by one with each insertion.</p>
+<p id="rfc.section.3.2.4.p.1">Each entry possesses both an absolute index which is fixed for the lifetime of that entry and a relative index which changes based on the context of the reference. The first entry inserted has an absolute index of &#8220;0&#8221;; indices increase by one with each insertion.</p>
 <h3 id="rfc.section.3.2.5">
 <a href="#rfc.section.3.2.5">3.2.5.</a> <a href="#relative-indexing" id="relative-indexing">Relative Indexing</a>
 </h3>
 <p id="rfc.section.3.2.5.p.1">The relative index begins at zero and increases in the opposite direction from the absolute index.  Determining which entry has a relative index of &#8220;0&#8221; depends on the context of the reference.</p>
 <p id="rfc.section.3.2.5.p.2">On the encoder stream, a relative index of &#8220;0&#8221; always refers to the most recently inserted value in the dynamic table.  Note that this means the entry referenced by a given relative index will change while interpreting instructions on the encoder stream.</p>
 <pre>
-    +---+---------------+-----------+
-    | n |      ...      |   d + 1   |  Absolute Index
-    + - +---------------+ - - - - - +
-    | 0 |      ...      | n - d - 1 |  Relative Index
-    +---+---------------+-----------+
-      ^                       |
-      |                       V
-Insertion Point         Dropping Point
+      +-----+---------------+-------+
+      | n-1 |      ...      |   d   |  Absolute Index
+      + - - +---------------+ - - - +
+      |  0  |      ...      | n-d-1 |  Relative Index
+      +-----+---------------+-------+
+      ^                             |
+      |                             V
+Insertion Point               Dropping Point
 
 n = count of entries inserted
 d = count of entries dropped
 </pre>
 <p class="figure">Example Dynamic Table Indexing - Control Stream</p>
-<p id="rfc.section.3.2.5.p.3">Because frames from request streams can be delivered out of order with instructions on the encoder stream, relative indices are relative to the Base Index at the beginning of the header block (see <a href="#header-prefix" class="xref">Section 4.5.1</a>). The Base Index is an absolute index. When interpreting the rest of the frame, the entry identified by Base Index has a relative index of zero.  The relative indices of entries do not change while interpreting headers on a request or push stream.</p>
+<p id="rfc.section.3.2.5.p.3">Unlike on the encoder stream, relative indices on push and request streams are relative to the Base at the beginning of the header block (see <a href="#header-prefix" class="xref">Section 4.5.1</a>). This ensures that references are stable even if the dynamic table is updated while decoding a header block.</p>
+<p id="rfc.section.3.2.5.p.4">The Base is encoded as a value relative to the Required Insert Count. The Base identifies which dynamic table entries can be referenced using relative indexing, starting with 0 at the last entry added.</p>
+<p id="rfc.section.3.2.5.p.5">Post-Base references are used for entries inserted after base, starting at 0 for the first entry added after the Base, see <a href="#post-base" class="xref">Section 3.2.6</a>.</p>
 <pre>
-             Base Index
-                 |
-                 V
-    +---+-----+-----+-----+-------+
-    | n | n-1 | n-2 | ... |  d+1  |  Absolute Index
-    +---+-----+  -  +-----+   -   +
-              |  0  | ... | n-d-3 |  Relative Index
-              +-----+-----+-------+
+ Required
+  Insert
+  Count        Base
+    |           |
+    V           V
+    +-----+-----+-----+-----+-------+
+    | n-1 | n-2 | n-3 | ... |   d   |  Absolute Index
+    +-----+-----+  -  +-----+   -   +
+                |  0  | ... | n-d-3 |  Relative Index
+                +-----+-----+-------+
 
 n = count of entries inserted
 d = count of entries dropped
 </pre>
 <p class="figure">Example Dynamic Table Indexing - Relative Index on Request Stream</p>
 <h3 id="rfc.section.3.2.6">
-<a href="#rfc.section.3.2.6">3.2.6.</a> <a href="#post-base-indexing" id="post-base-indexing">Post-Base Indexing</a>
+<a href="#rfc.section.3.2.6">3.2.6.</a> <a href="#post-base" id="post-base">Post-Base Indexing</a>
 </h3>
-<p id="rfc.section.3.2.6.p.1">A header block on the request stream can reference entries added after the entry identified by the Base Index. This allows an encoder to process a header block in a single pass and include references to entries added while processing this (or other) header blocks. Newly added entries are referenced using Post-Base instructions. Indices for Post-Base instructions increase in the same direction as absolute indices, but the zero value is one higher than the Base Index.</p>
+<p id="rfc.section.3.2.6.p.1">A header block on the request stream can reference entries added after the entry identified by the Base. This allows an encoder to process a header block in a single pass and include references to entries added while processing this (or other) header blocks. Newly added entries are referenced using Post-Base instructions. Indices for Post-Base instructions increase in the same direction as absolute indices, with the zero value being the first entry inserted after the Base.</p>
 <pre>
-             Base Index
-                 |
-                 V
-    +---+-----+-----+-----+-----+
-    | n | n-1 | n-2 | ... | d+1 |  Absolute Index
-    +---+-----+-----+-----+-----+
-    | 1 |  0  |                    Post-Base Index
-    +---+-----+
+               Base
+                |
+                V
+    +-----+-----+-----+-----+-----+
+    | n-1 | n-2 | n-3 | ... |  d  |  Absolute Index
+    +-----+-----+-----+-----+-----+
+    |  1  |  0  |                    Post-Base Index
+    +-----+-----+
 
 n = count of entries inserted
 d = count of entries dropped
@@ -765,7 +772,7 @@ d = count of entries dropped
 <h3 id="rfc.section.3.2.7">
 <a href="#rfc.section.3.2.7">3.2.7.</a> <a href="#invalid-references" id="invalid-references">Invalid References</a>
 </h3>
-<p id="rfc.section.3.2.7.p.1">If the decoder encounters a reference on a request or push stream to a dynamic table entry which has already been evicted or which has an absolute index greater than the declared Largest Reference (see <a href="#header-prefix" class="xref">Section 4.5.1</a>), it MUST treat this as a stream error of type <samp>HTTP_QPACK_DECOMPRESSION_FAILED</samp>.</p>
+<p id="rfc.section.3.2.7.p.1">If the decoder encounters a reference on a request or push stream to a dynamic table entry which has already been evicted or which has an absolute index greater than or equal to the declared Required Insert Count (see <a href="#header-prefix" class="xref">Section 4.5.1</a>), it MUST treat this as a stream error of type <samp>HTTP_QPACK_DECOMPRESSION_FAILED</samp>.</p>
 <p id="rfc.section.3.2.7.p.2">If the decoder encounters a reference on the encoder stream to a dynamic table entry which has already been dropped, it MUST treat this as a connection error of type <samp>HTTP_QPACK_ENCODER_STREAM_ERROR</samp>.</p>
 <h1 id="rfc.section.4">
 <a href="#rfc.section.4">4.</a> <a href="#wire-format" id="wire-format">Wire Format</a>
@@ -871,23 +878,23 @@ d = count of entries dropped
 <p id="rfc.section.4.4.p.1">The decoder stream carries information used to ensure consistency of the dynamic table. Information is sent from the decoder to the encoder; that is, the server informs the client about the processing of the client&#8217;s header blocks and table updates, and the client informs the server about the processing of the server&#8217;s header blocks and table updates.</p>
 <p id="rfc.section.4.4.p.2">The contents of the decoder stream are an unframed sequence of the following instructions.</p>
 <h3 id="rfc.section.4.4.1">
-<a href="#rfc.section.4.4.1">4.4.1.</a> <a href="#table-state-synchronize" id="table-state-synchronize">Table State Synchronize</a>
+<a href="#rfc.section.4.4.1">4.4.1.</a> <a href="#insert-count-increment" id="insert-count-increment">Insert Count Increment</a>
 </h3>
-<p id="rfc.section.4.4.1.p.1">The Table State Synchronize instruction begins with the &#8216;00&#8217; two-bit pattern.  The instruction specifies the total number of dynamic table inserts and duplications since the last Table State Synchronize or Header Acknowledgement that increased the Largest Known Received dynamic table entry (see <a href="#largest-known-received" class="xref">Section 2.1.4</a>).  This is encoded as a 6-bit prefix integer. The encoder uses this value to determine which table entries might cause a stream to become blocked, as described in <a href="#state-synchronization" class="xref">Section 2.2.1</a>.</p>
+<p id="rfc.section.4.4.1.p.1">The Insert Count Increment instruction begins with the &#8216;00&#8217; two-bit pattern.  The instruction specifies the total number of dynamic table inserts and duplications since the last Insert Count Increment or Header Acknowledgement that increased the Known Received Count for the dynamic table (see <a href="#known-received-count" class="xref">Section 2.1.4</a>).  The Increment field is encoded as a 6-bit prefix integer. The encoder uses this value to determine which table entries might cause a stream to become blocked, as described in <a href="#state-synchronization" class="xref">Section 2.2.1</a>.</p>
 <div id="rfc.figure.4"></div>
 <div id="fig-size-sync"></div>
 <pre>
   0   1   2   3   4   5   6   7
 +---+---+---+---+---+---+---+---+
-| 0 | 0 |   Insert Count (6+)   |
+| 0 | 0 |     Increment (6+)    |
 +---+---+-----------------------+
 </pre>
-<p class="figure">Figure 4: Table State Synchronize</p>
-<p id="rfc.section.4.4.1.p.2">An encoder that receives an Insert Count equal to zero or one that increases Largest Known Received beyond what the encoder has sent MUST treat this as a connection error of type <samp>HTTP_QPACK_DECODER_STREAM_ERROR</samp>.</p>
+<p class="figure">Figure 4: Insert Count Increment</p>
+<p id="rfc.section.4.4.1.p.2">An encoder that receives an Increment field equal to zero or one that increases the Known Received Count beyond what the encoder has sent MUST treat this as a connection error of type <samp>HTTP_QPACK_DECODER_STREAM_ERROR</samp>.</p>
 <h3 id="rfc.section.4.4.2">
 <a href="#rfc.section.4.4.2">4.4.2.</a> <a href="#header-acknowledgement" id="header-acknowledgement">Header Acknowledgement</a>
 </h3>
-<p id="rfc.section.4.4.2.p.1">After processing a header block whose declared Largest Reference is not zero, the decoder emits a Header Acknowledgement instruction on the decoder stream.  The instruction begins with the &#8216;1&#8217; one-bit pattern and includes the request stream&#8217;s stream ID, encoded as a 7-bit prefix integer.  It is used by the peer&#8217;s encoder to know when it is safe to evict an entry, and possibly update Largest Known Received.</p>
+<p id="rfc.section.4.4.2.p.1">After processing a header block whose declared Required Insert Count is not zero, the decoder emits a Header Acknowledgement instruction on the decoder stream.  The instruction begins with the &#8216;1&#8217; one-bit pattern and includes the request stream&#8217;s stream ID, encoded as a 7-bit prefix integer.  It is used by the peer&#8217;s encoder to know when it is safe to evict an entry, and possibly update the Known Received Count.</p>
 <div id="rfc.figure.5"></div>
 <div id="fig-header-ack"></div>
 <pre>
@@ -898,8 +905,8 @@ d = count of entries dropped
 </pre>
 <p class="figure">Figure 5: Header Acknowledgement</p>
 <p id="rfc.section.4.4.2.p.2">The same Stream ID can be identified multiple times, as multiple header blocks can be sent on a single stream in the case of intermediate responses, trailers, and pushed requests.  Since header frames on each stream are received and processed in order, this gives the encoder precise feedback on which header blocks within a stream have been fully processed.</p>
-<p id="rfc.section.4.4.2.p.3">If an encoder receives a Header Acknowledgement instruction referring to a stream on which every header block with a non-zero Largest Reference has already been acknowledged, that MUST be treated as a connection error of type <samp>HTTP_QPACK_DECODER_STREAM_ERROR</samp>.</p>
-<p id="rfc.section.4.4.2.p.4">When blocking references are permitted, the encoder uses acknowledgement of header blocks to update the Largest Known Received index.  If a header block was potentially blocking, the acknowledgement implies that the decoder has received all dynamic table state necessary to process the header block.  If the Largest Reference of an acknowledged header block was greater than the encoder&#8217;s current Largest Known Received index, the block&#8217;s Largest Reference becomes the new Largest Known Received.</p>
+<p id="rfc.section.4.4.2.p.3">If an encoder receives a Header Acknowledgement instruction referring to a stream on which every header block with a non-zero Required Insert Count has already been acknowledged, that MUST be treated as a connection error of type <samp>HTTP_QPACK_DECODER_STREAM_ERROR</samp>.</p>
+<p id="rfc.section.4.4.2.p.4">When blocking references are permitted, the encoder uses acknowledgement of header blocks to update the Known Received Count.  If a header block was potentially blocking, the acknowledgement implies that the decoder has received all dynamic table state necessary to process the header block.  If the Required Insert Count of an acknowledged header block was greater than the encoder&#8217;s current Known Received Count, the block&#8217;s Required Insert Count becomes the new Known Received Count.</p>
 <h3 id="rfc.section.4.4.3">
 <a href="#rfc.section.4.4.3">4.4.3.</a> <a href="#stream-cancellation" id="stream-cancellation">Stream Cancellation</a>
 </h3>
@@ -920,64 +927,70 @@ d = count of entries dropped
 </h2>
 <p id="rfc.section.4.5.p.1">HEADERS and PUSH_PROMISE frames on request and push streams reference the dynamic table in a particular state without modifying it.  Frames on these streams emit the headers for an HTTP request or response.</p>
 <h3 id="rfc.section.4.5.1">
-<a href="#rfc.section.4.5.1">4.5.1.</a> <a href="#header-prefix" id="header-prefix">Header Data Prefix</a>
+<a href="#rfc.section.4.5.1">4.5.1.</a> <a href="#header-prefix" id="header-prefix">Header Block Prefix</a>
 </h3>
-<p id="rfc.section.4.5.1.p.1">Header data is prefixed with two integers, <samp>Largest Reference</samp> and <samp>Base Index</samp>.</p>
+<p id="rfc.section.4.5.1.p.1">Each header block is prefixed with two integers.  The Required Insert Count is encoded as an integer with an 8-bit prefix after the encoding described in <a href="#ric" class="xref">Section 4.5.1.1</a>).  The Base is encoded as sign-and-modulus integer, using a single sign bit and a value with a 7-bit prefix (see <a href="#base" class="xref">Section 4.5.1.2</a>).</p>
+<p id="rfc.section.4.5.1.p.2">These two values are followed by instructions for compressed headers.  The entire block is expected to be framed by the using protocol.</p>
 <div id="rfc.figure.7"></div>
 <div id="fig-base-index"></div>
 <pre>
   0   1   2   3   4   5   6   7
 +---+---+---+---+---+---+---+---+
-|     Largest Reference (8+)    |
+|   Required Insert Count (8+)  |
 +---+---------------------------+
-| S |   Delta Base Index (7+)   |
+| S |      Delta Base (7+)      |
 +---+---------------------------+
 |      Compressed Headers     ...
 +-------------------------------+
 </pre>
 <p class="figure">Figure 7: Frame Payload</p>
 <h4 id="rfc.section.4.5.1.1">
-<a href="#rfc.section.4.5.1.1">4.5.1.1.</a> <a href="#largest-reference" id="largest-reference">Largest Reference</a>
+<a href="#rfc.section.4.5.1.1">4.5.1.1.</a> <a href="#ric" id="ric">Required Insert Count</a>
 </h4>
-<p><samp>Largest Reference</samp> identifies the largest absolute dynamic index referenced in the block.  Blocking decoders use the Largest Reference to determine when it is safe to process the rest of the block.  If Largest Reference is greater than zero, the encoder transforms it as follows before encoding:</p>
+<p id="rfc.section.4.5.1.1.p.1">Required Insert Count identifies the state of the dynamic table needed to process the header block.  Blocking decoders use the Required Insert Count to determine when it is safe to process the rest of the block.</p>
+<p id="rfc.section.4.5.1.1.p.2">If no references are made to the dynamic table, a value of 0 is encoded.  Alternatively, where the Required Insert Count is greater than zero, the encoder transforms it as follows before encoding:</p>
 <pre>
-   LargestReference = (LargestReference mod (2 * MaxEntries)) + 1
+   EncodedInsertCount = (ReqInsertCount mod (2 * MaxEntries)) + 1
 </pre>
-<p id="rfc.section.4.5.1.1.p.2">Here <samp>MaxEntries</samp> is the maximum number of entries that the dynamic table can have.  The smallest entry has empty name and value strings and has the size of 32.  Hence <samp>MaxEntries</samp> is calculated as</p>
+<p id="rfc.section.4.5.1.1.p.3">Here <samp>MaxEntries</samp> is the maximum number of entries that the dynamic table can have.  The smallest entry has empty name and value strings and has the size of 32.  Hence <samp>MaxEntries</samp> is calculated as</p>
 <pre>
    MaxEntries = floor( MaxTableSize / 32 )
 </pre>
 <p><samp>MaxTableSize</samp> is the maximum size of the dynamic table as specified by the decoder (see <a href="#maximum-table-size" class="xref">Section 3.2.3</a>).</p>
-<p id="rfc.section.4.5.1.1.p.4">The decoder reconstructs the Largest Reference using the following algorithm:</p>
+<p id="rfc.section.4.5.1.1.p.5">The decoder reconstructs the Required Insert Count using the following algorithm, where TotalNumberOfInserts is the total number of inserts into the decoder&#8217;s dynamic table:</p>
 <pre>
-   if LargestReference &gt; 0:
-      LargestReference -= 1
+   if EncodedInsertCount == 0:
+      ReqInsertCount = 0
+   else:
+      InsertCount = EncodedInsertCount - 1
       CurrentWrapped = TotalNumberOfInserts mod (2 * MaxEntries)
 
-      if CurrentWrapped &gt;= LargestReference + MaxEntries:
-         # Largest Reference wrapped around 1 extra time
-         LargestReference += 2 * MaxEntries
-      else if CurrentWrapped + MaxEntries &lt; LargestReference
+      if CurrentWrapped &gt;= InsertCount + MaxEntries:
+         # Insert Count wrapped around 1 extra time
+         ReqInsertCount += 2 * MaxEntries
+      else if CurrentWrapped + MaxEntries &lt; InsertCount:
          # Decoder wrapped around 1 extra time
          CurrentWrapped += 2 * MaxEntries
 
-      LargestReference += TotalNumberOfInserts - CurrentWrapped
+      ReqInsertCount += TotalNumberOfInserts - CurrentWrapped
 </pre>
-<p id="rfc.section.4.5.1.1.p.5">TotalNumberOfInserts is the total number of inserts into the decoder&#8217;s dynamic table.  This encoding limits the length of the prefix on long-lived connections.</p>
+<p id="rfc.section.4.5.1.1.p.6">This encoding limits the length of the prefix on long-lived connections.</p>
+<p id="rfc.section.4.5.1.1.p.7">For example, if the dynamic table is 100 bytes, then the Required Insert Count will be encoded modulo 6.  If a decoder has received 10 inserts, then an encoded value of 3 indicates that the Required Insert Count is 9 for the header block.</p>
 <h4 id="rfc.section.4.5.1.2">
-<a href="#rfc.section.4.5.1.2">4.5.1.2.</a> <a href="#base-index" id="base-index">Base Index</a>
+<a href="#rfc.section.4.5.1.2">4.5.1.2.</a> <a href="#base" id="base">Base</a>
 </h4>
-<p><samp>Base Index</samp> is used to resolve references in the dynamic table as described in <a href="#relative-indexing" class="xref">Section 3.2.5</a>.</p>
-<p id="rfc.section.4.5.1.2.p.2">To save space, Base Index is encoded relative to Largest Reference using a one-bit sign and the <samp>Delta Base Index</samp> value.  A sign bit of 0 indicates that the Base Index has an absolute index that is greater than or equal to the Largest Reference; the value of Delta Base Index is added to the Largest Reference to determine the absolute value of the Base Index.  A sign bit of 1 indicates that the Base Index is less than the Largest Reference.  That is:</p>
+<p id="rfc.section.4.5.1.2.p.1">The <samp>Base</samp> is used to resolve references in the dynamic table as described in <a href="#relative-indexing" class="xref">Section 3.2.5</a>.</p>
+<p id="rfc.section.4.5.1.2.p.2">To save space, the Base is encoded relative to the Insert Count using a one-bit sign and the <samp>Delta Base</samp> value.  A sign bit of 0 indicates that the Base is greater than or equal to the value of the Insert Count; the value of Delta Base is added to the Insert Count to determine the value of the Base.  A sign bit of 1 indicates that the Base is less than the Insert Count.  That is:</p>
 <pre>
-   if sign == 0:
-      baseIndex = largestReference + deltaBaseIndex
+   if S == 0:
+      Base = ReqInsertCount + DeltaBase
    else:
-      baseIndex = largestReference - deltaBaseIndex - 1
+      Base = ReqInsertCount - DeltaBase - 1
 </pre>
-<p id="rfc.section.4.5.1.2.p.3">A single-pass encoder determines the absolute value of Base Index before encoding a header block.  If the encoder inserted entries in the dynamic table while encoding the header block, Largest Reference will be greater than Base Index, so the encoded difference is negative and the sign bit is set to 1.  If the header block did not reference the most recent entry in the table and did not insert any new entries, Base Index will be greater than the Largest Reference, so the delta will be positive and the sign bit is set to 0.</p>
-<p id="rfc.section.4.5.1.2.p.4">An encoder that produces table updates before encoding a header block might set Largest Reference and Base Index to the same value.  In such case, both the sign bit and the Delta Base Index will be set to zero.</p>
-<p id="rfc.section.4.5.1.2.p.5">A header block that does not reference the dynamic table can use any value for Base Index; setting both Largest Reference and Base Index to zero is the most efficient encoding.</p>
+<p id="rfc.section.4.5.1.2.p.3">A single-pass encoder determines the Base before encoding a header block.  If the encoder inserted entries in the dynamic table while encoding the header block, Required Insert Count will be greater than the Base, so the encoded difference is negative and the sign bit is set to 1.  If the header block did not reference the most recent entry in the table and did not insert any new entries, the Base will be greater than the Required Insert Count, so the delta will be positive and the sign bit is set to 0.</p>
+<p id="rfc.section.4.5.1.2.p.4">An encoder that produces table updates before encoding a header block might set Required Insert Count and the Base to the same value.  In such case, both the sign bit and the Delta Base will be set to zero.</p>
+<p id="rfc.section.4.5.1.2.p.5">A header block that does not reference the dynamic table can use any value for the Base; setting Delta Base to zero is the most efficient encoding.</p>
+<p id="rfc.section.4.5.1.2.p.6">For example, with an Required Insert Count of 9, a decoder receives a S bit of 1 and a Delta Base of 2.  This sets the Base to 6 and enables post-base indexing for three entries.  In this example, a regular index of 1 refers to the 5th entry that was added to the table; a post-base index of 1 refers to the 8th entry.</p>
 <h3 id="rfc.section.4.5.2">
 <a href="#rfc.section.4.5.2">4.5.2.</a> <a href="#indexed-header-field" id="indexed-header-field">Indexed Header Field</a>
 </h3>
@@ -989,11 +1002,11 @@ d = count of entries dropped
 +---+---+-----------------------+
 </pre>
 <p class="figure">Indexed Header Field</p>
-<p id="rfc.section.4.5.2.p.2">If the entry is in the static table, or in the dynamic table with an absolute index less than or equal to Base Index, this representation starts with the &#8216;1&#8217; 1-bit pattern, followed by the <samp>S</samp> bit indicating whether the reference is into the static (S=1) or dynamic (S=0) table. Finally, the relative index of the matching header field is represented as an integer with a 6-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>).</p>
+<p id="rfc.section.4.5.2.p.2">If the entry is in the static table, or in the dynamic table with an absolute index less than the Base, this representation starts with the &#8216;1&#8217; 1-bit pattern, followed by the <samp>S</samp> bit indicating whether the reference is into the static (S=1) or dynamic (S=0) table. Finally, the relative index of the matching header field is represented as an integer with a 6-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>).</p>
 <h3 id="rfc.section.4.5.3">
 <a href="#rfc.section.4.5.3">4.5.3.</a> <a href="#indexed-header-field-with-post-base-index" id="indexed-header-field-with-post-base-index">Indexed Header Field With Post-Base Index</a>
 </h3>
-<p id="rfc.section.4.5.3.p.1">If the entry is in the dynamic table with an absolute index greater than Base Index, the representation starts with the &#8216;0001&#8217; 4-bit pattern, followed by the post-base index (see <a href="#post-base-indexing" class="xref">Section 3.2.6</a>) of the matching header field, represented as an integer with a 4-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>).</p>
+<p id="rfc.section.4.5.3.p.1">If the entry is in the dynamic table with an absolute index greater than or equal to the Base, the representation starts with the &#8216;0001&#8217; 4-bit pattern, followed by the post-base index (see <a href="#post-base" class="xref">Section 3.2.6</a>) of the matching header field, represented as an integer with a 4-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>).</p>
 <pre>
   0   1   2   3   4   5   6   7
 +---+---+---+---+---+---+---+---+
@@ -1005,7 +1018,7 @@ d = count of entries dropped
 <a href="#rfc.section.4.5.4">4.5.4.</a> <a href="#literal-header-field-with-name-reference" id="literal-header-field-with-name-reference">Literal Header Field With Name Reference</a>
 </h3>
 <p id="rfc.section.4.5.4.p.1">A literal header field with a name reference represents a header where the header field name matches the header field name of an entry stored in the static table or the dynamic table.</p>
-<p id="rfc.section.4.5.4.p.2">If the entry is in the static table, or in the dynamic table with an absolute index less than or equal to Base Index, this representation starts with the &#8216;01&#8217; two-bit pattern.  If the entry is in the dynamic table with an absolute index greater than Base Index, the representation starts with the &#8216;0000&#8217; four-bit pattern.</p>
+<p id="rfc.section.4.5.4.p.2">If the entry is in the static table, or in the dynamic table with an absolute index less than the Base, this representation starts with the &#8216;01&#8217; two-bit pattern.  If the entry is in the dynamic table with an absolute index greater than or equal to the Base, the representation starts with the &#8216;0000&#8217; four-bit pattern.</p>
 <p id="rfc.section.4.5.4.p.3">The following bit, &#8216;N&#8217;, indicates whether an intermediary is permitted to add this header to the dynamic header table on subsequent hops. When the &#8216;N&#8217; bit is set, the encoded header MUST always be encoded with a literal representation. In particular, when a peer sends a header field that it received represented as a literal header field with the &#8216;N&#8217; bit set, it MUST use a literal representation to forward this header field.  This bit is intended for protecting header field values that are not to be put at risk by compressing them (see Section 7.1 of <a href="#RFC7541" class="xref">[RFC7541]</a> for more details).</p>
 <pre>
      0   1   2   3   4   5   6   7
@@ -1018,11 +1031,11 @@ d = count of entries dropped
    +-------------------------------+
 </pre>
 <p class="figure">Literal Header Field With Name Reference</p>
-<p id="rfc.section.4.5.4.p.4">For entries in the static table or in the dynamic table with an absolute index less than or equal to Base Index, the header field name is represented using the relative index of that entry, which is represented as an integer with a 4-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>). The <samp>S</samp> bit indicates whether the reference is to the static (S=1) or dynamic (S=0) table.</p>
+<p id="rfc.section.4.5.4.p.4">For entries in the static table or in the dynamic table with an absolute index less than the Base, the header field name is represented using the relative index of that entry, which is represented as an integer with a 4-bit prefix (see Section 5.1 of <a href="#RFC7541" class="xref">[RFC7541]</a>). The <samp>S</samp> bit indicates whether the reference is to the static (S=1) or dynamic (S=0) table.</p>
 <h3 id="rfc.section.4.5.5">
 <a href="#rfc.section.4.5.5">4.5.5.</a> <a href="#literal-header-field-with-post-base-name-reference" id="literal-header-field-with-post-base-name-reference">Literal Header Field With Post-Base Name Reference</a>
 </h3>
-<p id="rfc.section.4.5.5.p.1">For entries in the dynamic table with an absolute index greater than Base Index, the header field name is represented using the post-base index of that entry (see <a href="#post-base-indexing" class="xref">Section 3.2.6</a>) encoded as an integer with a 3-bit prefix.</p>
+<p id="rfc.section.4.5.5.p.1">For entries in the dynamic table with an absolute index greater than or equal to the Base, the header field name is represented using the post-base index of that entry (see <a href="#post-base" class="xref">Section 3.2.6</a>) encoded as an integer with a 3-bit prefix.</p>
 <pre>
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
