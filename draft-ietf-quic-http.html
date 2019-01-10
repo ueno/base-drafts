@@ -875,8 +875,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 </tbody>
 </table>
 <p id="rfc.section.4.2.3.p.8">Note that unlike in <a href="#RFC7540" class="xref">[RFC7540]</a>, the root of the tree cannot be referenced using a Stream ID of 0, as in QUIC stream 0 carries a valid HTTP request.  The root of the tree cannot be reprioritized.  A PRIORITY frame sent on a request stream with the Prioritized Element Type set to any value other than <samp>11</samp> or which expresses a dependency on a request with a greater Stream ID than the current stream MUST be treated as a stream error of type HTTP_MALFORMED_FRAME.  Likewise, a PRIORITY frame sent on a control stream with the Prioritized Element Type set to <samp>11</samp> MUST be treated as a connection error of type HTTP_MALFORMED_FRAME.</p>
-<p id="rfc.section.4.2.3.p.9">When a PRIORITY frame claims to reference a request, the associated ID MUST identify a client-initiated bidirectional stream.  A server MUST treat receipt of PRIORITY frame with a Stream ID of any other type as a connection error of type HTTP_MALFORMED_FRAME.</p>
-<p id="rfc.section.4.2.3.p.10">A PRIORITY frame that references a non-existent Push ID or a Placeholder ID greater than the server&#8217;s limit MUST be treated as an HTTP_MALFORMED_FRAME error.</p>
+<p id="rfc.section.4.2.3.p.9">When a PRIORITY frame claims to reference a request, the associated ID MUST identify a client-initiated bidirectional stream.  A server MUST treat receipt of a PRIORITY frame identifying a stream of any other type as a connection error of type HTTP_MALFORMED_FRAME.</p>
+<p id="rfc.section.4.2.3.p.10">A PRIORITY frame that references a non-existent Push ID, a Placeholder ID greater than the server&#8217;s limit, or a Stream ID the client is not yet permitted to open MUST be treated as an HTTP_LIMIT_EXCEEDED error.</p>
 <p id="rfc.section.4.2.3.p.11">A PRIORITY frame received on any stream other than a request or control stream MUST be treated as a connection error of type HTTP_WRONG_STREAM.</p>
 <p id="rfc.section.4.2.3.p.12">PRIORITY frames received by a client MUST be treated as a stream error of type HTTP_UNEXPECTED_FRAME.</p>
 <h3 id="rfc.section.4.2.4">
@@ -1126,7 +1126,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 </h2>
 <p id="rfc.section.5.4.p.1">HTTP/3 server push is similar to what is described in HTTP/2 <a href="#RFC7540" class="xref">[RFC7540]</a>, but uses different mechanisms.</p>
 <p id="rfc.section.5.4.p.2">Each server push is identified by a unique Push ID. This Push ID is used in a single PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 4.2.6</a>) which carries the request headers, possibly included in one or more DUPLICATE_PUSH frames (see <a href="#frame-duplicate-push" class="xref">Section 4.2.9</a>), then included with the push stream which ultimately fulfills those promises.</p>
-<p id="rfc.section.5.4.p.3">Server push is only enabled on a connection when a client sends a MAX_PUSH_ID frame (see <a href="#frame-max-push-id" class="xref">Section 4.2.8</a>). A server cannot use server push until it receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to control the number of pushes that a server can promise. A server SHOULD use Push IDs sequentially, starting at 0. A client MUST treat receipt of a push stream with a Push ID that is greater than the maximum Push ID as a connection error of type HTTP_PUSH_LIMIT_EXCEEDED.</p>
+<p id="rfc.section.5.4.p.3">Server push is only enabled on a connection when a client sends a MAX_PUSH_ID frame (see <a href="#frame-max-push-id" class="xref">Section 4.2.8</a>). A server cannot use server push until it receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to control the number of pushes that a server can promise. A server SHOULD use Push IDs sequentially, starting at 0. A client MUST treat receipt of a push stream with a Push ID that is greater than the maximum Push ID as a connection error of type HTTP_LIMIT_EXCEEDED.</p>
 <p id="rfc.section.5.4.p.4">The header of the request message is carried by a PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 4.2.6</a>) on the request stream which generated the push. This allows the server push to be associated with a client request. Ordering of a PUSH_PROMISE in relation to certain parts of the response is important (see Section 8.2.1 of <a href="#RFC7540" class="xref">[RFC7540]</a>).  Promised requests MUST conform to the requirements in Section 8.2 of <a href="#RFC7540" class="xref">[RFC7540]</a>.</p>
 <p id="rfc.section.5.4.p.5">The same server push can be associated with additional client requests using a DUPLICATE_PUSH frame (see <a href="#frame-duplicate-push" class="xref">Section 4.2.9</a>).  Ordering of a DUPLICATE_PUSH in relation to certain parts of the response is similarly important.  Due to reordering, DUPLICATE_PUSH frames can arrive before the corresponding PUSH_PROMISE frame, in which case the request headers of the push would not be immediately available.  Clients which receive a DUPLICATE_PUSH frame for an as-yet-unknown Push ID can either delay generating new requests for content referenced following the DUPLICATE_PUSH frame until the request headers become available, or can initiate requests for discovered resources and cancel the requests if the requested resource is already being pushed.</p>
 <p id="rfc.section.5.4.p.6">When a server later fulfills a promise, the server push response is conveyed on a push stream (see <a href="#push-streams" class="xref">Section 3.2.2</a>). The push stream identifies the Push ID of the promise that it fulfills, then contains a response to the promised request using the same format described for responses in <a href="#request-response" class="xref">Section 5.1</a>.</p>
@@ -1204,8 +1204,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dd style="margin-left: 8">The requested operation cannot be served over HTTP/3.  The peer should retry over HTTP/1.1.</dd>
 <dt>HTTP_WRONG_STREAM (0x0A):</dt>
 <dd style="margin-left: 8">A frame was received on a stream where it is not permitted.</dd>
-<dt>HTTP_PUSH_LIMIT_EXCEEDED (0x0B):</dt>
-<dd style="margin-left: 8">A Push ID greater than the current maximum Push ID was referenced.</dd>
+<dt>HTTP_LIMIT_EXCEEDED (0x0B):</dt>
+<dd style="margin-left: 8">A Stream ID, Push ID, or Placeholder ID greater than the current maximum for that identifier was referenced.</dd>
 <dt>HTTP_DUPLICATE_PUSH (0x0C):</dt>
 <dd style="margin-left: 8">A Push ID was referenced in two different stream headers.</dd>
 <dt>HTTP_UNKNOWN_STREAM_TYPE (0x0D):</dt>
@@ -1518,9 +1518,9 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_PUSH_LIMIT_EXCEEDED</td>
+<td class="left">HTTP_LIMIT_EXCEEDED</td>
 <td class="left">0x000B</td>
-<td class="left">Maximum Push ID exceeded</td>
+<td class="left">An identifier limit was exceeded</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
