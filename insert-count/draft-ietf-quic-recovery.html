@@ -718,7 +718,7 @@ ul.toc li {
 <li>the latest RTT sample is lower than the SRTT, perhaps due to reordering where packet whose ack triggered the Early Retransmit process encountered a shorter path;</li>
 <li>the latest RTT sample is higher than the SRTT, perhaps due to a sustained increase in the actual RTT, but the smoothed SRTT has not yet caught up.</li>
 </ul>
-<p id="rfc.section.6.1.2.p.5">Implementers MAY experiment with using other reordering thresholds, including absolute thresholds, bearing in mind that a lower multiplier reduces reordering resilience and increases spurious retransmissions, and a higher multiplier increases loss detection delay.</p>
+<p id="rfc.section.6.1.2.p.5">Implementations MAY experiment with absolute thresholds, thresholds from previous connections, adaptive thresholds, or including RTT variance.  Smaller thresholds reduce reordering resilience and increase spurious retransmissions, and larger thresholds increase loss detection delay.</p>
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#timeout-loss-detection" id="timeout-loss-detection">Timeout Loss Detection</a>
 </h2>
@@ -738,11 +738,11 @@ ul.toc li {
 <a href="#rfc.section.6.2.1.1">6.2.1.1.</a> <a href="#retry-and-version-negotiation" id="retry-and-version-negotiation">Retry and Version Negotiation</a>
 </h4>
 <p id="rfc.section.6.2.1.1.p.1">A Retry or Version Negotiation packet causes a client to send another Initial packet, effectively restarting the connection process and resetting congestion control and loss recovery state, including resetting any pending timers.  Either packet indicates that the Initial was received but not processed.  Neither packet can be treated as an acknowledgment for the Initial.</p>
+<p id="rfc.section.6.2.1.1.p.2">The client MAY however compute an RTT estimate to the server as the time period from when the first Initial was sent to when a Retry or a Version Negotiation packet is received.  The client MAY use this value to seed the RTT estimator for a subsequent connection attempt to the server.</p>
 <h4 id="rfc.section.6.2.1.2">
 <a href="#rfc.section.6.2.1.2">6.2.1.2.</a> <a href="#discard-initial" id="discard-initial">Discarding Initial State</a>
 </h4>
 <p id="rfc.section.6.2.1.2.p.1">As described in Section 17.5.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>, endpoints stop sending and receiving Initial packets once they start exchanging Handshake packets.  At this point, all loss recovery state for the Initial packet number space is also discarded. Packets that are in flight for the packet number space are not declared as either acknowledged or lost.  After discarding state, new Initial packets will not be sent.</p>
-<p id="rfc.section.6.2.1.2.p.2">The client MAY however compute an RTT estimate to the server as the time period from when the first Initial was sent to when a Retry or a Version Negotiation packet is received.  The client MAY use this value to seed the RTT estimator for a subsequent connection attempt to the server.</p>
 <h3 id="rfc.section.6.2.2">
 <a href="#rfc.section.6.2.2">6.2.2.</a> <a href="#pto" id="pto">Probe Timeout</a>
 </h3>
@@ -765,6 +765,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <p id="rfc.section.6.2.2.2.p.1">When a PTO timer expires, the sender MUST send one ack-eliciting packet as a probe. A sender MAY send up to two ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single packet loss.</p>
 <p id="rfc.section.6.2.2.2.p.2">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drops, thus reducing the probability of consecutive PTO events.</p>
 <p id="rfc.section.6.2.2.2.p.3">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
+<p id="rfc.section.6.2.2.2.p.4">When a PTO timer expires, new or previously-sent data may not be available to send and packets may still be in flight.  A sender can be blocked from sending new data in the future if packets are left in flight.  Under these conditions, a sender SHOULD mark any packets still in flight as lost.  If a sender wishes to establish delivery of packets still in flight, it MAY send an ack-eliciting packet and re-arm the PTO timer instead.</p>
 <h4 id="rfc.section.6.2.2.3">
 <a href="#rfc.section.6.2.2.3">6.2.2.3.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
 </h4>
@@ -883,10 +884,11 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
    sent_packets[packet_number].time_sent = now
    sent_packets[packet_number].ack_eliciting = ack_eliciting
    sent_packets[packet_number].in_flight = in_flight
-   if (ack_eliciting):
+   if (in_flight):
      if (is_crypto_packet):
        time_of_last_sent_crypto_packet = now
-     time_of_last_sent_ack_eliciting_packet = now
+     if (ack_eliciting):
+       time_of_last_sent_ack_eliciting_packet = now
      OnPacketSentCC(sent_bytes)
      sent_packets[packet_number].size = sent_bytes
      SetLossDetectionTimer()
@@ -921,10 +923,11 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
     for acked_packet in newly_acked_packets:
       OnPacketAcked(acked_packet.packet_number)
 
+    DetectLostPackets()
+
     crypto_count = 0
     pto_count = 0
 
-    DetectLostPackets()
     SetLossDetectionTimer()
 
 
@@ -1087,7 +1090,7 @@ DetectLostPackets():
 <a href="#rfc.section.7.5">7.5.</a> <a href="#probe-timeout" id="probe-timeout">Probe Timeout</a>
 </h2>
 <p id="rfc.section.7.5.p.1">Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST however count these packets as being additionally in flight, since these packets adds network load without establishing packet loss.  Note that sending probe packets might cause the sender&#8217;s bytes in flight to exceed the congestion window until an acknowledgement is received that establishes loss or delivery of packets.</p>
-<p id="rfc.section.7.5.p.2">If a threshold number of consecutive PTOs have occurred (pto_count is more than kPersistentCongestionThreshold, see <a href="#cc-consts-of-interest" class="xref">Section 7.9.1</a>), the network is considered to be experiencing persistent congestion, and the sender&#8217;s congestion window MUST be reduced to the minimum congestion window.</p>
+<p id="rfc.section.7.5.p.2">When an ACK frame is received that establishes loss of all in-flight packets sent prior to a threshold number of consecutive PTOs (pto_count is more than kPersistentCongestionThreshold, see <a href="#cc-consts-of-interest" class="xref">Section 7.9.1</a>), the network is considered to be experiencing persistent congestion, and the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a>.</p>
 <h2 id="rfc.section.7.6">
 <a href="#rfc.section.7.6">7.6.</a> <a href="#pacing" id="pacing">Pacing</a>
 </h2>
@@ -1097,13 +1100,15 @@ DetectLostPackets():
 <h2 id="rfc.section.7.7">
 <a href="#rfc.section.7.7">7.7.</a> <a href="#sending-data-after-an-idle-period" id="sending-data-after-an-idle-period">Sending data after an idle period</a>
 </h2>
-<p id="rfc.section.7.7.p.1">A sender becomes idle if it ceases to send data and has no bytes in flight.  A sender&#8217;s congestion window MUST not increase while it is idle.</p>
+<p id="rfc.section.7.7.p.1">A sender becomes idle if it ceases to send data and has no bytes in flight.  A sender&#8217;s congestion window MUST NOT increase while it is idle.</p>
 <p id="rfc.section.7.7.p.2">When sending data after becoming idle, a sender MUST reset its congestion window to the initial congestion window (see Section 4.1 of <a href="#RFC5681" class="xref">[RFC5681]</a>), unless it paces the sending of packets. A sender MAY retain its congestion window if it paces the sending of any packets in excess of the initial congestion window.</p>
 <p id="rfc.section.7.7.p.3">A sender MAY implement alternate mechanisms to update its congestion window after idle periods, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
 <h2 id="rfc.section.7.8">
 <a href="#rfc.section.7.8">7.8.</a> <a href="#discarding-packet-number-space-state" id="discarding-packet-number-space-state">Discarding Packet Number Space State</a>
 </h2>
-<p id="rfc.section.7.8.p.1">When keys for an packet number space are discarded, any packets sent with those keys are removed from the count of bytes in flight.  No loss events will occur any in-flight packets from that space, as a result of discarding loss recovery state (see <a href="#discard-initial" class="xref">Section 6.2.1.2</a>).  Note that it is expected that keys are discarded after those packets would be declared lost, but Initial secrets are destroyed earlier.</p>
+<p id="rfc.section.7.8.p.1">When keys for a packet number space are discarded, any in-flight packets sent with those keys are removed from the count of bytes in flight.  Loss recovery state is also discarded, so no loss events will occur for any in-flight packets from that space (see <a href="#discard-initial" class="xref">Section 6.2.1.2</a>).  Note that it is expected that keys are discarded after those packets would be declared lost, but Initial secrets are destroyed earlier.</p>
+<p id="rfc.section.7.8.p.2">When 0-RTT is rejected, all in-flight 0-RTT packets are removed from the count of bytes in flight.  Loss recovery state is also discarded, so no loss events will occur for any in-flight 0-RTT packets.</p>
+<p id="rfc.section.7.8.p.3">If a server accepts 0-RTT, but does not buffer 0-RTT packets that arrive before Initial packets, early 0-RTT packets will be declared lost, but that is expected to be infrequent.</p>
 <h2 id="rfc.section.7.9">
 <a href="#rfc.section.7.9">7.9.</a> <a href="#pseudocode-1" id="pseudocode-1">Pseudocode</a>
 </h2>
@@ -1123,7 +1128,7 @@ DetectLostPackets():
 <dt>kLossReductionFactor:</dt>
 <dd style="margin-left: 8">Reduction in congestion window when a new loss event is detected.  The RECOMMENDED value is 0.5.</dd>
 <dt>kPersistentCongestionThreshold:</dt>
-<dd style="margin-left: 8">Number of consecutive PTOs after which network is considered to be experiencing persistent congestion.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, similar to Tail Loss Probe (TLP) in TCP <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>.  Once the number of consecutive PTOs reaches this threshold - that is, persistent congestion is established - the sender responds by collapsing its congestion window to kMinimumWindow, similar to a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 2, which is equivalent to having two TLPs before an RTO in TCP.</dd>
+<dd style="margin-left: 8">Number of consecutive PTOs required for persistent congestion to be established.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP) <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>, before establishing persistent congestion, as TCP does with a Retransmission Timeout (RTO) <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 2, which is equivalent to having two TLPs before an RTO in TCP.</dd>
 </dl>
 <h3 id="rfc.section.7.9.2">
 <a href="#rfc.section.7.9.2">7.9.2.</a> <a href="#vars-of-interest" id="vars-of-interest">Variables of interest</a>
