@@ -314,7 +314,7 @@ ul.toc li {
 <link href="#rfc.section.4.3.3" rel="Chapter" title="4.3.3 Duplicate">
 <link href="#rfc.section.4.3.4" rel="Chapter" title="4.3.4 Dynamic Table Size Update">
 <link href="#rfc.section.4.4" rel="Chapter" title="4.4 Decoder Stream">
-<link href="#rfc.section.4.4.1" rel="Chapter" title="4.4.1 Table State Synchronize">
+<link href="#rfc.section.4.4.1" rel="Chapter" title="4.4.1 Insert Count Increment">
 <link href="#rfc.section.4.4.2" rel="Chapter" title="4.4.2 Header Acknowledgement">
 <link href="#rfc.section.4.4.3" rel="Chapter" title="4.4.3 Stream Cancellation">
 <link href="#rfc.section.4.5" rel="Chapter" title="4.5 Request and Push Streams">
@@ -484,7 +484,7 @@ ul.toc li {
 </li>
 </ul><li>4.4.   <a href="#rfc.section.4.4">Decoder Stream</a>
 </li>
-<ul><li>4.4.1.   <a href="#rfc.section.4.4.1">Table State Synchronize</a>
+<ul><li>4.4.1.   <a href="#rfc.section.4.4.1">Insert Count Increment</a>
 </li>
 <li>4.4.2.   <a href="#rfc.section.4.4.2">Header Acknowledgement</a>
 </li>
@@ -653,7 +653,7 @@ ul.toc li {
 </h3>
 <p id="rfc.section.2.1.4.p.1">In order to identify which dynamic table entries can be safely used without a stream becoming blocked, the encoder tracks the number of entries received by the decoder.  The Known Received Count tracks the total number of acknowledged insertions.</p>
 <p id="rfc.section.2.1.4.p.2">When blocking references are permitted, the encoder uses header block acknowledgement to maintain the Known Received Count, as described in <a href="#header-acknowledgement" class="xref">Section 4.4.2</a>.</p>
-<p id="rfc.section.2.1.4.p.3">To acknowledge dynamic table entries which are not referenced by header blocks, for example because the encoder or the decoder have chosen not to risk blocked streams, the decoder sends a Table State Synchronize instruction (see <a href="#table-state-synchronize" class="xref">Section 4.4.1</a>).</p>
+<p id="rfc.section.2.1.4.p.3">To acknowledge dynamic table entries which are not referenced by header blocks, for example because the encoder or the decoder have chosen not to risk blocked streams, the decoder sends a Insert Count Increment instruction (see <a href="#insert-count-increment" class="xref">Section 4.4.1</a>).</p>
 <h2 id="rfc.section.2.2">
 <a href="#rfc.section.2.2">2.2.</a> <a href="#decoder" id="decoder">Decoder</a>
 </h2>
@@ -671,7 +671,7 @@ ul.toc li {
 <li>Receipt of new dynamic table entries</li>
 </ul>
 <p id="rfc.section.2.2.1.p.3">Knowledge that a header block with references to the dynamic table has been processed permits the encoder to evict entries to which no unacknowledged references remain, regardless of whether those references were potentially blocking (see <a href="#blocked-insertion" class="xref">Section 2.1.2</a>).  When a stream is reset or abandoned, the indication that these header blocks will never be processed serves a similar function; see <a href="#stream-cancellation" class="xref">Section 4.4.3</a>.</p>
-<p id="rfc.section.2.2.1.p.4">The decoder chooses when to emit Table State Synchronize instructions (see <a href="#table-state-synchronize" class="xref">Section 4.4.1</a>). Emitting an instruction after adding each new dynamic table entry will provide the most timely feedback to the encoder, but could be redundant with other decoder feedback. By delaying a Table State Synchronize instruction, the decoder might be able to coalesce multiple Table State Synchronize instructions, or replace them entirely with Header Acknowledgements (see <a href="#header-acknowledgement" class="xref">Section 4.4.2</a>). However, delaying too long may lead to compression inefficiencies if the encoder waits for an entry to be acknowledged before using it.</p>
+<p id="rfc.section.2.2.1.p.4">The decoder chooses when to emit Insert Count Increment instructions (see <a href="#insert-count-increment" class="xref">Section 4.4.1</a>). Emitting an instruction after adding each new dynamic table entry will provide the most timely feedback to the encoder, but could be redundant with other decoder feedback. By delaying a Insert Count Increment instruction, the decoder might be able to coalesce multiple Insert Count Increment instructions, or replace them entirely with Header Acknowledgements (see <a href="#header-acknowledgement" class="xref">Section 4.4.2</a>). However, delaying too long may lead to compression inefficiencies if the encoder waits for an entry to be acknowledged before using it.</p>
 <h3 id="rfc.section.2.2.2">
 <a href="#rfc.section.2.2.2">2.2.2.</a> <a href="#blocked-decoding" id="blocked-decoding">Blocked Decoding</a>
 </h3>
@@ -878,19 +878,19 @@ d = count of entries dropped
 <p id="rfc.section.4.4.p.1">The decoder stream carries information used to ensure consistency of the dynamic table. Information is sent from the decoder to the encoder; that is, the server informs the client about the processing of the client&#8217;s header blocks and table updates, and the client informs the server about the processing of the server&#8217;s header blocks and table updates.</p>
 <p id="rfc.section.4.4.p.2">The contents of the decoder stream are an unframed sequence of the following instructions.</p>
 <h3 id="rfc.section.4.4.1">
-<a href="#rfc.section.4.4.1">4.4.1.</a> <a href="#table-state-synchronize" id="table-state-synchronize">Table State Synchronize</a>
+<a href="#rfc.section.4.4.1">4.4.1.</a> <a href="#insert-count-increment" id="insert-count-increment">Insert Count Increment</a>
 </h3>
-<p id="rfc.section.4.4.1.p.1">The Table State Synchronize instruction begins with the &#8216;00&#8217; two-bit pattern.  The instruction specifies the total number of dynamic table inserts and duplications since the last Table State Synchronize or Header Acknowledgement that increased the Known Received Count for the dynamic table (see <a href="#known-received-count" class="xref">Section 2.1.4</a>).  The Insert Count Delta is encoded as a 6-bit prefix integer. The encoder uses this value to determine which table entries might cause a stream to become blocked, as described in <a href="#state-synchronization" class="xref">Section 2.2.1</a>.</p>
+<p id="rfc.section.4.4.1.p.1">The Insert Count Increment instruction begins with the &#8216;00&#8217; two-bit pattern.  The instruction specifies the total number of dynamic table inserts and duplications since the last Insert Count Increment or Header Acknowledgement that increased the Known Received Count for the dynamic table (see <a href="#known-received-count" class="xref">Section 2.1.4</a>).  The Increment field is encoded as a 6-bit prefix integer. The encoder uses this value to determine which table entries might cause a stream to become blocked, as described in <a href="#state-synchronization" class="xref">Section 2.2.1</a>.</p>
 <div id="rfc.figure.4"></div>
 <div id="fig-size-sync"></div>
 <pre>
   0   1   2   3   4   5   6   7
 +---+---+---+---+---+---+---+---+
-| 0 | 0 |Insert Count Delta (6+)|
+| 0 | 0 |     Increment (6+)    |
 +---+---+-----------------------+
 </pre>
-<p class="figure">Figure 4: Table State Synchronize</p>
-<p id="rfc.section.4.4.1.p.2">An encoder that receives an Insert Count Delta equal to zero or one that increases the Known Received Count beyond what the encoder has sent MUST treat this as a connection error of type <samp>HTTP_QPACK_DECODER_STREAM_ERROR</samp>.</p>
+<p class="figure">Figure 4: Insert Count Increment</p>
+<p id="rfc.section.4.4.1.p.2">An encoder that receives an Increment field equal to zero or one that increases the Known Received Count beyond what the encoder has sent MUST treat this as a connection error of type <samp>HTTP_QPACK_DECODER_STREAM_ERROR</samp>.</p>
 <h3 id="rfc.section.4.4.2">
 <a href="#rfc.section.4.4.2">4.4.2.</a> <a href="#header-acknowledgement" id="header-acknowledgement">Header Acknowledgement</a>
 </h3>
