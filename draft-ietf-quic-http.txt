@@ -87,10 +87,10 @@ Table of Contents
      3.1.  Bidirectional Streams . . . . . . . . . . . . . . . . . .   8
      3.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .   8
        3.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .   9
-       3.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .   9
+       3.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .  10
        3.2.3.  Reserved Stream Types . . . . . . . . . . . . . . . .  10
    4.  HTTP Framing Layer  . . . . . . . . . . . . . . . . . . . . .  10
-     4.1.  Frame Layout  . . . . . . . . . . . . . . . . . . . . . .  10
+     4.1.  Frame Layout  . . . . . . . . . . . . . . . . . . . . . .  11
      4.2.  Frame Definitions . . . . . . . . . . . . . . . . . . . .  11
        4.2.1.  DATA  . . . . . . . . . . . . . . . . . . . . . . . .  11
        4.2.2.  HEADERS . . . . . . . . . . . . . . . . . . . . . . .  12
@@ -470,6 +470,11 @@ Internet-Draft                   HTTP/3                     January 2019
    semantics of existing protocol components, including QPACK or other
    extensions, MUST NOT be sent until the peer is known to support them.
 
+   A sender can close or reset a unidirectional stream unless otherwise
+   specified.  A receiver MUST tolerate unidirectional streams being
+   closed or reset prior to the reception of the unidirectional stream
+   header.
+
 3.2.1.  Control Streams
 
    A control stream is indicated by a stream type of "0x43" (ASCII 'C').
@@ -483,9 +488,9 @@ Internet-Draft                   HTTP/3                     January 2019
    HTTP_MISSING_SETTINGS.  Only one control stream per peer is
    permitted; receipt of a second stream which claims to be a control
    stream MUST be treated as a connection error of type
-   HTTP_WRONG_STREAM_COUNT.  If the control stream is closed at any
-   point, this MUST be treated as a connection error of type
-   HTTP_CLOSED_CRITICAL_STREAM.
+   HTTP_WRONG_STREAM_COUNT.  The sender MUST NOT close the control
+   stream.  If the control stream is closed at any point, this MUST be
+   treated as a connection error of type HTTP_CLOSED_CRITICAL_STREAM.
 
    A pair of unidirectional streams is used rather than a single
    bidirectional stream.  This allows either peer to send data as soon
@@ -493,11 +498,6 @@ Internet-Draft                   HTTP/3                     January 2019
    connection, either client or server might be able to send stream data
    first after the cryptographic handshake completes.
 
-3.2.2.  Push Streams
-
-   A push stream is indicated by a stream type of "0x50" (ASCII 'P'),
-   followed by the Push ID of the promise that it fulfills, encoded as a
-   variable-length integer.  The remaining data on this stream consists
 
 
 
@@ -506,6 +506,11 @@ Bishop                    Expires July 20, 2019                 [Page 9]
 Internet-Draft                   HTTP/3                     January 2019
 
 
+3.2.2.  Push Streams
+
+   A push stream is indicated by a stream type of "0x50" (ASCII 'P'),
+   followed by the Push ID of the promise that it fulfills, encoded as a
+   variable-length integer.  The remaining data on this stream consists
    of HTTP/3 frames, as defined in Section 4.2, and fulfills a promised
    server push.  Server push and Push IDs are described in Section 5.4.
 
@@ -545,11 +550,6 @@ Internet-Draft                   HTTP/3                     January 2019
    describes HTTP framing in QUIC.  For a comparison with HTTP/2 frames,
    see Appendix A.2.
 
-4.1.  Frame Layout
-
-   All frames have the following format:
-
-
 
 
 
@@ -561,6 +561,10 @@ Bishop                    Expires July 20, 2019                [Page 10]
 
 Internet-Draft                   HTTP/3                     January 2019
 
+
+4.1.  Frame Layout
+
+   All frames have the following format:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -600,13 +604,9 @@ Internet-Draft                   HTTP/3                     January 2019
    respond with a connection error (Section 8) of type
    HTTP_WRONG_STREAM.
 
-    0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                         Payload (*)                         ...
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-                       Figure 4: DATA frame payload
+
+
 
 
 
@@ -617,6 +617,14 @@ Bishop                    Expires July 20, 2019                [Page 11]
 
 Internet-Draft                   HTTP/3                     January 2019
 
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Payload (*)                         ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                       Figure 4: DATA frame payload
 
 4.2.2.  HEADERS
 
@@ -655,14 +663,6 @@ Internet-Draft                   HTTP/3                     January 2019
    If, by the time a new request stream is opened, its priority
    information has already been received via the control stream, the
    PRIORITY frame sent on the request stream MUST be ignored.
-
-
-
-
-
-
-
-
 
 
 
