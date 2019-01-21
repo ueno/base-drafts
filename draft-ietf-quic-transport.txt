@@ -189,7 +189,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
      17.3.  Short Header Packets . . . . . . . . . . . . . . . . . .  90
    18. Transport Parameter Encoding  . . . . . . . . . . . . . . . .  92
      18.1.  Transport Parameter Definitions  . . . . . . . . . . . .  94
-   19. Frame Types and Formats . . . . . . . . . . . . . . . . . . .  96
+   19. Frame Types and Formats . . . . . . . . . . . . . . . . . . .  97
      19.1.  PADDING Frame  . . . . . . . . . . . . . . . . . . . . .  97
      19.2.  PING Frame . . . . . . . . . . . . . . . . . . . . . . .  97
      19.3.  ACK Frames . . . . . . . . . . . . . . . . . . . . . . .  97
@@ -2791,9 +2791,9 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    A server conveys a preferred address by including the
    preferred_address transport parameter in the TLS handshake.
 
-   Once the handshake is finished, the client SHOULD initiate path
-   validation (see Section 8.2) of the server's preferred address using
-
+   Servers MAY communicate a preferred address of each address family
+   (IPv4 and IPv6) to allow clients to pick the one most suited to their
+   network attachment.
 
 
 
@@ -2802,8 +2802,10 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 50]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
-   the connection ID provided in the preferred_address transport
-   parameter.
+   Once the handshake is finished, the client SHOULD select one of the
+   two server's preferred addresses and initiate path validation (see
+   Section 8.2) of that address using the connection ID provided in the
+   preferred_address transport parameter.
 
    If path validation succeeds, the client SHOULD immediately begin
    sending all future packets to the new server address using the new
@@ -2848,8 +2850,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    If the connection to the server's preferred address is not from the
    same client address, the server MUST protect against potential
-   attacks as described in Section 9.3.1 and Section 9.3.2.  In addition
-   to intentional simultaneous migration, this might also occur because
 
 
 
@@ -2858,6 +2858,8 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 51]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   attacks as described in Section 9.3.1 and Section 9.3.2.  In addition
+   to intentional simultaneous migration, this might also occur because
    the client's access network used a different NAT binding for the
    server's preferred address.
 
@@ -2865,6 +2867,9 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    upon receiving a probe packet from a different address.  Servers MUST
    NOT send more than a minimum congestion window's worth of non-probing
    packets to the new address before path validation is complete.
+
+   A client that migrates to a new address SHOULD use a preferred
+   address from the same address family for the server.
 
 10.  Connection Termination
 
@@ -2900,12 +2905,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    The draining state is entered once an endpoint receives a signal that
    its peer is closing or draining.  While otherwise identical to the
    closing state, an endpoint in the draining state MUST NOT send any
-   packets.  Retaining packet protection keys is unnecessary once a
-   connection is in the draining state.
 
-   An endpoint MAY transition from the closing period to the draining
-   period if it can confirm that its peer is also closing or draining.
-   Receiving a CONNECTION_CLOSE frame is sufficient confirmation, as is
 
 
 
@@ -2914,6 +2914,12 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 52]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   packets.  Retaining packet protection keys is unnecessary once a
+   connection is in the draining state.
+
+   An endpoint MAY transition from the closing period to the draining
+   period if it can confirm that its peer is also closing or draining.
+   Receiving a CONNECTION_CLOSE frame is sufficient confirmation, as is
    receiving a stateless reset.  The draining period SHOULD end when the
    closing period would have ended.  In other words, the endpoint can
    use the same end time, but cease retransmission of the closing
@@ -2956,12 +2962,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    Each endpoint advertises its own idle timeout to its peer.  The idle
    timeout starts from the last packet received.  In order to ensure
    that initiating new activity postpones an idle timeout, an endpoint
-   restarts this timer when sending a packet.  An endpoint does not
-   postpone the idle timeout if another packet has been sent containing
-   frames other than ACK or PADDING, and that other packet has not been
-   acknowledged or declared lost.  Packets that contain only ACK or
-   PADDING frames are not acknowledged until an endpoint has other
-
 
 
 
@@ -2970,6 +2970,11 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 53]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   restarts this timer when sending a packet.  An endpoint does not
+   postpone the idle timeout if another packet has been sent containing
+   frames other than ACK or PADDING, and that other packet has not been
+   acknowledged or declared lost.  Packets that contain only ACK or
+   PADDING frames are not acknowledged until an endpoint has other
    frames to send, so they could prevent the timeout from being
    refreshed.
 
@@ -3013,11 +3018,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    addresses or drop packets without response if the response would be
    more than three times larger than the received packet.
 
-   After receiving a CONNECTION_CLOSE frame, endpoints enter the
-   draining state.  An endpoint that receives a CONNECTION_CLOSE frame
-   MAY send a single packet containing a CONNECTION_CLOSE frame before
-   entering the draining state, using a CONNECTION_CLOSE frame and a
-   NO_ERROR code if appropriate.  An endpoint MUST NOT send further
 
 
 
@@ -3026,6 +3026,11 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 54]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   After receiving a CONNECTION_CLOSE frame, endpoints enter the
+   draining state.  An endpoint that receives a CONNECTION_CLOSE frame
+   MAY send a single packet containing a CONNECTION_CLOSE frame before
+   entering the draining state, using a CONNECTION_CLOSE frame and a
+   NO_ERROR code if appropriate.  An endpoint MUST NOT send further
    packets, which could result in a constant exchange of
    CONNECTION_CLOSE frames until the closing period on either peer
    ended.
@@ -3069,11 +3074,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
 
    An endpoint that receives packets that it cannot process sends a
    packet in the following layout:
-
-
-
-
-
 
 
 
@@ -5338,12 +5338,16 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       to effect a change in server address at the end of the handshake,
       as described in Section 9.6.  The format of this transport
       parameter is the PreferredAddress struct shown in Figure 17.  This
-      transport parameter is only sent by a server.
+      transport parameter is only sent by a server.  Servers MAY choose
+      to only send a preferred address of one address family by sending
+      an all-zero address and port (0.0.0.0:0 or ::.0) for the other
+      family.
 
       struct {
-        enum { IPv4(4), IPv6(6), (15) } ipVersion;
-        opaque ipAddress<4..2^8-1>;
-        uint16 port;
+        opaque ipv4Address[4];
+        uint16 ipv4Port;
+        opaque ipv6Address[16];
+        uint16 ipv6Port;
         opaque connectionId<0..18>;
         opaque statelessResetToken[16];
       } PreferredAddress;
@@ -5363,11 +5367,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    any of these transport parameters as a connection error of type
    TRANSPORT_PARAMETER_ERROR.
 
-19.  Frame Types and Formats
 
-   As described in Section 12.4, packets contain one or more frames.
-   This section describes the format and semantics of the core QUIC
-   frame types.
 
 
 
@@ -5377,6 +5377,12 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 96]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
+
+19.  Frame Types and Formats
+
+   As described in Section 12.4, packets contain one or more frames.
+   This section describes the format and semantics of the core QUIC
+   frame types.
 
 19.1.  PADDING Frame
 
@@ -5420,12 +5426,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    packets they have received and processed.  The ACK frame contains one
    or more ACK Ranges.  ACK Ranges identify acknowledged packets.  If
    the frame type is 0x03, ACK frames also contain the sum of QUIC
-   packets with associated ECN marks received on the connection up until
-   this point.  QUIC implementations MUST properly handle both types
-   and, if they have enabled ECN for packets they send, they SHOULD use
-   the information in the ECN section to manage their congestion state.
-
-
 
 
 
@@ -5433,6 +5433,11 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 97]
 
 Internet-Draft           QUIC Transport Protocol            January 2019
 
+
+   packets with associated ECN marks received on the connection up until
+   this point.  QUIC implementations MUST properly handle both types
+   and, if they have enabled ECN for packets they send, they SHOULD use
+   the information in the ECN section to manage their congestion state.
 
    QUIC acknowledgements are irrevocable.  Once acknowledged, a packet
    remains acknowledged, even if it does not appear in a future ACK
@@ -5476,12 +5481,7 @@ Internet-Draft           QUIC Transport Protocol            January 2019
       generating the ACK frame.  Unlike the packet number in the QUIC
       long or short header, the value in an ACK frame is not truncated.
 
-   ACK Delay:  A variable-length integer including the time in
-      microseconds that the largest acknowledged packet, as indicated in
-      the Largest Acknowledged field, was received by this peer to when
-      this ACK was sent.  The value of the ACK Delay field is scaled by
-      multiplying the encoded value by 2 to the power of the value of
-      the "ack_delay_exponent" transport parameter set by the sender of
+
 
 
 
@@ -5490,6 +5490,12 @@ Iyengar & Thomson         Expires July 25, 2019                [Page 98]
 Internet-Draft           QUIC Transport Protocol            January 2019
 
 
+   ACK Delay:  A variable-length integer including the time in
+      microseconds that the largest acknowledged packet, as indicated in
+      the Largest Acknowledged field, was received by this peer to when
+      this ACK was sent.  The value of the ACK Delay field is scaled by
+      multiplying the encoded value by 2 to the power of the value of
+      the "ack_delay_exponent" transport parameter set by the sender of
       the ACK frame.  The "ack_delay_exponent" defaults to 3, or a
       multiplier of 8 (see Section 18.1).  Scaling in this fashion
       allows for a larger range of values with a shorter encoding at the
@@ -5520,12 +5526,6 @@ Internet-Draft           QUIC Transport Protocol            January 2019
    is present for each value in the ACK Range Count field.
 
    ACK Ranges are structured as follows:
-
-
-
-
-
-
 
 
 

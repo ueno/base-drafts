@@ -1714,8 +1714,9 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <a href="#rfc.section.9.6.1">9.6.1.</a> <a href="#communicating-a-preferred-address" id="communicating-a-preferred-address">Communicating A Preferred Address</a>
 </h3>
 <p id="rfc.section.9.6.1.p.1">A server conveys a preferred address by including the preferred_address transport parameter in the TLS handshake.</p>
-<p id="rfc.section.9.6.1.p.2">Once the handshake is finished, the client SHOULD initiate path validation (see <a href="#migrate-validate" class="xref">Section 8.2</a>) of the server&#8217;s preferred address using the connection ID provided in the preferred_address transport parameter.</p>
-<p id="rfc.section.9.6.1.p.3">If path validation succeeds, the client SHOULD immediately begin sending all future packets to the new server address using the new connection ID and discontinue use of the old server address.  If path validation fails, the client MUST continue sending all future packets to the server&#8217;s original IP address.</p>
+<p id="rfc.section.9.6.1.p.2">Servers MAY communicate a preferred address of each address family (IPv4 and IPv6) to allow clients to pick the one most suited to their network attachment.</p>
+<p id="rfc.section.9.6.1.p.3">Once the handshake is finished, the client SHOULD select one of the two server&#8217;s preferred addresses and initiate path validation (see <a href="#migrate-validate" class="xref">Section 8.2</a>) of that address using the connection ID provided in the preferred_address transport parameter.</p>
+<p id="rfc.section.9.6.1.p.4">If path validation succeeds, the client SHOULD immediately begin sending all future packets to the new server address using the new connection ID and discontinue use of the old server address.  If path validation fails, the client MUST continue sending all future packets to the server&#8217;s original IP address.</p>
 <h3 id="rfc.section.9.6.2">
 <a href="#rfc.section.9.6.2">9.6.2.</a> <a href="#responding-to-connection-migration" id="responding-to-connection-migration">Responding to Connection Migration</a>
 </h3>
@@ -1729,6 +1730,7 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <p id="rfc.section.9.6.3.p.2">If path validation of the server&#8217;s preferred address succeeds, the client MUST abandon validation of the original address and migrate to using the server&#8217;s preferred address.  If path validation of the server&#8217;s preferred address fails but validation of the server&#8217;s original address succeeds, the client MAY migrate to its new address and continue sending to the server&#8217;s original address.</p>
 <p id="rfc.section.9.6.3.p.3">If the connection to the server&#8217;s preferred address is not from the same client address, the server MUST protect against potential attacks as described in <a href="#address-spoofing" class="xref">Section 9.3.1</a> and <a href="#on-path-spoofing" class="xref">Section 9.3.2</a>.  In addition to intentional simultaneous migration, this might also occur because the client&#8217;s access network used a different NAT binding for the server&#8217;s preferred address.</p>
 <p id="rfc.section.9.6.3.p.4">Servers SHOULD initiate path validation to the client&#8217;s new address upon receiving a probe packet from a different address.  Servers MUST NOT send more than a minimum congestion window&#8217;s worth of non-probing packets to the new address before path validation is complete.</p>
+<p id="rfc.section.9.6.3.p.5">A client that migrates to a new address SHOULD use a preferred address from the same address family for the server.</p>
 <h1 id="rfc.section.10">
 <a href="#rfc.section.10">10.</a> <a href="#termination" id="termination">Connection Termination</a>
 </h1>
@@ -2660,15 +2662,16 @@ Initial+Token[0]: CRYPTO[CH] -&gt;
 <dt>disable_migration (0x000c):</dt>
 <dd style="margin-left: 8">The disable migration transport parameter is included if the endpoint does not support connection migration (<a href="#migration" class="xref">Section 9</a>). Peers of an endpoint that sets this transport parameter MUST NOT send any packets, including probing packets (<a href="#probing" class="xref">Section 9.1</a>), from a local address other than that used to perform the handshake.  This parameter is a zero-length value.</dd>
 <dt>preferred_address (0x000d):</dt>
-<dd style="margin-left: 8">The server&#8217;s preferred address is used to effect a change in server address at the end of the handshake, as described in <a href="#preferred-address" class="xref">Section 9.6</a>.  The format of this transport parameter is the PreferredAddress struct shown in <a href="#fig-preffered-address" class="xref">Figure 17</a>.  This transport parameter is only sent by a server.</dd>
+<dd style="margin-left: 8">The server&#8217;s preferred address is used to effect a change in server address at the end of the handshake, as described in <a href="#preferred-address" class="xref">Section 9.6</a>.  The format of this transport parameter is the PreferredAddress struct shown in <a href="#fig-preferred-address" class="xref">Figure 17</a>.  This transport parameter is only sent by a server.  Servers MAY choose to only send a preferred address of one address family by sending an all-zero address and port (0.0.0.0:0 or ::.0) for the other family.</dd>
 </dl>
 <div id="rfc.figure.17"></div>
-<div id="fig-preffered-address"></div>
+<div id="fig-preferred-address"></div>
 <pre>
    struct {
-     enum { IPv4(4), IPv6(6), (15) } ipVersion;
-     opaque ipAddress&lt;4..2^8-1&gt;;
-     uint16 port;
+     opaque ipv4Address[4];
+     uint16 ipv4Port;
+     opaque ipv6Address[16];
+     uint16 ipv6Port;
      opaque connectionId&lt;0..18&gt;;
      opaque statelessResetToken[16];
    } PreferredAddress;
