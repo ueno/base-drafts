@@ -86,15 +86,15 @@ Table of Contents
    5.  Computing the RTT estimate  . . . . . . . . . . . . . . . . .   8
    6.  Loss Detection  . . . . . . . . . . . . . . . . . . . . . . .   9
      6.1.  Acknowledgement-based Detection . . . . . . . . . . . . .   9
-       6.1.1.  Packet Threshold  . . . . . . . . . . . . . . . . . .  10
+       6.1.1.  Packet Threshold  . . . . . . . . . . . . . . . . . .   9
        6.1.2.  Time Threshold  . . . . . . . . . . . . . . . . . . .  10
      6.2.  Timeout Loss Detection  . . . . . . . . . . . . . . . . .  10
-       6.2.1.  Crypto Retransmission Timeout . . . . . . . . . . . .  11
+       6.2.1.  Crypto Retransmission Timeout . . . . . . . . . . . .  10
        6.2.2.  Probe Timeout . . . . . . . . . . . . . . . . . . . .  12
      6.3.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  14
        6.3.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  14
-     6.4.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  15
-       6.4.1.  Constants of interest . . . . . . . . . . . . . . . .  15
+     6.4.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  14
+       6.4.1.  Constants of interest . . . . . . . . . . . . . . . .  14
        6.4.2.  Variables of interest . . . . . . . . . . . . . . . .  15
        6.4.3.  Initialization  . . . . . . . . . . . . . . . . . . .  16
        6.4.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  16
@@ -355,14 +355,12 @@ Internet-Draft             QUIC Loss Detection              January 2019
    the peer sends an an ACK immediately when receiving a second ack-
    eliciting packet.
 
-   Out-of-order packets SHOULD be acknowledged more quickly, in order to
-   accelerate loss recovery.  The receiver SHOULD send an immediate ACK
-   when it receives a new packet which is not the next expected one.
-   That is, its packet number is not one greater than the largest
-   received packet number.  A receiver MAY send acknowledgements
-   immediately for the next few ack-eliciting packets that are received,
-   but the receiver SHOULD revert back to delaying acknowledgements
-   after sending a few immediate acknowledgements.
+   In order to accelerate loss recovery and reduce timeouts, the
+   receiver SHOULD send an immediate ACK when it receives a new packet
+   which is not one greater than the largest received packet number.  A
+   receiver MAY send acknowledgements immediately for the next few ack-
+   eliciting packets that are received, but the receiver SHOULD revert
+   back to delaying acknowledgements after 1/8 RTT.
 
    Similarly, packets marked with the ECN Congestion Experienced (CE)
    codepoint in the IP header SHOULD be acknowledged immediately, to
@@ -385,6 +383,8 @@ Internet-Draft             QUIC Loss Detection              January 2019
 
    When an ACK frame is sent, one or more ranges of acknowledged packets
    are included.  Including older packets reduces the chance of spurious
+   retransmits caused by losing previously sent ACK frames, at the cost
+   of larger ACK frames.
 
 
 
@@ -393,9 +393,6 @@ Iyengar & Swett          Expires August 2, 2019                 [Page 7]
 
 Internet-Draft             QUIC Loss Detection              January 2019
 
-
-   retransmits caused by losing previously sent ACK frames, at the cost
-   of larger ACK frames.
 
    ACK frames SHOULD always acknowledge the most recently received
    packets, and the more out-of-order the packets are, the more
@@ -442,6 +439,9 @@ Internet-Draft             QUIC Loss Detection              January 2019
    Like TCP, QUIC calculates both smoothed RTT and RTT variance similar
    to those specified in [RFC6298].
 
+   min_rtt is the minimum RTT measured over the connection, prior to
+   adjusting by ack delay.  Ignoring ack delay for min RTT prevents
+
 
 
 
@@ -450,8 +450,6 @@ Iyengar & Swett          Expires August 2, 2019                 [Page 8]
 Internet-Draft             QUIC Loss Detection              January 2019
 
 
-   min_rtt is the minimum RTT measured over the connection, prior to
-   adjusting by ack delay.  Ignoring ack delay for min RTT prevents
    intentional or unintentional underestimation of min RTT, which in
    turn prevents underestimating smoothed RTT.
 
@@ -494,9 +492,11 @@ Internet-Draft             QUIC Loss Detection              January 2019
    reordering threshold in packets or time MAY choose to start with
    smaller initial reordering thresholds to minimize recovery latency.
 
+6.1.1.  Packet Threshold
 
-
-
+   The RECOMMENDED initial value for the packet reordering threshold
+   (kPacketThreshold) is 3, based on best practices for TCP loss
+   detection [RFC5681] [RFC6675].
 
 
 
@@ -505,12 +505,6 @@ Iyengar & Swett          Expires August 2, 2019                 [Page 9]
 
 Internet-Draft             QUIC Loss Detection              January 2019
 
-
-6.1.1.  Packet Threshold
-
-   The RECOMMENDED initial value for the packet reordering threshold
-   (kPacketThreshold) is 3, based on best practices for TCP loss
-   detection [RFC5681] [RFC6675].
 
    Some networks may exhibit higher degrees of reordering, causing a
    sender to detect spurious losses.  Implementers MAY use algorithms
@@ -551,7 +545,13 @@ Internet-Draft             QUIC Loss Detection              January 2019
    acknowledgement-based loss detection.  It uses a single timer which
    switches between a crypto retransmission timer and a probe timer.
 
+6.2.1.  Crypto Retransmission Timeout
 
+   Data in CRYPTO frames is critical to QUIC transport and crypto
+   negotiation, so a more aggressive timeout is used to retransmit it.
+
+   The initial crypto retransmission timeout SHOULD be set to twice the
+   initial RTT.
 
 
 
@@ -561,14 +561,6 @@ Iyengar & Swett          Expires August 2, 2019                [Page 10]
 
 Internet-Draft             QUIC Loss Detection              January 2019
 
-
-6.2.1.  Crypto Retransmission Timeout
-
-   Data in CRYPTO frames is critical to QUIC transport and crypto
-   negotiation, so a more aggressive timeout is used to retransmit it.
-
-   The initial crypto retransmission timeout SHOULD be set to twice the
-   initial RTT.
 
    At the beginning, there are no prior RTT samples within a connection.
    Resumed connections over the same network SHOULD use the previous
@@ -610,14 +602,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
    Initial packet, effectively restarting the connection process and
    resetting congestion control and loss recovery state, including
    resetting any pending timers.  Either packet indicates that the
-
-
-
-Iyengar & Swett          Expires August 2, 2019                [Page 11]
-
-Internet-Draft             QUIC Loss Detection              January 2019
-
-
    Initial was received but not processed.  Neither packet can be
    treated as an acknowledgment for the Initial.
 
@@ -626,6 +610,13 @@ Internet-Draft             QUIC Loss Detection              January 2019
    Version Negotiation packet is received.  The client MAY use this
    value to seed the RTT estimator for a subsequent connection attempt
    to the server.
+
+
+
+Iyengar & Swett          Expires August 2, 2019                [Page 11]
+
+Internet-Draft             QUIC Loss Detection              January 2019
+
 
 6.2.1.2.  Discarding Initial State
 
@@ -667,13 +658,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
    The PTO value MUST be set to at least kGranularity, to avoid the
    timer expiring immediately.
 
-
-
-Iyengar & Swett          Expires August 2, 2019                [Page 12]
-
-Internet-Draft             QUIC Loss Detection              January 2019
-
-
    When a PTO timer expires, the PTO period MUST be set to twice its
    current value.  This exponential reduction in the sender's rate is
    important because the PTOs might be caused by loss of packets or
@@ -681,6 +665,15 @@ Internet-Draft             QUIC Loss Detection              January 2019
 
    A sender computes its PTO timer every time an ack-eliciting packet is
    sent.  A sender might choose to optimize this by setting the timer
+
+
+
+
+Iyengar & Swett          Expires August 2, 2019                [Page 12]
+
+Internet-Draft             QUIC Loss Detection              January 2019
+
+
    fewer times if it knows that more ack-eliciting packets will be sent
    within a short period of time.
 
@@ -722,6 +715,13 @@ Internet-Draft             QUIC Loss Detection              January 2019
    A PTO timer expiration event does not indicate packet loss and MUST
    NOT cause prior unacknowledged packets to be marked as lost.  After a
    PTO timer has expired, an endpoint uses the following rules to mark
+   packets as lost when an acknowledgement is received that newly
+   acknowledges packets.
+
+   When an acknowledgement is received that newly acknowledges packets,
+   loss detection proceeds as dictated by packet and time threshold
+   mechanisms, see Section 6.1.
+
 
 
 
@@ -729,13 +729,6 @@ Iyengar & Swett          Expires August 2, 2019                [Page 13]
 
 Internet-Draft             QUIC Loss Detection              January 2019
 
-
-   packets as lost when an acknowledgement is received that newly
-   acknowledges packets.
-
-   When an acknowledgement is received that newly acknowledges packets,
-   loss detection proceeds as dictated by packet and time threshold
-   mechanisms, see Section 6.1.
 
 6.3.  Tracking Sent Packets
 
@@ -775,6 +768,13 @@ Internet-Draft             QUIC Loss Detection              January 2019
 
    time_sent:  The time the packet was sent.
 
+6.4.  Pseudocode
+
+6.4.1.  Constants of interest
+
+   Constants used in loss recovery are based on a combination of RFCs,
+   papers, and common practice.  Some may need to be changed or
+   negotiated in order to better suit a variety of environments.
 
 
 
@@ -785,14 +785,6 @@ Iyengar & Swett          Expires August 2, 2019                [Page 14]
 
 Internet-Draft             QUIC Loss Detection              January 2019
 
-
-6.4.  Pseudocode
-
-6.4.1.  Constants of interest
-
-   Constants used in loss recovery are based on a combination of RFCs,
-   papers, and common practice.  Some may need to be changed or
-   negotiated in order to better suit a variety of environments.
 
    kPacketThreshold:  Maximum reordering in packets before packet
       threshold loss detection considers a packet lost.  The RECOMMENDED
@@ -833,15 +825,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
    largest_acked_packet:  The largest packet number acknowledged in the
       packet number space so far.
 
-
-
-
-
-Iyengar & Swett          Expires August 2, 2019                [Page 15]
-
-Internet-Draft             QUIC Loss Detection              January 2019
-
-
    latest_rtt:  The most recent RTT measurement made when receiving an
       ack for a previously unacked packet.
 
@@ -851,6 +834,13 @@ Internet-Draft             QUIC Loss Detection              January 2019
    rttvar:  The RTT variance, computed as described in [RFC6298]
 
    min_rtt:  The minimum RTT seen in the connection, ignoring ack delay.
+
+
+
+Iyengar & Swett          Expires August 2, 2019                [Page 15]
+
+Internet-Draft             QUIC Loss Detection              January 2019
+
 
    max_ack_delay:  The maximum amount of time by which the receiver
       intends to delay acknowledgments, in milliseconds.  The actual
@@ -888,6 +878,16 @@ Internet-Draft             QUIC Loss Detection              January 2019
    Section 6.3.1.
 
    Pseudocode for OnPacketSent follows:
+
+
+
+
+
+
+
+
+
+
 
 
 
