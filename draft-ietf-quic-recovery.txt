@@ -96,11 +96,11 @@ Table of Contents
        6.3.2.  Sending Probe Packets . . . . . . . . . . . . . . . .  13
        6.3.3.  Loss Detection  . . . . . . . . . . . . . . . . . . .  14
      6.4.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  14
-       6.4.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  14
+       6.4.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  15
      6.5.  Pseudocode  . . . . . . . . . . . . . . . . . . . . . . .  15
        6.5.1.  Constants of interest . . . . . . . . . . . . . . . .  15
-       6.5.2.  Variables of interest . . . . . . . . . . . . . . . .  15
-       6.5.3.  Initialization  . . . . . . . . . . . . . . . . . . .  16
+       6.5.2.  Variables of interest . . . . . . . . . . . . . . . .  16
+       6.5.3.  Initialization  . . . . . . . . . . . . . . . . . . .  17
        6.5.4.  On Sending a Packet . . . . . . . . . . . . . . . . .  17
        6.5.5.  On Receiving an Acknowledgment  . . . . . . . . . . .  17
        6.5.6.  On Packet Acknowledgment  . . . . . . . . . . . . . .  19
@@ -733,6 +733,13 @@ Internet-Draft             QUIC Loss Detection              January 2019
    packets, including sending new or retransmitted data based on the
    application's priorities.
 
+   When the PTO timer expires multiple times and new data cannot be
+   sent, implementations must choose between sending the same payload
+   every time or sending different payloads.  Sending the same payload
+   may be simpler and ensures the highest priority frames arrive first.
+   Sending different payloads each time reduces the chances of spurious
+   retransmission.
+
    When a PTO timer expires, new or previously-sent data may not be
    available to send and packets may still be in flight.  A sender can
    be blocked from sending new data in the future if packets are left in
@@ -771,13 +778,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
    Sent packets are tracked for each packet number space, and ACK
    processing only applies to a single space.
 
-6.4.1.  Sent Packet Fields
-
-   packet_number:  The packet number of the sent packet.
-
-   ack_eliciting:  A boolean that indicates whether a packet is ack-
-      eliciting.  If true, it is expected that an acknowledgement will
-
 
 
 
@@ -786,6 +786,12 @@ Iyengar & Swett          Expires August 2, 2019                [Page 14]
 Internet-Draft             QUIC Loss Detection              January 2019
 
 
+6.4.1.  Sent Packet Fields
+
+   packet_number:  The packet number of the sent packet.
+
+   ack_eliciting:  A boolean that indicates whether a packet is ack-
+      eliciting.  If true, it is expected that an acknowledgement will
       be received, though the peer could delay sending the ACK frame
       containing it by up to the MaxAckDelay.
 
@@ -825,6 +831,17 @@ Internet-Draft             QUIC Loss Detection              January 2019
    kInitialRtt:  The RTT used before an RTT sample is taken.  The
       RECOMMENDED value is 100ms.
 
+
+
+
+
+
+
+Iyengar & Swett          Expires August 2, 2019                [Page 15]
+
+Internet-Draft             QUIC Loss Detection              January 2019
+
+
 6.5.2.  Variables of interest
 
    Variables required to implement the congestion control mechanisms are
@@ -834,13 +851,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
 
    crypto_count:  The number of times all unacknowledged CRYPTO data has
       been retransmitted without receiving an ack.
-
-
-
-Iyengar & Swett          Expires August 2, 2019                [Page 15]
-
-Internet-Draft             QUIC Loss Detection              January 2019
-
 
    pto_count:  The number of times a PTO has been sent without receiving
       an ack.
@@ -879,16 +889,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
    sent_packets:  An association of packet numbers to information about
       them.  Described in detail above in Section 6.4.
 
-6.5.3.  Initialization
-
-   At the beginning of the connection, initialize the loss detection
-   variables as follows:
-
-
-
-
-
-
 
 
 
@@ -897,6 +897,11 @@ Iyengar & Swett          Expires August 2, 2019                [Page 16]
 
 Internet-Draft             QUIC Loss Detection              January 2019
 
+
+6.5.3.  Initialization
+
+   At the beginning of the connection, initialize the loss detection
+   variables as follows:
 
       loss_detection_timer.reset()
       crypto_count = 0
@@ -940,11 +945,6 @@ Internet-Draft             QUIC Loss Detection              January 2019
    packets.
 
    Pseudocode for OnAckReceived and UpdateRtt follow:
-
-
-
-
-
 
 
 
