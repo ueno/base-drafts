@@ -5,10 +5,10 @@
 QUIC                                                           C. Krasic
 Internet-Draft                                                   Netflix
 Intended status: Standards Track                               M. Bishop
-Expires: July 28, 2019                               Akamai Technologies
+Expires: August 2, 2019                              Akamai Technologies
                                                         A. Frindell, Ed.
                                                                 Facebook
-                                                        January 24, 2019
+                                                        January 29, 2019
 
 
               QPACK: Header Compression for HTTP over QUIC
@@ -46,14 +46,14 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on July 28, 2019.
+   This Internet-Draft will expire on August 2, 2019.
 
 
 
 
 
 
-Krasic, et al.            Expires July 28, 2019                 [Page 1]
+Krasic, et al.           Expires August 2, 2019                 [Page 1]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -109,7 +109,7 @@ Table of Contents
 
 
 
-Krasic, et al.            Expires July 28, 2019                 [Page 2]
+Krasic, et al.           Expires August 2, 2019                 [Page 2]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -133,7 +133,7 @@ Internet-Draft                    QPACK                     January 2019
    8.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  25
      8.1.  Settings Registration . . . . . . . . . . . . . . . . . .  25
      8.2.  Stream Type Registration  . . . . . . . . . . . . . . . .  25
-     8.3.  Error Code Registration . . . . . . . . . . . . . . . . .  25
+     8.3.  Error Code Registration . . . . . . . . . . . . . . . . .  26
    9.  References  . . . . . . . . . . . . . . . . . . . . . . . . .  26
      9.1.  Normative References  . . . . . . . . . . . . . . . . . .  26
      9.2.  Informative References  . . . . . . . . . . . . . . . . .  27
@@ -165,7 +165,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                 [Page 3]
+Krasic, et al.           Expires August 2, 2019                 [Page 3]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -221,7 +221,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                 [Page 4]
+Krasic, et al.           Expires August 2, 2019                 [Page 4]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -277,7 +277,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                 [Page 5]
+Krasic, et al.           Expires August 2, 2019                 [Page 5]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -333,7 +333,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                 [Page 6]
+Krasic, et al.           Expires August 2, 2019                 [Page 6]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -357,8 +357,18 @@ Internet-Draft                    QPACK                     January 2019
 
    Each header block contains a Required Insert Count, the lowest
    possible value for the Insert Count with which the header block can
-   be decoded.  For a header block with no references to the dynamic
-   table, the Required Insert Count is zero.
+   be decoded.  For a header block with references to the dynamic table,
+   the Required Insert Count is one larger than the largest Absolute
+   Index of all referenced dynamic table entries.  For a header block
+   with no references to the dynamic table, the Required Insert Count is
+   zero.
+
+   If the decoder encounters a header block with a Required Insert Count
+   value larger than defined above, it MAY treat this as a stream error
+   of type HTTP_QPACK_DECOMPRESSION_FAILED.  If the decoder encounters a
+   header block with a Required Insert Count value smaller than defined
+   above, it MUST treat this as a stream error of type
+   HTTP_QPACK_DECOMPRESSION_FAILED as prescribed in Section 3.2.8.
 
    When the Required Insert Count is zero, the frame contains no
    references to the dynamic table and can always be processed
@@ -371,28 +381,22 @@ Internet-Draft                    QPACK                     January 2019
    becomes greater than or equal to the Required Insert Count for all
    header blocks the decoder has started reading from the stream.
 
-   If the decoder encounters a header block where the largest Absolute
-   Index used is not equal to the largest value permitted by the
-   Required Insert Count, it MAY treat this as a stream error of type
-   HTTP_QPACK_DECOMPRESSION_FAILED.
-
    The SETTINGS_QPACK_BLOCKED_STREAMS setting (see Section 5) specifies
    an upper bound on the number of streams which can be blocked.  An
    encoder MUST limit the number of streams which could become blocked
    to the value of SETTINGS_QPACK_BLOCKED_STREAMS at all times.  Note
    that the decoder might not actually become blocked on every stream
-   which risks becoming blocked.  If the decoder encounters more blocked
-   streams than it promised to support, it MUST treat this as a stream
-   error of type HTTP_QPACK_DECOMPRESSION_FAILED.
 
 
 
-
-
-Krasic, et al.            Expires July 28, 2019                 [Page 7]
+Krasic, et al.           Expires August 2, 2019                 [Page 7]
 
 Internet-Draft                    QPACK                     January 2019
 
+
+   which risks becoming blocked.  If the decoder encounters more blocked
+   streams than it promised to support, it MUST treat this as a stream
+   error of type HTTP_QPACK_DECOMPRESSION_FAILED.
 
    An encoder can decide whether to risk having a stream become blocked.
    If permitted by the value of SETTINGS_QPACK_BLOCKED_STREAMS,
@@ -439,16 +443,14 @@ Internet-Draft                    QPACK                     January 2019
 
    o  Abandonment of a stream which might have remaining header blocks
 
-   o  Receipt of new dynamic table entries
 
 
-
-
-
-Krasic, et al.            Expires July 28, 2019                 [Page 8]
+Krasic, et al.           Expires August 2, 2019                 [Page 8]
 
 Internet-Draft                    QPACK                     January 2019
 
+
+   o  Receipt of new dynamic table entries
 
    Knowledge that a header block with references to the dynamic table
    has been processed permits the encoder to evict entries to which no
@@ -499,9 +501,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-
-
-Krasic, et al.            Expires July 28, 2019                 [Page 9]
+Krasic, et al.           Expires August 2, 2019                 [Page 9]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -557,7 +557,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 10]
+Krasic, et al.           Expires August 2, 2019                [Page 10]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -613,7 +613,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 11]
+Krasic, et al.           Expires August 2, 2019                [Page 11]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -669,7 +669,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 12]
+Krasic, et al.           Expires August 2, 2019                [Page 12]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -725,7 +725,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 13]
+Krasic, et al.           Expires August 2, 2019                [Page 13]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -781,7 +781,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 14]
+Krasic, et al.           Expires August 2, 2019                [Page 14]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -837,7 +837,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 15]
+Krasic, et al.           Expires August 2, 2019                [Page 15]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -893,7 +893,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 16]
+Krasic, et al.           Expires August 2, 2019                [Page 16]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -949,7 +949,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 17]
+Krasic, et al.           Expires August 2, 2019                [Page 17]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1005,7 +1005,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 18]
+Krasic, et al.           Expires August 2, 2019                [Page 18]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1061,7 +1061,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 19]
+Krasic, et al.           Expires August 2, 2019                [Page 19]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1073,11 +1073,13 @@ Internet-Draft                    QPACK                     January 2019
    Required Insert Count to determine when it is safe to process the
    rest of the block.
 
-   If no references are made to the dynamic table, a value of 0 is
-   encoded.  Alternatively, where the Required Insert Count is greater
-   than zero, the encoder transforms it as follows before encoding:
+   The encoder transforms the Required Insert Count as follows before
+   encoding:
 
-      EncodedInsertCount = (ReqInsertCount mod (2 * MaxEntries)) + 1
+      if ReqInsertCount == 0:
+         EncInsertCount = 0
+      else:
+         EncInsertCount = (ReqInsertCount mod (2 * MaxEntries)) + 1
 
    Here "MaxEntries" is the maximum number of entries that the dynamic
    table can have.  The smallest entry has empty name and value strings
@@ -1112,15 +1114,16 @@ Internet-Draft                    QPACK                     January 2019
 
    For example, if the dynamic table is 100 bytes, then the Required
    Insert Count will be encoded modulo 6.  If a decoder has received 10
-   inserts, then an encoded value of 3 indicates that the Required
-   Insert Count is 9 for the header block.
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 20]
+Krasic, et al.           Expires August 2, 2019                [Page 20]
 
 Internet-Draft                    QPACK                     January 2019
 
+
+   inserts, then an encoded value of 3 indicates that the Required
+   Insert Count is 9 for the header block.
 
 4.5.1.2.  Base
 
@@ -1166,17 +1169,17 @@ Internet-Draft                    QPACK                     January 2019
 
    An indexed header field representation identifies an entry in either
    the static table or the dynamic table and causes that header field to
-   be added to the decoded header list, as described in Section 3.2 of
-   [RFC7541].
 
 
 
 
-
-Krasic, et al.            Expires July 28, 2019                [Page 21]
+Krasic, et al.           Expires August 2, 2019                [Page 21]
 
 Internet-Draft                    QPACK                     January 2019
 
+
+   be added to the decoded header list, as described in Section 3.2 of
+   [RFC7541].
 
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
@@ -1223,17 +1226,17 @@ Internet-Draft                    QPACK                     January 2019
    permitted to add this header to the dynamic header table on
    subsequent hops.  When the 'N' bit is set, the encoded header MUST
    always be encoded with a literal representation.  In particular, when
-   a peer sends a header field that it received represented as a literal
-   header field with the 'N' bit set, it MUST use a literal
-   representation to forward this header field.  This bit is intended
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 22]
+Krasic, et al.           Expires August 2, 2019                [Page 22]
 
 Internet-Draft                    QPACK                     January 2019
 
 
+   a peer sends a header field that it received represented as a literal
+   header field with the 'N' bit set, it MUST use a literal
+   representation to forward this header field.  This bit is intended
    for protecting header field values that are not to be put at risk by
    compressing them (see Section 7.1 of [RFC7541] for more details).
 
@@ -1279,17 +1282,17 @@ Internet-Draft                    QPACK                     January 2019
    the header field value are represented as string literals (see
    Section 4.1) starts with the '001' three-bit pattern.
 
-   The fourth bit, 'N', indicates whether an intermediary is permitted
-   to add this header to the dynamic header table on subsequent hops.
-   When the 'N' bit is set, the encoded header MUST always be encoded
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 23]
+Krasic, et al.           Expires August 2, 2019                [Page 23]
 
 Internet-Draft                    QPACK                     January 2019
 
 
+   The fourth bit, 'N', indicates whether an intermediary is permitted
+   to add this header to the dynamic header table on subsequent hops.
+   When the 'N' bit is set, the encoded header MUST always be encoded
    with a literal representation.  In particular, when a peer sends a
    header field that it received represented as a literal header field
    with the 'N' bit set, it MUST use a literal representation to forward
@@ -1335,16 +1338,16 @@ Internet-Draft                    QPACK                     January 2019
       interpret an instruction on a request or push stream and is not
       able to continue decoding that header block.
 
-   HTTP_QPACK_ENCODER_STREAM_ERROR (TBD):  The decoder failed to
-      interpret an instruction on the encoder stream.
 
 
 
-
-Krasic, et al.            Expires July 28, 2019                [Page 24]
+Krasic, et al.           Expires August 2, 2019                [Page 24]
 
 Internet-Draft                    QPACK                     January 2019
 
+
+   HTTP_QPACK_ENCODER_STREAM_ERROR (TBD):  The decoder failed to
+      interpret an instruction on the encoder stream.
 
    HTTP_QPACK_DECODER_STREAM_ERROR (TBD):  The encoder failed to
       interpret an instruction on the decoder stream.
@@ -1389,18 +1392,20 @@ Internet-Draft                    QPACK                     January 2019
          | QPACK Decoder Stream | 0x68 | Section 4     | Both   |
          +----------------------+------+---------------+--------+
 
+
+
+
+
+
+Krasic, et al.           Expires August 2, 2019                [Page 25]
+
+Internet-Draft                    QPACK                     January 2019
+
+
 8.3.  Error Code Registration
 
    This document establishes the following new error codes in the
    "HTTP/3 Error Code" registry established in [HTTP3].
-
-
-
-
-Krasic, et al.            Expires July 28, 2019                [Page 25]
-
-Internet-Draft                    QPACK                     January 2019
-
 
    +------------------------------+------+--------------+--------------+
    | Name                         | Code | Description  | Specificatio |
@@ -1448,12 +1453,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-
-
-
-
-
-Krasic, et al.            Expires July 28, 2019                [Page 26]
+Krasic, et al.           Expires August 2, 2019                [Page 26]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1509,7 +1509,7 @@ Appendix A.  Static Table
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 27]
+Krasic, et al.           Expires August 2, 2019                [Page 27]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1565,7 +1565,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 28]
+Krasic, et al.           Expires August 2, 2019                [Page 28]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1621,7 +1621,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 29]
+Krasic, et al.           Expires August 2, 2019                [Page 29]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1677,7 +1677,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 30]
+Krasic, et al.           Expires August 2, 2019                [Page 30]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1733,7 +1733,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 31]
+Krasic, et al.           Expires August 2, 2019                [Page 31]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1789,7 +1789,7 @@ Appendix B.  Sample One Pass Encoding Algorithm
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 32]
+Krasic, et al.           Expires August 2, 2019                [Page 32]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1845,7 +1845,7 @@ Internet-Draft                    QPACK                     January 2019
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 33]
+Krasic, et al.           Expires August 2, 2019                [Page 33]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1901,7 +1901,7 @@ C.4.  Since draft-ietf-quic-qpack-02
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 34]
+Krasic, et al.           Expires August 2, 2019                [Page 34]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -1957,7 +1957,7 @@ Acknowledgments
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 35]
+Krasic, et al.           Expires August 2, 2019                [Page 35]
 
 Internet-Draft                    QPACK                     January 2019
 
@@ -2013,4 +2013,4 @@ Authors' Addresses
 
 
 
-Krasic, et al.            Expires July 28, 2019                [Page 36]
+Krasic, et al.           Expires August 2, 2019                [Page 36]
