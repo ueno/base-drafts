@@ -612,7 +612,7 @@ ul.toc li {
 <a href="#rfc.section.1">1.</a> <a href="#introduction" id="introduction">Introduction</a>
 </h1>
 <p id="rfc.section.1.p.1">QUIC is a new multiplexed and secure transport atop UDP.  QUIC builds on decades of transport and security experience, and implements mechanisms that make it attractive as a modern general-purpose transport.  The QUIC protocol is described in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.</p>
-<p id="rfc.section.1.p.2">QUIC implements the spirit of known TCP loss recovery mechanisms, described in RFCs, various Internet-drafts, and also those prevalent in the Linux TCP implementation.  This document describes QUIC congestion control and loss recovery, and where applicable, attributes the TCP equivalent in RFCs, Internet-drafts, academic papers, and/or TCP implementations.</p>
+<p id="rfc.section.1.p.2">QUIC implements the spirit of existing TCP loss recovery mechanisms, described in RFCs, various Internet-drafts, and also those prevalent in the Linux TCP implementation.  This document describes QUIC congestion control and loss recovery, and where applicable, attributes the TCP equivalent in RFCs, Internet-drafts, academic papers, and/or TCP implementations.</p>
 <h1 id="rfc.section.2">
 <a href="#rfc.section.2">2.</a> <a href="#conventions-and-definitions" id="conventions-and-definitions">Conventions and Definitions</a>
 </h1>
@@ -643,7 +643,8 @@ ul.toc li {
 <ul>
 <li>All packets are acknowledged, though packets that contain no ack-eliciting frames are only acknowledged along with ack-eliciting packets.</li>
 <li>Long header packets that contain CRYPTO frames are critical to the performance of the QUIC handshake and use shorter timers for acknowledgement and retransmission.</li>
-<li>Packets that contain only ACK frames do not count toward congestion control limits and are not considered in-flight. Note that this means PADDING frames cause packets to contribute toward bytes in flight without directly causing an acknowledgment to be sent.</li>
+<li>Packets that contain only ACK frames do not count toward congestion control limits and are not considered in-flight.</li>
+<li>PADDING frames cause packets to contribute toward bytes in flight without directly causing an acknowledgment to be sent.</li>
 </ul>
 <h2 id="rfc.section.3.1">
 <a href="#rfc.section.3.1">3.1.</a> <a href="#relevant-differences-between-quic-and-tcp" id="relevant-differences-between-quic-and-tcp">Relevant Differences Between QUIC and TCP</a>
@@ -678,11 +679,11 @@ ul.toc li {
 <p id="rfc.section.4.p.2">An acknowledgement SHOULD be sent immediately upon receipt of a second ack-eliciting packet. QUIC recovery algorithms do not assume the peer sends an an ACK immediately when receiving a second ack-eliciting packet.</p>
 <p id="rfc.section.4.p.3">In order to accelerate loss recovery and reduce timeouts, the receiver SHOULD send an immediate ACK when it receives a new packet which is not one greater than the largest received packet number. A receiver MAY send immediate ACKs for the next few ack-eliciting packets that are received, but SHOULD NOT send an immediate ACK for more than 1/8 RTT after receiving an out-of-order packet.</p>
 <p id="rfc.section.4.p.4">Similarly, packets marked with the ECN Congestion Experienced (CE) codepoint in the IP header SHOULD be acknowledged immediately, to reduce the peer&#8217;s response time to congestion events.</p>
-<p id="rfc.section.4.p.5">As an optimization, a receiver MAY process multiple packets before sending any ACK frames in response.  In this case they can determine whether an immediate or delayed acknowledgement should be generated after processing incoming packets.</p>
+<p id="rfc.section.4.p.5">As an optimization, a receiver MAY process multiple packets before sending any ACK frames in response.  In this case the receiver can determine whether an immediate or delayed acknowledgement should be generated after processing incoming packets.</p>
 <h2 id="rfc.section.4.1">
 <a href="#rfc.section.4.1">4.1.</a> <a href="#crypto-handshake-data" id="crypto-handshake-data">Crypto Handshake Data</a>
 </h2>
-<p id="rfc.section.4.1.p.1">In order to quickly complete the handshake and avoid spurious retransmissions due to crypto retransmission timeouts, crypto packets SHOULD use a very short ack delay, such as 1ms.  ACK frames MAY be sent immediately when the crypto stack indicates all data for that packet number space has been received.</p>
+<p id="rfc.section.4.1.p.1">In order to quickly complete the handshake and avoid spurious retransmissions due to crypto retransmission timeouts, crypto packets SHOULD use a very short ack delay, such as the local timer granularity.  ACK frames MAY be sent immediately when the crypto stack indicates all data for that packet number space has been received.</p>
 <h2 id="rfc.section.4.2">
 <a href="#rfc.section.4.2">4.2.</a> <a href="#ack-ranges" id="ack-ranges">ACK Ranges</a>
 </h2>
@@ -734,7 +735,7 @@ ul.toc li {
 <p></p>
 
 <ul>
-<li>the latest RTT sample is lower than the SRTT, perhaps due to reordering where packet whose ack triggered the Early Retransmit process encountered a shorter path;</li>
+<li>the latest RTT sample is lower than the SRTT, perhaps due to reordering where the acknowledgement encountered a shorter path;</li>
 <li>the latest RTT sample is higher than the SRTT, perhaps due to a sustained increase in the actual RTT, but the smoothed SRTT has not yet caught up.</li>
 </ul>
 <p id="rfc.section.6.1.2.p.5">Implementations MAY experiment with absolute thresholds, thresholds from previous connections, adaptive thresholds, or including RTT variance.  Smaller thresholds reduce reordering resilience and increase spurious retransmissions, and larger thresholds increase loss detection delay.</p>
@@ -757,7 +758,7 @@ ul.toc li {
 <h3 id="rfc.section.6.2.2">
 <a href="#rfc.section.6.2.2">6.2.2.</a> <a href="#discarding-packets" id="discarding-packets">Discarding Keys and Packet State</a>
 </h3>
-<p id="rfc.section.6.2.2.p.1">When packet protection keys are discarded (see Section 4.9 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>), all packets that were sent with those keys can no longer be acknowledged because their acknowledgements cannot be processed anymore. The sender considers them no longer in flight. That is, the sender SHOULD discard all recovery state associated with those packets and MUST remove them from the count of bytes in flight.</p>
+<p id="rfc.section.6.2.2.p.1">When packet protection keys are discarded (see Section 4.9 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>), all packets that were sent with those keys can no longer be acknowledged because their acknowledgements cannot be processed anymore. The sender MUST discard all recovery state associated with those packets and MUST remove them from the count of bytes in flight.</p>
 <p id="rfc.section.6.2.2.p.2">Endpoints stop sending and receiving Initial packets once they start exchanging Handshake packets (see Section 17.2.2.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>). At this point, recovery state for all in-flight Initial packets is discarded.</p>
 <p id="rfc.section.6.2.2.p.3">When 0-RTT is rejected, recovery state for all in-flight 0-RTT packets is discarded.</p>
 <p id="rfc.section.6.2.2.p.4">If a server accepts 0-RTT, but does not buffer 0-RTT packets that arrive before Initial packets, early 0-RTT packets will be declared lost, but that is expected to be infrequent.</p>
@@ -790,8 +791,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <a href="#rfc.section.6.3.3">6.3.3.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
 </h3>
 <p id="rfc.section.6.3.3.p.1">Delivery or loss of packets in flight is established when an ACK frame is received that newly acknowledges one or more packets.</p>
-<p id="rfc.section.6.3.3.p.2">A PTO timer expiration event does not indicate packet loss and MUST NOT cause prior unacknowledged packets to be marked as lost.  After a PTO timer has expired, an endpoint uses the following rules to mark packets as lost when an acknowledgement is received that newly acknowledges packets.</p>
-<p id="rfc.section.6.3.3.p.3">When an acknowledgement is received that newly acknowledges packets, loss detection proceeds as dictated by packet and time threshold mechanisms, see <a href="#ack-loss-detection" class="xref">Section 6.1</a>.</p>
+<p id="rfc.section.6.3.3.p.2">A PTO timer expiration event does not indicate packet loss and MUST NOT cause prior unacknowledged packets to be marked as lost. When an acknowledgement is received that newly acknowledges packets, loss detection proceeds as dictated by packet and time threshold mechanisms, see <a href="#ack-loss-detection" class="xref">Section 6.1</a>.</p>
 <h2 id="rfc.section.6.4">
 <a href="#rfc.section.6.4">6.4.</a> <a href="#tracking-sent-packets" id="tracking-sent-packets">Tracking Sent Packets</a>
 </h2>
@@ -870,7 +870,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <dt>max_ack_delay:</dt>
 <dd style="margin-left: 8">The maximum amount of time by which the receiver intends to delay acknowledgments, in milliseconds.  The actual ack_delay in a received ACK frame may be larger due to late timers, reordering, or lost ACKs.</dd>
 <dt>loss_time:</dt>
-<dd style="margin-left: 8">The time at which the next packet will be considered lost based on early transmit or exceeding the reordering window in time.</dd>
+<dd style="margin-left: 8">The time at which the next packet will be considered lost based on exceeding the reordering window in time.</dd>
 <dt>sent_packets:</dt>
 <dd style="margin-left: 8">An association of packet numbers to information about them.  Described in detail above in <a href="#tracking-sent-packets" class="xref">Section 6.4</a>.</dd>
 </dl>
@@ -1035,7 +1035,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
        DetectLostPackets()
      else:
        // PTO
-       SendTwoPackets()
+       SendOneOrTwoPackets()
        pto_count++
 
      SetLossDetectionTimer()
@@ -1113,7 +1113,7 @@ DetectLostPackets():
 <h2 id="rfc.section.7.6">
 <a href="#rfc.section.7.6">7.6.</a> <a href="#probe-timeout" id="probe-timeout">Probe Timeout</a>
 </h2>
-<p id="rfc.section.7.6.p.1">Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST however count these packets as being additionally in flight, since these packets adds network load without establishing packet loss.  Note that sending probe packets might cause the sender&#8217;s bytes in flight to exceed the congestion window until an acknowledgement is received that establishes loss or delivery of packets.</p>
+<p id="rfc.section.7.6.p.1">Probe packets MUST NOT be blocked by the congestion controller.  A sender MUST however count these packets as being additionally in flight, since these packets add network load without establishing packet loss.  Note that sending probe packets might cause the sender&#8217;s bytes in flight to exceed the congestion window until an acknowledgement is received that establishes loss or delivery of packets.</p>
 <p id="rfc.section.7.6.p.2">When an ACK frame is received that establishes loss of all in-flight packets sent prior to a threshold number of consecutive PTOs (pto_count is more than kPersistentCongestionThreshold, see <a href="#cc-consts-of-interest" class="xref">Section 7.10.1</a>), the network is considered to be experiencing persistent congestion, and the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a>.</p>
 <h2 id="rfc.section.7.7">
 <a href="#rfc.section.7.7">7.7.</a> <a href="#pacing" id="pacing">Pacing</a>
