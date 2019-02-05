@@ -214,7 +214,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
      19.19. CONNECTION_CLOSE Frames  . . . . . . . . . . . . . . . . 113
      19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 114
    20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 114
-     20.1.  Application Protocol Error Codes . . . . . . . . . . . . 115
+     20.1.  Application Protocol Error Codes . . . . . . . . . . . . 116
    21. Security Considerations . . . . . . . . . . . . . . . . . . . 116
      21.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 116
      21.2.  Amplification Attack . . . . . . . . . . . . . . . . . . 117
@@ -233,7 +233,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
      21.7.  Explicit Congestion Notification Attacks . . . . . . . . 119
      21.8.  Stateless Reset Oracle . . . . . . . . . . . . . . . . . 119
    22. IANA Considerations . . . . . . . . . . . . . . . . . . . . . 119
-     22.1.  QUIC Transport Parameter Registry  . . . . . . . . . . . 119
+     22.1.  QUIC Transport Parameter Registry  . . . . . . . . . . . 120
      22.2.  QUIC Frame Type Registry . . . . . . . . . . . . . . . . 121
      22.3.  QUIC Transport Error Codes Registry  . . . . . . . . . . 122
    23. References  . . . . . . . . . . . . . . . . . . . . . . . . . 125
@@ -4548,8 +4548,10 @@ Internet-Draft           QUIC Transport Protocol           February 2019
       protected using header protection (see Section 5.4 of [QUIC-TLS]).
       The value included prior to protection MUST be set to 0.  An
       endpoint MUST treat receipt of a packet that has a non-zero value
-      for these bits after removing protection as a connection error of
-      type PROTOCOL_VIOLATION.
+      for these bits, after removing both packet and header protection,
+      as a connection error of type PROTOCOL_VIOLATION.  Discarding such
+      a packet after only removing header protection can expose the
+      endpoint to attacks (see Section 9.3 of [QUIC-TLS]).
 
    Packet Number Length (P):  In packet types which contain a Packet
       Number field, the least significant two bits (those with a mask of
@@ -4581,8 +4583,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    sent by servers.
 
    The layout of a Version Negotiation packet is:
-
-
 
 
 
@@ -5088,8 +5088,8 @@ Internet-Draft           QUIC Transport Protocol           February 2019
       byte 0 are reserved.  These bits are protected using header
       protection (see Section 5.4 of [QUIC-TLS]).  The value included
       prior to protection MUST be set to 0.  An endpoint MUST treat
-      receipt of a packet that has a non-zero value for these bits after
-
+      receipt of a packet that has a non-zero value for these bits,
+      after removing both packet and header protection, as a connection
 
 
 
@@ -5098,8 +5098,9 @@ Iyengar & Thomson        Expires August 9, 2019                [Page 91]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
-      removing protection as a connection error of type
-      PROTOCOL_VIOLATION.
+      error of type PROTOCOL_VIOLATION.  Discarding such a packet after
+      only removing header protection can expose the endpoint to attacks
+      (see Section 9.3 of [QUIC-TLS]).
 
    Key Phase (K):  The next bit (0x04) of byte 0 indicates the key
       phase, which allows a recipient of a packet to identify the packet
@@ -5138,7 +5139,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    The format of the transport parameters is the TransportParameters
    struct from Figure 16.  This is described using the presentation
    language from Section 3 of [TLS13].
-
 
 
 
@@ -6222,6 +6222,11 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    greater than any previously sent to the peer MAY be treated as a
    connection error of type PROTOCOL_VIOLATION.
 
+   The sequence number specified in a RETIRE_CONNECTION_ID frame MUST
+   NOT refer to the Destination Connection ID field of the packet in
+   which the frame is contained.  The peer MAY treat this as a
+   connection error of type PROTOCOL_VIOLATION.
+
    An endpoint cannot send this frame if it was provided with a zero-
    length connection ID by its peer.  An endpoint that provides a zero-
    length connection ID MUST treat receipt of a RETIRE_CONNECTION_ID
@@ -6260,11 +6265,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    PATH_CHALLENGE frame.  Its format is identical to the PATH_CHALLENGE
    frame (Section 19.17).
 
-   If the content of a PATH_RESPONSE frame does not match the content of
-   a PATH_CHALLENGE frame previously sent by the endpoint, the endpoint
-   MAY generate a connection error of type PROTOCOL_VIOLATION.
-
-
 
 
 
@@ -6273,6 +6273,10 @@ Iyengar & Thomson        Expires August 9, 2019               [Page 112]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+   If the content of a PATH_RESPONSE frame does not match the content of
+   a PATH_CHALLENGE frame previously sent by the endpoint, the endpoint
+   MAY generate a connection error of type PROTOCOL_VIOLATION.
 
 19.19.  CONNECTION_CLOSE Frames
 
@@ -6317,10 +6321,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
       frame cannot be split between packets, any limits on packet size
       will also limit the space available for a reason phrase.
 
-   Reason Phrase:  A human-readable explanation for why the connection
-      was closed.  This can be zero length if the sender chooses to not
-      give details beyond the Error Code.  This SHOULD be a UTF-8
-      encoded string [RFC3629].
 
 
 
@@ -6329,6 +6329,11 @@ Iyengar & Thomson        Expires August 9, 2019               [Page 113]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+   Reason Phrase:  A human-readable explanation for why the connection
+      was closed.  This can be zero length if the sender chooses to not
+      give details beyond the Error Code.  This SHOULD be a UTF-8
+      encoded string [RFC3629].
 
 19.20.  Extension Frames
 
@@ -6373,11 +6378,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    FLOW_CONTROL_ERROR (0x3):  An endpoint received more data than it
       permitted in its advertised data limits (see Section 4).
 
-   STREAM_LIMIT_ERROR (0x4):  An endpoint received a frame for a stream
-      identifier that exceeded its advertised stream limit for the
-      corresponding stream type.
-
-
 
 
 
@@ -6385,6 +6385,10 @@ Iyengar & Thomson        Expires August 9, 2019               [Page 114]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+   STREAM_LIMIT_ERROR (0x4):  An endpoint received a frame for a stream
+      identifier that exceeded its advertised stream limit for the
+      corresponding stream type.
 
    STREAM_STATE_ERROR (0x5):  An endpoint received a frame for a stream
       that was not in a state that permitted that frame (see Section 3).
@@ -6427,13 +6431,9 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 
    See Section 22.3 for details of registering new error codes.
 
-20.1.  Application Protocol Error Codes
 
-   Application protocol error codes are 16-bit unsigned integers, but
-   the management of application error codes are left to application
-   protocols.  Application protocol error codes are used for the
-   RESET_STREAM frame (Section 19.4) and the CONNECTION_CLOSE frame with
-   a type of 0x1d (Section 19.19).
+
+
 
 
 
@@ -6441,6 +6441,14 @@ Iyengar & Thomson        Expires August 9, 2019               [Page 115]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+20.1.  Application Protocol Error Codes
+
+   Application protocol error codes are 16-bit unsigned integers, but
+   the management of application error codes are left to application
+   protocols.  Application protocol error codes are used for the
+   RESET_STREAM frame (Section 19.4) and the CONNECTION_CLOSE frame with
+   a type of 0x1d (Section 19.19).
 
 21.  Security Considerations
 
@@ -6482,6 +6490,14 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 
    These protections are not intended to be effective against an
    attacker that is able to receive QUIC packets prior to the connection
+
+
+
+Iyengar & Thomson        Expires August 9, 2019               [Page 116]
+
+Internet-Draft           QUIC Transport Protocol           February 2019
+
+
    being established.  Such an attacker can potentially send packets
    that will be accepted by QUIC endpoints.  This version of QUIC
    attempts to detect this sort of attack, but it expects that endpoints
@@ -6490,13 +6506,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    responsible for detecting tampering during the handshake, though
    additional validation is required for version negotiation (see
    Section 7.3.3).
-
-
-
-Iyengar & Thomson        Expires August 9, 2019               [Page 116]
-
-Internet-Draft           QUIC Transport Protocol           February 2019
-
 
    Endpoints are permitted to use other methods to detect and attempt to
    recover from interference with the handshake.  Invalid packets may be
@@ -6536,15 +6545,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    sender rate, or manufacturing ACK frames that simulate a high loss
    rate.
 
-   QUIC deployments SHOULD provide mitigations for the Slowloris
-   attacks, such as increasing the maximum number of clients the server
-   will allow, limiting the number of connections a single IP address is
-   allowed to make, imposing restrictions on the minimum transfer speed
-   a connection is allowed to have, and restricting the length of time
-   an endpoint is allowed to stay connected.
-
-
-
 
 
 
@@ -6553,6 +6553,13 @@ Iyengar & Thomson        Expires August 9, 2019               [Page 117]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+   QUIC deployments SHOULD provide mitigations for the Slowloris
+   attacks, such as increasing the maximum number of clients the server
+   will allow, limiting the number of connections a single IP address is
+   allowed to make, imposing restrictions on the minimum transfer speed
+   a connection is allowed to have, and restricting the length of time
+   an endpoint is allowed to stay connected.
 
 21.5.  Stream Fragmentation and Reassembly Attacks
 
@@ -6595,13 +6602,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    The number of active streams is limited by the concurrent stream
    limit transport parameter, as explained in Section 4.5.  If chosen
    judiciously, this limit mitigates the effect of the stream commitment
-   attack.  However, setting the limit too low could affect performance
-   when applications expect to open large number of streams.
-
-
-
-
-
 
 
 
@@ -6609,6 +6609,9 @@ Iyengar & Thomson        Expires August 9, 2019               [Page 118]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+   attack.  However, setting the limit too low could affect performance
+   when applications expect to open large number of streams.
 
 21.7.  Explicit Congestion Notification Attacks
 
@@ -6652,10 +6655,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 
 22.  IANA Considerations
 
-22.1.  QUIC Transport Parameter Registry
 
-   IANA [SHALL add/has added] a registry for "QUIC Transport Parameters"
-   under a "QUIC Protocol" heading.
 
 
 
@@ -6665,6 +6665,11 @@ Iyengar & Thomson        Expires August 9, 2019               [Page 119]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+22.1.  QUIC Transport Parameter Registry
+
+   IANA [SHALL add/has added] a registry for "QUIC Transport Parameters"
+   under a "QUIC Protocol" heading.
 
    The "QUIC Transport Parameters" registry governs a 16-bit space.
    This space is split into two spaces that are governed by different
@@ -6690,11 +6695,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    architecturally dubious).
 
    The initial contents of this registry are shown in Table 6.
-
-
-
-
-
 
 
 
