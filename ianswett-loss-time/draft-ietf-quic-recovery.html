@@ -1052,7 +1052,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
 <dd style="margin-left: 8">The minimum RTT seen in the connection, ignoring ack delay.</dd>
 <dt>max_ack_delay:</dt>
 <dd style="margin-left: 8">The maximum amount of time by which the receiver intends to delay acknowledgments, in milliseconds.  The actual ack_delay in a received ACK frame may be larger due to late timers, reordering, or lost ACKs.</dd>
-<dt>loss_times[kPacketNumberSpace]:</dt>
+<dt>loss_time[kPacketNumberSpace]:</dt>
 <dd style="margin-left: 8">The time at which the next packet in that packet number space will be considered lost based on exceeding the reordering window in time.</dd>
 <dt>sent_packets[kPacketNumberSpace]:</dt>
 <dd style="margin-left: 8">An association of packet numbers in a packet number space to information about them.  Described in detail above in <a href="#tracking-sent-packets" class="xref">Appendix A.1</a>.</dd>
@@ -1072,7 +1072,7 @@ PTO = max(smoothed_rtt + 4*rttvar + max_ack_delay, kGranularity)
    time_of_last_sent_crypto_packet = 0
    for pn_space in [ Initial, Handshake, ApplicatonData ]:
      largest_acked_packet[pn_space] = 0
-     loss_times[pn_space] = 0
+     loss_time[pn_space] = 0
 </pre>
 <h2 id="rfc.appendix.A.5">
 <a href="#rfc.appendix.A.5">A.5.</a> <a href="#on-sending-a-packet" id="on-sending-a-packet">On Sending a Packet</a>
@@ -1171,6 +1171,18 @@ UpdateRtt(latest_rtt, ack_delay):
 <p id="rfc.section.A.8.p.2">This algorithm may result in the timer being set in the past, particularly if timers wake up late. Timers set in the past SHOULD fire immediately.</p>
 <p id="rfc.section.A.8.p.3">Pseudocode for SetLossDetectionTimer follows:</p>
 <pre>
+// Returns the earliest loss_time and the packet number
+// space it's from.  Returns 0 if all times are 0.
+GetEarliestLossTimer():
+  time = loss_time[Initial]
+  space = Initial
+  for pn_space in [ Handshake, ApplicatonData ]:
+    if loss_time[pn_space] != 0 &amp;&amp;
+       (time == 0 || loss_time[pn_space] &lt; time):
+      time = loss_time[pn_space];
+      space = Initial
+  return [time, space]
+
 SetLossDetectionTimer():
   // Don't arm timer if there are no ack-eliciting packets
   // in flight.
@@ -1178,11 +1190,11 @@ SetLossDetectionTimer():
     loss_detection_timer.cancel()
     return
 
-  for (loss_time : loss_times) {
-    if (loss_time != 0):
-      // Time threshold loss detection.
-      loss_detection_timer.update(loss_time)
-      return
+  [loss_time, pn_space] = GetEarliestLossTimer()
+  if (loss_time != 0):
+    // Time threshold loss detection.
+    loss_detection_timer.update(loss_time)
+    return
 
   if (crypto packets are in flight):
     // Crypto retransmission timer.
@@ -1212,12 +1224,12 @@ SetLossDetectionTimer():
 <p id="rfc.section.A.9.p.2">Pseudocode for OnLossDetectionTimeout follows:</p>
 <pre>
 OnLossDetectionTimeout():
-  packets_lost = false
-  for pn_space in [ Initial, Handshake, ApplicatonData ]:
-    if (loss_times[pn_space] != 0):
-      // Time threshold loss Detection
-      DetectLostPackets(pn_space)
-      packets_lost = true
+  [loss_time, pn_space] = GetEarliestLossTimer()
+  if (loss_time != 0):
+    // Time threshold loss Detection
+    DetectLostPackets(pn_space)
+    SetLossDetectionTimer()
+    return
   // Don't retransmit all crypto data if a packet was just lost.
   if (!packets_lost &amp;&amp;
       crypto packets are in flight):
@@ -1238,7 +1250,7 @@ OnLossDetectionTimeout():
 <p id="rfc.section.A.10.p.2">Pseudocode for DetectLostPackets follows:</p>
 <pre>
 DetectLostPackets(pn_space):
-  loss_times[pn_space] = 0
+  loss_time[pn_space] = 0
   lost_packets = {}
   loss_delay = kTimeThreshold * max(latest_rtt, smoothed_rtt)
 
@@ -1259,7 +1271,7 @@ DetectLostPackets(pn_space):
       if (unacked.in_flight):
         lost_packets.insert(unacked)
     else if (pn_space == ApplicationData):
-      if (loss_times[pn_space] == 0):
+      if (loss_time[pn_space] == 0):
         loss_time[pn_space] = unacked.time_sent + loss_delay
       else:
         loss_time[pn_space] = min(loss_time[pn_space],
