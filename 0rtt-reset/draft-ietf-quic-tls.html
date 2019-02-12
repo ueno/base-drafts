@@ -689,7 +689,7 @@ ul.toc li {
 </h1>
 <p id="rfc.section.4.p.1">QUIC carries TLS handshake data in CRYPTO frames, each of which consists of a contiguous block of handshake data identified by an offset and length. Those frames are packaged into QUIC packets and encrypted under the current TLS encryption level.  As with TLS over TCP, once TLS handshake data has been delivered to QUIC, it is QUIC&#8217;s responsibility to deliver it reliably. Each chunk of data that is produced by TLS is associated with the set of keys that TLS is currently using.  If QUIC needs to retransmit that data, it MUST use the same keys even if TLS has already updated to newer keys.</p>
 <p id="rfc.section.4.p.2">One important difference between TLS records (used with TCP) and QUIC CRYPTO frames is that in QUIC multiple frames may appear in the same QUIC packet as long as they are associated with the same encryption level. For instance, an implementation might bundle a Handshake message and an ACK for some Handshake data into the same packet.</p>
-<p id="rfc.section.4.p.3">Each encryption level has a specific list of frames which may appear in it. The rules here generalize those of TLS, in that frames associated with establishing the connection can usually appear at any encryption level, whereas those associated with transferring data can only appear in the 0-RTT and 1-RTT encryption levels:</p>
+<p id="rfc.section.4.p.3">Some frames are prohibited in different encryption levels, others cannot be sent. The rules here generalize those of TLS, in that frames associated with establishing the connection can usually appear at any encryption level, whereas those associated with transferring data can only appear in the 0-RTT and 1-RTT encryption levels:</p>
 <p></p>
 
 <ul>
@@ -698,7 +698,8 @@ ul.toc li {
 <li>ACK frames MAY appear in packets of any encryption level other than 0-RTT, but can only acknowledge packets which appeared in that packet number space.</li>
 <li>All other frame types MUST only be sent in the 0-RTT and 1-RTT levels.</li>
 </ul>
-<p id="rfc.section.4.p.5">Because packets could be reordered on the wire, QUIC uses the packet type to indicate which level a given packet was encrypted under, as shown in <a href="#packet-types-levels" class="xref">Table 1</a>. When multiple packets of different encryption levels need to be sent, endpoints SHOULD use coalesced packets to send them in the same UDP datagram.</p>
+<p id="rfc.section.4.p.5">Note that it is not possible to send some frames in 0-RTT for various reasons.  In addition to ACK, this includes CRYPTO, NEW_TOKEN, PATH_RESPONSE, and RETIRE_CONNECTION_ID.</p>
+<p id="rfc.section.4.p.6">Because packets could be reordered on the wire, QUIC uses the packet type to indicate which level a given packet was encrypted under, as shown in <a href="#packet-types-levels" class="xref">Table 1</a>. When multiple packets of different encryption levels need to be sent, endpoints SHOULD use coalesced packets to send them in the same UDP datagram.</p>
 <div id="rfc.table.1"></div>
 <div id="packet-types-levels"></div>
 <table cellpadding="3" cellspacing="0" class="tt full center">
@@ -736,7 +737,7 @@ ul.toc li {
 </tr>
 </tbody>
 </table>
-<p id="rfc.section.4.p.6">Section 17 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a> shows how packets at the various encryption levels fit into the handshake process.</p>
+<p id="rfc.section.4.p.7">Section 17 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a> shows how packets at the various encryption levels fit into the handshake process.</p>
 <h2 id="rfc.section.4.1">
 <a href="#rfc.section.4.1">4.1.</a> <a href="#interface-to-tls" id="interface-to-tls">Interface to TLS</a>
 </h2>
@@ -1151,7 +1152,7 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 <p id="rfc.section.9.1.p.4">However, this does not count for costs that endpoints might incur as a result of accepting 0-RTT.  A server that accepts 0-RTT is exposed to the cost of handling a new connection, plus the cost of processing 0-RTT packets.  If replay protections are unable to prevent multiple connections from being initiated, this could increase these costs because attackers can send copies of 0-RTT packets to different server instances, causing the processing to be repeated.  Servers MUST ensure that they account for any increase in costs before accepting connections or 0-RTT.</p>
 <p id="rfc.section.9.1.p.5">Ultimately, the responsibility for managing the risks of replay attacks with 0-RTT lies with an application protocol.  An application protocol that uses QUIC MUST describe how the protocol uses 0-RTT and the measures that are employed to protect against replay attack.  Disabling 0-RTT entirely is the most effective strategy.</p>
 <p id="rfc.section.9.1.p.6">In the core protocol, particular attention needs to be paid to STREAM frames, which carry application data.  If another frame type carries, or could carry, application semantics, then the risk from replay attack needs to be considered.  For instance, though this is likely to be inadvisable, an application that attached semantics to increases in flow control credit or stream cancellation would need to assess whether those uses were vulnerable to replay attack.</p>
-<p id="rfc.section.9.1.p.7">Extensions to QUIC might create an additional exposure to replay attack if they are used by application protocols.  QUIC extensions SHOULD describe how replay attacks affects their operation.  Application protocols MUST either disable extensions in 0-RTT or provide replay mitigation strategies for any use of the extension.</p>
+<p id="rfc.section.9.1.p.7">Extensions to QUIC might create an additional exposure to replay attack if they are used by application protocols.  QUIC extensions SHOULD describe how replay attacks affects their operation.  Application protocols MUST either prohibit the use of extensions in 0-RTT or provide replay mitigation strategies for those extensions that can be used.</p>
 <h2 id="rfc.section.9.2">
 <a href="#rfc.section.9.2">9.2.</a> <a href="#reflection" id="reflection">Packet Reflection Attack Mitigation</a>
 </h2>
