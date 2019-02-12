@@ -101,11 +101,11 @@ Table of Contents
      4.1.  Primitives  . . . . . . . . . . . . . . . . . . . . . . .  13
        4.1.1.  Prefixed Integers . . . . . . . . . . . . . . . . . .  13
        4.1.2.  String Literals . . . . . . . . . . . . . . . . . . .  14
-     4.2.  Stream Types  . . . . . . . . . . . . . . . . . . . . . .  14
-     4.3.  Encoder Stream  . . . . . . . . . . . . . . . . . . . . .  15
+     4.2.  Instructions  . . . . . . . . . . . . . . . . . . . . . .  14
+       4.2.1.  Encoder and Decoder Streams . . . . . . . . . . . . .  14
+     4.3.  Encoder Instructions  . . . . . . . . . . . . . . . . . .  15
        4.3.1.  Insert With Name Reference  . . . . . . . . . . . . .  15
        4.3.2.  Insert Without Name Reference . . . . . . . . . . . .  15
-       4.3.3.  Duplicate . . . . . . . . . . . . . . . . . . . . . .  16
 
 
 
@@ -114,12 +114,13 @@ Krasic, et al.           Expires August 16, 2019                [Page 2]
 Internet-Draft                    QPACK                    February 2019
 
 
+       4.3.3.  Duplicate . . . . . . . . . . . . . . . . . . . . . .  16
        4.3.4.  Set Dynamic Table Capacity  . . . . . . . . . . . . .  16
-     4.4.  Decoder Stream  . . . . . . . . . . . . . . . . . . . . .  17
+     4.4.  Decoder Instructions  . . . . . . . . . . . . . . . . . .  17
        4.4.1.  Insert Count Increment  . . . . . . . . . . . . . . .  17
        4.4.2.  Header Acknowledgement  . . . . . . . . . . . . . . .  18
        4.4.3.  Stream Cancellation . . . . . . . . . . . . . . . . .  18
-     4.5.  Request and Push Streams  . . . . . . . . . . . . . . . .  19
+     4.5.  Header Block Instructions . . . . . . . . . . . . . . . .  19
        4.5.1.  Header Block Prefix . . . . . . . . . . . . . . . . .  19
        4.5.2.  Indexed Header Field  . . . . . . . . . . . . . . . .  22
        4.5.3.  Indexed Header Field With Post-Base Index . . . . . .  22
@@ -160,7 +161,6 @@ Internet-Draft                    QPACK                    February 2019
    relative to HTTP/2 by reducing head-of-line blocking.  If HPACK were
    used for HTTP/3, it would induce head-of-line blocking due to built-
    in assumptions of a total ordering across frames on all streams.
-
 
 
 
@@ -428,20 +428,20 @@ Internet-Draft                    QPACK                    February 2019
 
    As in HPACK, the decoder processes header blocks and emits the
    corresponding header lists.  It also processes dynamic table
-   modifications from instructions on the encoder stream.
+   modifications from encoder instructions received on the encoder
+   stream.
 
    The decoder MUST emit header fields in the order their
    representations appear in the input header block.
 
 2.2.1.  State Synchronization
 
-   The decoder stream (Section 4.4) signals key events at the decoder
-   that permit the encoder to track the decoder's state.  These events
-   are:
+   The decoder instructions (Section 4.4) signal key events at the
+   decoder that permit the encoder to track the decoder's state.  These
+   events are:
 
    o  Complete processing of a header block
 
-   o  Abandonment of a stream which might have remaining header blocks
 
 
 
@@ -449,6 +449,8 @@ Krasic, et al.           Expires August 16, 2019                [Page 8]
 
 Internet-Draft                    QPACK                    February 2019
 
+
+   o  Abandonment of a stream which might have remaining header blocks
 
    o  Receipt of new dynamic table entries
 
@@ -492,11 +494,9 @@ Internet-Draft                    QPACK                    February 2019
    Note the QPACK static table is indexed from 0, whereas the HPACK
    static table is indexed from 1.
 
-   When the decoder encounters an invalid static table index on a
-   request stream or push stream it MUST treat this as a stream error of
-   type "HTTP_QPACK_DECOMPRESSION_FAILED".  If this index is received on
-   the encoder stream, this MUST be treated as a connection error of
-   type "HTTP_QPACK_ENCODER_STREAM_ERROR".
+   When the decoder encounters an invalid static table index in a header
+   block instruction it MUST treat this as a stream error of type
+   "HTTP_QPACK_DECOMPRESSION_FAILED".  If this index is received on the
 
 
 
@@ -506,12 +506,15 @@ Krasic, et al.           Expires August 16, 2019                [Page 9]
 Internet-Draft                    QPACK                    February 2019
 
 
+   encoder stream, this MUST be treated as a connection error of type
+   "HTTP_QPACK_ENCODER_STREAM_ERROR".
+
 3.2.  Dynamic Table
 
    The dynamic table consists of a list of header fields maintained in
-   first-in, first-out order.  The dynamic table is initially empty.
-   Entries are added by instructions on the encoder stream (see
-   Section 4.3).
+   first-in, first-out order.  Each HTTP/3 endpoint holds a dynamic
+   table that is initially empty.  Entries are added by encoder
+   instructions received on the encoder stream (see Section 4.3).
 
    The dynamic table can contain duplicate entries (i.e., entries with
    the same name and same value).  Therefore, duplicate entries MUST NOT
@@ -551,9 +554,6 @@ Internet-Draft                    QPACK                    February 2019
    or value if the referenced entry is evicted from the dynamic table
    prior to inserting the new entry.
 
-   Whenever the dynamic table capacity is reduced by the encoder,
-   entries are evicted from the end of the dynamic table until the size
-   of the dynamic table is less than or equal to the new table capacity.
 
 
 
@@ -562,6 +562,9 @@ Krasic, et al.           Expires August 16, 2019               [Page 10]
 Internet-Draft                    QPACK                    February 2019
 
 
+   Whenever the dynamic table capacity is reduced by the encoder,
+   entries are evicted from the end of the dynamic table until the size
+   of the dynamic table is less than or equal to the new table capacity.
    This mechanism can be used to completely clear entries from the
    dynamic table by setting a capacity of 0, which can subsequently be
    restored.
@@ -592,8 +595,8 @@ Internet-Draft                    QPACK                    February 2019
    SETTINGS_QPACK_MAX_TABLE_CAPACITY.
 
    When the maximum table capacity is 0, the encoder MUST NOT insert
-   entries into the dynamic table, and MUST NOT send any instructions on
-   the encoder stream.
+   entries into the dynamic table, and MUST NOT send any encoder
+   instructions on the encoder stream.
 
 3.2.4.  Absolute Indexing
 
@@ -608,9 +611,6 @@ Internet-Draft                    QPACK                    February 2019
    direction from the absolute index.  Determining which entry has a
    relative index of "0" depends on the context of the reference.
 
-   On the encoder stream, a relative index of "0" always refers to the
-   most recently inserted value in the dynamic table.  Note that this
-
 
 
 Krasic, et al.           Expires August 16, 2019               [Page 11]
@@ -618,6 +618,8 @@ Krasic, et al.           Expires August 16, 2019               [Page 11]
 Internet-Draft                    QPACK                    February 2019
 
 
+   In encoder instructions, a relative index of "0" always refers to the
+   most recently inserted value in the dynamic table.  Note that this
    means the entry referenced by a given relative index will change
    while interpreting instructions on the encoder stream.
 
@@ -635,10 +637,10 @@ Internet-Draft                    QPACK                    February 2019
 
               Example Dynamic Table Indexing - Control Stream
 
-   Unlike on the encoder stream, relative indices on push and request
-   streams are relative to the Base at the beginning of the header block
-   (see Section 4.5.1).  This ensures that references are stable even if
-   the dynamic table is updated while decoding a header block.
+   Unlike encoder instructions, relative indices in header block
+   instructions are relative to the Base at the beginning of the header
+   block (see Section 4.5.1).  This ensures that references are stable
+   even if the dynamic table is updated while decoding a header block.
 
    The Base is encoded as a value relative to the Required Insert Count.
    The Base identifies which dynamic table entries can be referenced
@@ -662,9 +664,7 @@ Internet-Draft                    QPACK                    February 2019
    n = count of entries inserted
    d = count of entries dropped
 
-     Example Dynamic Table Indexing - Relative Index on Request Stream
-
-
+      Example Dynamic Table Indexing - Relative Index in Header Block
 
 
 
@@ -676,14 +676,13 @@ Internet-Draft                    QPACK                    February 2019
 
 3.2.6.  Post-Base Indexing
 
-   A header block on the request stream can reference entries added
-   after the entry identified by the Base.  This allows an encoder to
-   process a header block in a single pass and include references to
-   entries added while processing this (or other) header blocks.  Newly
-   added entries are referenced using Post-Base instructions.  Indices
-   for Post-Base instructions increase in the same direction as absolute
-   indices, with the zero value being the first entry inserted after the
-   Base.
+   A header block can reference entries added after the entry identified
+   by the Base.  This allows an encoder to process a header block in a
+   single pass and include references to entries added while processing
+   this (or other) header blocks.  Newly added entries are referenced
+   using Post-Base instructions.  Indices for Post-Base instructions
+   increase in the same direction as absolute indices, with the zero
+   value being the first entry inserted after the Base.
 
                   Base
                    |
@@ -697,17 +696,17 @@ Internet-Draft                    QPACK                    February 2019
    n = count of entries inserted
    d = count of entries dropped
 
-    Example Dynamic Table Indexing - Post-Base Index on Request Stream
+     Example Dynamic Table Indexing - Post-Base Index in Header Block
 
 3.2.7.  Invalid References
 
-   If the decoder encounters a reference on a request or push stream to
-   a dynamic table entry which has already been evicted or which has an
-   absolute index greater than or equal to the declared Required Insert
-   Count (see Section 4.5.1), it MUST treat this as a stream error of
-   type "HTTP_QPACK_DECOMPRESSION_FAILED".
+   If the decoder encounters a reference in a header block instruction
+   to a dynamic table entry which has already been evicted or which has
+   an absolute index greater than or equal to the declared Required
+   Insert Count (see Section 4.5.1), it MUST treat this as a stream
+   error of type "HTTP_QPACK_DECOMPRESSION_FAILED".
 
-   If the decoder encounters a reference on the encoder stream to a
+   If the decoder encounters a reference in an encoder instruction to a
    dynamic table entry which has already been dropped, it MUST treat
    this as a connection error of type "HTTP_QPACK_ENCODER_STREAM_ERROR".
 
@@ -721,6 +720,7 @@ Internet-Draft                    QPACK                    February 2019
    throughout this document.  The format from [RFC7541] is used
    unmodified.  QPACK implementations MUST be able to decode integers up
    to 62 bits long.
+
 
 
 
@@ -752,31 +752,31 @@ Internet-Draft                    QPACK                    February 2019
    string literal and follows the definitions in [RFC7541] without
    modification.
 
-4.2.  Stream Types
+4.2.  Instructions
 
-   QPACK instructions occur in three locations, each of which uses a
-   separate instruction space:
+   There are three separate QPACK instruction spaces.  Encoder
+   instructions (Section 4.3) carry table updates, decoder instructions
+   (Section 4.4) carry acknowledgments of table modifications and header
+   processing, and header block instructions (Section 4.5) convey an
+   encoded representation of a header list by referring to the QPACK
+   table state.
 
-   o  The encoder stream is a unidirectional stream of type "0x02" which
-      carries table updates from encoder to decoder.
+   Encoder and decoder instructions appear on the unidirectional stream
+   types described in this section.  Header block instructions are
+   contained in HEADERS and PUSH_PROMISE frames, which are conveyed on
+   request or push streams as described in [HTTP3].
 
-   o  The decoder stream is a unidirectional stream of type "0x03" which
-      carries acknowledgements of table modifications and header
-      processing from decoder to encoder.
+4.2.1.  Encoder and Decoder Streams
 
-   o  Finally, the contents of HEADERS and PUSH_PROMISE frames on
-      request streams and push streams reference the QPACK table state.
+   QPACK defines two unidirectional stream types:
 
-   There MUST be exactly one of each unidirectional stream type in each
-   direction.  Receipt of a second instance of either stream type MUST
-   be treated as a connection error of HTTP_WRONG_STREAM_COUNT.  These
-   streams MUST NOT be closed.  Closure of either unidirectional stream
-   MUST be treated as a connection error of type
-   HTTP_CLOSED_CRITICAL_STREAM.
+   o  An encoder stream is a unidirectional stream of type "0x02".  It
+      carries an unframed sequence of encoder instructions from encoder
+      to decoder.
 
-   This section describes the instructions which are possible on each
-   stream type.
-
+   o  A decoder stream is a unidirectional stream of type "0x03".  It
+      carries an unframed sequence of decoder instructions from decoder
+      to encoder.
 
 
 
@@ -786,7 +786,14 @@ Krasic, et al.           Expires August 16, 2019               [Page 14]
 Internet-Draft                    QPACK                    February 2019
 
 
-4.3.  Encoder Stream
+   HTTP/3 endpoints contain a QPACK encoder and decoder.  Each endpoint
+   MUST initiate a single encoder stream and decoder stream.  Receipt of
+   a second instance of either stream type be MUST treated as a
+   connection error of type HTTP_WRONG_STREAM_COUNT.  These streams MUST
+   NOT be closed.  Closure of either unidirectional stream type MUST be
+   treated as a connection error of type HTTP_CLOSED_CRITICAL_STREAM.
+
+4.3.  Encoder Instructions
 
    Table updates can add a table entry, possibly using existing entries
    to avoid transmitting redundant information.  The name can be
@@ -795,8 +802,7 @@ Internet-Draft                    QPACK                    February 2019
    exist in the dynamic table, the full entry can also be used by
    reference, creating a duplicate entry.
 
-   The contents of the encoder stream are an unframed sequence of the
-   following instructions.
+   This section specifies the following encoder instructions.
 
 4.3.1.  Insert With Name Reference
 
@@ -829,18 +835,15 @@ Internet-Draft                    QPACK                    February 2019
    the header field value are represented as string literals (see
    Section 4.1) starts with the '01' two-bit pattern.
 
-   The name is represented as a 6-bit prefix string literal, while the
-   value is represented as an 8-bit prefix string literal.
-
-
-
-
 
 
 Krasic, et al.           Expires August 16, 2019               [Page 15]
 
 Internet-Draft                    QPACK                    February 2019
 
+
+   The name is represented as a 6-bit prefix string literal, while the
+   value is represented as an 8-bit prefix string literal.
 
         0   1   2   3   4   5   6   7
       +---+---+---+---+---+---+---+---+
@@ -888,9 +891,6 @@ Internet-Draft                    QPACK                    February 2019
 
                    Figure 3: Set Dynamic Table Capacity
 
-   The new capacity MUST be lower than or equal to the limit described
-   in Section 3.2.3.  In HTTP/3, this limit is the value of the
-
 
 
 Krasic, et al.           Expires August 16, 2019               [Page 16]
@@ -898,6 +898,8 @@ Krasic, et al.           Expires August 16, 2019               [Page 16]
 Internet-Draft                    QPACK                    February 2019
 
 
+   The new capacity MUST be lower than or equal to the limit described
+   in Section 3.2.3.  In HTTP/3, this limit is the value of the
    SETTINGS_QPACK_MAX_TABLE_CAPACITY parameter (see Section 5) received
    from the decoder.  The decoder MUST treat a new dynamic table
    capacity value that exceeds this limit as a connection error of type
@@ -909,17 +911,16 @@ Internet-Draft                    QPACK                    February 2019
    capacity of the dynamic table is not acknowledged as this instruction
    does not insert an entry.
 
-4.4.  Decoder Stream
+4.4.  Decoder Instructions
 
-   The decoder stream carries information used to ensure consistency of
-   the dynamic table.  Information is sent from the decoder to the
-   encoder; that is, the server informs the client about the processing
-   of the client's header blocks and table updates, and the client
-   informs the server about the processing of the server's header blocks
-   and table updates.
+   Decoder instructions provide information used to ensure consistency
+   of the dynamic table.  They are sent from the decoder to the encoder
+   on a decoder stream; that is, the server informs the client about the
+   processing of the client's header blocks and table updates, and the
+   client informs the server about the processing of the server's header
+   blocks and table updates.
 
-   The contents of the decoder stream are an unframed sequence of the
-   following instructions.
+   This section specifies the following decoder instructions.
 
 4.4.1.  Insert Count Increment
 
@@ -948,7 +949,6 @@ Internet-Draft                    QPACK                    February 2019
 
 
 
-
 Krasic, et al.           Expires August 16, 2019               [Page 17]
 
 Internet-Draft                    QPACK                    February 2019
@@ -959,10 +959,10 @@ Internet-Draft                    QPACK                    February 2019
    After processing a header block whose declared Required Insert Count
    is not zero, the decoder emits a Header Acknowledgement instruction
    on the decoder stream.  The instruction begins with the '1' one-bit
-   pattern and includes the request stream's stream ID, encoded as a
-   7-bit prefix integer.  It is used by the peer's encoder to know when
-   it is safe to evict an entry, and possibly update the Known Received
-   Count.
+   pattern and includes the header block's associated stream ID, encoded
+   as a 7-bit prefix integer.  It is used by the peer's encoder to know
+   when it is safe to evict an entry, and possibly update the Known
+   Received Count.
 
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
@@ -973,10 +973,10 @@ Internet-Draft                    QPACK                    February 2019
 
    The same Stream ID can be identified multiple times, as multiple
    header blocks can be sent on a single stream in the case of
-   intermediate responses, trailers, and pushed requests.  Since header
-   frames on each stream are received and processed in order, this gives
-   the encoder precise feedback on which header blocks within a stream
-   have been fully processed.
+   intermediate responses, trailers, and pushed requests.  Since HEADERS
+   and PUSH_PROMISE frames on each stream are received and processed in
+   order, this gives the encoder precise feedback on which header blocks
+   within a stream have been fully processed.
 
    If an encoder receives a Header Acknowledgement instruction referring
    to a stream on which every header block with a non-zero Required
@@ -1031,11 +1031,15 @@ Internet-Draft                    QPACK                    February 2019
    An encoder cannot infer from this instruction that any updates to the
    dynamic table have been received.
 
-4.5.  Request and Push Streams
+4.5.  Header Block Instructions
 
-   HEADERS and PUSH_PROMISE frames on request and push streams reference
-   the dynamic table in a particular state without modifying it.  Frames
-   on these streams emit the headers for an HTTP request or response.
+   HTTP/3 endpoints convert header lists to headers blocks and exchange
+   them inside HEADERS and PUSH_PROMISE frames.  A decoder interprets
+   header block instructions in order to construct a header list.  These
+   instructions reference the static table, or dynamic table in a
+   particular state without modifying it.
+
+   This section specifies the following header block instructions.
 
 4.5.1.  Header Block Prefix
 
@@ -1048,6 +1052,20 @@ Internet-Draft                    QPACK                    February 2019
    These two values are followed by instructions for compressed headers.
    The entire block is expected to be framed by the using protocol.
 
+
+
+
+
+
+
+
+
+
+Krasic, et al.           Expires August 16, 2019               [Page 19]
+
+Internet-Draft                    QPACK                    February 2019
+
+
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
    |   Required Insert Count (8+)  |
@@ -1058,13 +1076,6 @@ Internet-Draft                    QPACK                    February 2019
    +-------------------------------+
 
                           Figure 7: Frame Payload
-
-
-
-Krasic, et al.           Expires August 16, 2019               [Page 19]
-
-Internet-Draft                    QPACK                    February 2019
-
 
 4.5.1.1.  Required Insert Count
 
@@ -1101,17 +1112,6 @@ Internet-Draft                    QPACK                    February 2019
 
    TotalNumberOfInserts is the total number of inserts into the
    decoder's dynamic table.
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1378,14 +1378,14 @@ Internet-Draft                    QPACK                    February 2019
    of QPACK which prevent the stream or connection from continuing:
 
    HTTP_QPACK_DECOMPRESSION_FAILED (TBD):  The decoder failed to
-      interpret an instruction on a request or push stream and is not
-      able to continue decoding that header block.
+      interpret a header block instruction and is not able to continue
+      decoding that header block.
 
    HTTP_QPACK_ENCODER_STREAM_ERROR (TBD):  The decoder failed to
-      interpret an instruction on the encoder stream.
+      interpret an encoder instruction received on the encoder stream.
 
    HTTP_QPACK_DECODER_STREAM_ERROR (TBD):  The encoder failed to
-      interpret an instruction on the decoder stream.
+      interpret a decoder instruction received on the decoder stream.
 
    Upon encountering an error, an implementation MAY elect to treat it
    as a connection error even if this document prescribes that it MUST
@@ -1410,10 +1410,9 @@ Internet-Draft                    QPACK                    February 2019
 
 8.1.  Settings Registration
 
-   This document creates two new settings in the "HTTP/3 Settings"
-   registry established in [HTTP3].
-
-   The entries in the following table are registered by this document.
+   This document specifies two settings.  The entries in the following
+   table are registered in the "HTTP/3 Settings" registry established in
+   [HTTP3].
 
             +--------------------------+------+---------------+
             | Setting Name             | Code | Specification |
@@ -1425,10 +1424,9 @@ Internet-Draft                    QPACK                    February 2019
 
 8.2.  Stream Type Registration
 
-   This document creates two new settings in the "HTTP/3 Stream Type"
-   registry established in [HTTP3].
-
-   The entries in the following table are registered by this document.
+   This document specifies two stream types.  The entries in the
+   following table are registered in the "HTTP/3 Stream Type" registry
+   established in [HTTP3].
 
          +----------------------+------+---------------+--------+
          | Stream Type          | Code | Specification | Sender |
@@ -1440,8 +1438,10 @@ Internet-Draft                    QPACK                    February 2019
 
 8.3.  Error Code Registration
 
-   This document establishes the following new error codes in the
-   "HTTP/3 Error Code" registry established in [HTTP3].
+   This document specifies three error codes.  The entries in the
+   following table are registered in the "HTTP/3 Error Code" registry
+   established in [HTTP3].
+
 
 
 
