@@ -1088,7 +1088,7 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 <h1 id="rfc.section.6">
 <a href="#rfc.section.6">6.</a> <a href="#key-update" id="key-update">Key Update</a>
 </h1>
-<p id="rfc.section.6.p.1">Once the 1-RTT keys are established and confirmed through the use of the KEYS_READY frame, it is possible to update the keys used to protect packets.</p>
+<p id="rfc.section.6.p.1">Once the 1-RTT keys are established and confirmed through the use of the KEYS_ACTIVE frame, it is possible to update the keys used to protect packets.</p>
 <p id="rfc.section.6.p.2">The Key Phase bit is used to indicate which packet protection keys are used to protect the packet.  The Key Phase bit is initially set to 0 for the first set of 1-RTT packets.  The Key Phase bit is toggled to signal each key update.</p>
 <p id="rfc.section.6.p.3">The Key Phase bit allows a recipient to detect a change in keying material without needing to receive the first packet that triggered the change.  An endpoint that notices a changed Key Phase bit updates keys and decrypts the packet that contains the changed value.</p>
 <p id="rfc.section.6.p.4">This mechanism replaces the TLS KeyUpdate message.  Endpoints MUST NOT send a TLS KeyUpdate message.  Endpoints MUST treat the receipt of a TLS KeyUpdate message as a connection error of type 0x10a, equivalent to a fatal TLS alert of unexpected_message (see <a href="#tls-errors" class="xref">Section 4.8</a>).</p>
@@ -1099,20 +1099,20 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
    Initiating Peer                    Responding Peer
 
 @M [0] QUIC Packets
-       KEYS_READY
+       KEYS_ACTIVE
                       --------&gt;
                                       QUIC Packets [0] @M
-                                        KEYS_READY
+                                       KEYS_ACTIVE
                       &lt;--------
 ... Update to @N
 @N [1] QUIC Packets
                       --------&gt;
                                          Update to @N ...
                                       QUIC Packets [1] @N
-                                        KEYS_READY
+                                       KEYS_ACTIVE
                       &lt;--------
 @N [1] QUIC Packets
-       KEYS_READY
+       KEYS_ACTIVE
 ... Key Update Permitted
                       --------&gt;
                                  Key Update Permitted ...
@@ -1123,20 +1123,20 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 </h2>
 <p id="rfc.section.6.1.p.1">Endpoints maintain separate read and write secrets for packet protection.  An endpoint initiates a key update by updating its packet protection write secret and using that to protect new packets.  The endpoint creates a new write secret from the existing write secret as performed in Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>.  This uses the KDF function provided by TLS with a label of &#8220;quic ku&#8221;.  The corresponding key and IV are created from that secret as defined in <a href="#protection-keys" class="xref">Section 5.1</a>.  The header protection key is not updated.</p>
 <p id="rfc.section.6.1.p.2">The endpoint toggles the value of the Key Phase bit, and uses the updated key and IV to protect all subsequent packets.</p>
-<p id="rfc.section.6.1.p.3">An endpoint MUST NOT initiate a key update prior to having received a KEYS_READY frame in a packet from the current key phase.  A subsequent key update can only be performed after the endpoint has successfully processed a KEYS_READY frame from a packet with a matching key phase.  This ensures that keys are available to both peers before another can be initiated.</p>
-<p id="rfc.section.6.1.p.4">Once an endpoint has successfully processed a packet with the same key phase, it can send a KEYS_READY frame.  Endpoints MAY defer sending a KEYS_READY frame after a key update (see <a href="#key-update-old-keys" class="xref">Section 6.3</a>).</p>
+<p id="rfc.section.6.1.p.3">An endpoint MUST NOT initiate a key update prior to having received a KEYS_ACTIVE frame in a packet from the current key phase.  A subsequent key update can only be performed after the endpoint has successfully processed a KEYS_ACTIVE frame from a packet with a matching key phase.  This ensures that keys are available to both peers before another can be initiated.</p>
+<p id="rfc.section.6.1.p.4">Once an endpoint has successfully processed a packet with the same key phase, it can send a KEYS_ACTIVE frame.  Endpoints MAY defer sending a KEYS_ACTIVE frame after a key update (see <a href="#key-update-old-keys" class="xref">Section 6.3</a>).</p>
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#responding-to-a-key-update" id="responding-to-a-key-update">Responding to a Key Update</a>
 </h2>
-<p id="rfc.section.6.2.p.1">An endpoint that sends a KEYS_READY frame can accept further key updates.  A key update can happen even without seeing a KEYS_READY frame from the peer.  If a packet is received with a key phase that differs from the value the endpoint used to protect the packet containing its last KEYS_READY frame, the endpoint creates a new packet protection secret for reading and the corresponding key and IV.  An endpoint uses the same key derivation process as its peer uses to generate keys for receiving.</p>
-<p id="rfc.section.6.2.p.2">If the packet protection is successfully removed using the updated key and IV, then the keys the endpoint initiates a key update in response, as described in <a href="#key-update-initiate" class="xref">Section 6.1</a>.  An endpoint that responds to a key update MUST send a KEYS_READY frame to indicate that it is both sending and receiving with updated keys, though it MAY defer sending the frame (see <a href="#key-update-old-keys" class="xref">Section 6.3</a>).</p>
-<p id="rfc.section.6.2.p.3">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends use the new keys and include the KEYS_READY frame.  If an endpoint detects a second update before it has sent any packets with updated keys or a KEYS_READY frame, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a connection error of type KEY_UPDATE_ERROR.</p>
+<p id="rfc.section.6.2.p.1">An endpoint that sends a KEYS_ACTIVE frame can accept further key updates.  A key update can happen even without seeing a KEYS_ACTIVE frame from the peer.  If a packet is received with a key phase that differs from the value the endpoint used to protect the packet containing its last KEYS_ACTIVE frame, the endpoint creates a new packet protection secret for reading and the corresponding key and IV.  An endpoint uses the same key derivation process as its peer uses to generate keys for receiving.</p>
+<p id="rfc.section.6.2.p.2">If the packet protection is successfully removed using the updated key and IV, then the keys the endpoint initiates a key update in response, as described in <a href="#key-update-initiate" class="xref">Section 6.1</a>.  An endpoint that responds to a key update MUST send a KEYS_ACTIVE frame to indicate that it is both sending and receiving with updated keys, though it MAY defer sending the frame (see <a href="#key-update-old-keys" class="xref">Section 6.3</a>).</p>
+<p id="rfc.section.6.2.p.3">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends use the new keys and include the KEYS_ACTIVE frame.  If an endpoint detects a second update before it has sent any packets with updated keys or a KEYS_ACTIVE frame, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a connection error of type KEY_UPDATE_ERROR.</p>
 <p id="rfc.section.6.2.p.4">Endpoints responding to an apparent key update MUST NOT generate a timing side-channel signal that might indicate that the Key Phase bit was invalid (see <a href="#header-protect-analysis" class="xref">Section 9.3</a>).  Endpoints can use dummy packet protection keys in place of discarded keys when key updates are not permitted.</p>
 <h2 id="rfc.section.6.3">
 <a href="#rfc.section.6.3">6.3.</a> <a href="#key-update-old-keys" id="key-update-old-keys">Using Old Keys</a>
 </h2>
 <p id="rfc.section.6.3.p.1">During a key update, packets protected with older keys might arrive if they were delayed by the network.  If those old keys are available, then they can be used to remove packet protection.</p>
-<p id="rfc.section.6.3.p.2">After a key update, an endpoint MAY delay sending the KEYS_READY frame by up to three times the Probe Timeout (PTO, see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>) to minimize the number of active keys it maintains.  During this time, an endpoint can use old keys to process delayed packets rather than enabling a new key update.  This only applies to key updates that use the Key Phase bit; endpoints MUST NOT defer sending of KEYS_READY during and immediately after the handshake.</p>
+<p id="rfc.section.6.3.p.2">After a key update, an endpoint MAY delay sending the KEYS_ACTIVE frame by up to three times the Probe Timeout (PTO, see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>) to minimize the number of active keys it maintains.  During this time, an endpoint can use old keys to process delayed packets rather than enabling a new key update.  This only applies to key updates that use the Key Phase bit; endpoints MUST NOT defer sending of KEYS_ACTIVE during and immediately after the handshake.</p>
 <p id="rfc.section.6.3.p.3">Even if old keys are available, those keys MUST NOT be used to protect packets with packets that have higher packet numbers than packets that were protected with newer keys.  An endpoint that successfully removes protection with old keys when newer keys were used for packets with lower packet numbers MUST treat this as a connection error of type KEY_UPDATE_ERROR.</p>
 <p id="rfc.section.6.3.p.4">An endpoint SHOULD retain old read keys for a period of no more than three times the current PTO.  After this period, old read keys and their corresponding secrets SHOULD be discarded.</p>
 <p id="rfc.section.6.3.p.5">An endpoint that receives a packet protected with old keys that includes an acknowledgement for a packet protected with newer keys MAY treat that as a connection error of type KEY_UPDATE_ERROR.</p>

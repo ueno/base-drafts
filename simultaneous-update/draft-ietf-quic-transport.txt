@@ -184,7 +184,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
      17.2.  Long Header Packets  . . . . . . . . . . . . . . . . . .  78
        17.2.1.  Version Negotiation Packet . . . . . . . . . . . . .  81
        17.2.2.  Initial Packet . . . . . . . . . . . . . . . . . . .  82
-       17.2.3.  0-RTT  . . . . . . . . . . . . . . . . . . . . . . .  84
+       17.2.3.  0-RTT  . . . . . . . . . . . . . . . . . . . . . . .  85
        17.2.4.  Handshake Packet . . . . . . . . . . . . . . . . . .  86
        17.2.5.  Retry Packet . . . . . . . . . . . . . . . . . . . .  87
      17.3.  Short Header Packets . . . . . . . . . . . . . . . . . .  89
@@ -212,7 +212,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
      19.17. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 111
      19.18. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 111
      19.19. CONNECTION_CLOSE Frames  . . . . . . . . . . . . . . . . 111
-     19.20. KEYS_READY Frame . . . . . . . . . . . . . . . . . . . . 112
+     19.20. KEYS_ACTIVE Frame  . . . . . . . . . . . . . . . . . . . 112
      19.21. Extension Frames . . . . . . . . . . . . . . . . . . . . 113
    20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 114
      20.1.  Application Protocol Error Codes . . . . . . . . . . . . 115
@@ -1714,21 +1714,21 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    Initial[0]: CRYPTO[CH] ->
 
                                     Initial[0]: CRYPTO[SH] ACK[0]
-              Handshake[0]: KEYS_READY, CRYPTO[EE, CERT, CV, FIN]
+              Handshake[0]: KEYS_ACTIVE, CRYPTO[EE, CERT, CV, FIN]
                                     <- 1-RTT[0]: STREAM[1, "..."]
 
-   Initial[1]: ACK[0]
-   Handshake[0]: KEYS_READY, CRYPTO[FIN], ACK[0]
-   1-RTT[0]: KEYS_READY, STREAM[0, "..."], ACK[0] ->
+   Handshake[0]: KEYS_ACTIVE, CRYPTO[FIN], ACK[0]
+   1-RTT[0]: KEYS_ACTIVE, STREAM[0, "..."], ACK[0] ->
 
-                  1-RTT[1]: KEYS_READY, STREAM[55, "..."], ACK[0]
-                                          <- Handshake[1]: ACK[0]
+                  1-RTT[1]: KEYS_ACTIVE, STREAM[55, "..."], ACK[0]
 
                      Figure 3: Example 1-RTT Handshake
 
    Figure 4 shows an example of a connection with a 0-RTT handshake and
    a single packet of 0-RTT data.  Note that as described in
    Section 12.3, the server acknowledges 0-RTT data at the 1-RTT
+   encryption level, and the client sends 1-RTT packets in the same
+   packet number space.
 
 
 
@@ -1738,24 +1738,19 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 31]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
-   encryption level, and the client sends 1-RTT packets in the same
-   packet number space.
-
    Client                                                  Server
 
    Initial[0]: CRYPTO[CH]
    0-RTT[0]: STREAM[0, "..."] ->
 
                                     Initial[0]: CRYPTO[SH] ACK[0]
-              Handshake[0]: KEYS_READY, CRYPTO[EE, CERT, CV, FIN]
+              Handshake[0]: KEYS_ACTIVE, CRYPTO[EE, CERT, CV, FIN]
                              <- 1-RTT[0]: STREAM[1, "..."] ACK[0]
 
-   Initial[1]: ACK[0]
-   Handshake[0]: KEYS_READY, CRYPTO[FIN], ACK[0]
-   1-RTT[2]: KEYS_READY, STREAM[0, "..."] ACK[0] ->
+   Handshake[0]: KEYS_ACTIVE, CRYPTO[FIN], ACK[0]
+   1-RTT[2]: KEYS_ACTIVE, STREAM[0, "..."] ACK[0] ->
 
-                1-RTT[1]: KEYS_READY, STREAM[55, "..."], ACK[1,2]
-                                          <- Handshake[1]: ACK[0]
+                1-RTT[1]: KEYS_ACTIVE, STREAM[55, "..."], ACK[1,2]
 
                      Figure 4: Example 0-RTT Handshake
 
@@ -1787,15 +1782,17 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    The client populates the Source Connection ID field with a value of
    its choosing and sets the SCIL field to indicate the length.
 
+   The first flight of 0-RTT packets use the same Destination and Source
+   Connection ID values as the client's first Initial.
+
+
+
 
 
 Iyengar & Thomson        Expires August 17, 2019               [Page 32]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
-
-   The first flight of 0-RTT packets use the same Destination and Source
-   Connection ID values as the client's first Initial.
 
    The Destination Connection ID field in the server's Initial packet
    contains a connection ID that is chosen by the recipient of the
@@ -1842,6 +1839,9 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    declared by the peer are available.  Each endpoint validates the
    value provided by its peer.
 
+   Definitions for each of the defined transport parameters are included
+   in Section 18.1.  An endpoint MUST treat receipt of a transport
+   parameter with an invalid value as a connection error of type
 
 
 
@@ -1850,9 +1850,6 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 33]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
-   Definitions for each of the defined transport parameters are included
-   in Section 18.1.  An endpoint MUST treat receipt of a transport
-   parameter with an invalid value as a connection error of type
    TRANSPORT_PARAMETER_ERROR.  Any given parameter MUST appear at most
    once in a given transport parameters extension.  An endpoint MUST
    treat receipt of duplicate transport parameters as a connection error
@@ -1897,7 +1894,10 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 
    o  initial_max_streams_uni
 
-
+   Omitting or setting a zero value for certain transport parameters can
+   result in 0-RTT data being enabled, but not usable.  The applicable
+   subset of transport parameters that permit sending of application
+   data SHOULD be set to non-zero values for 0-RTT.  This includes
 
 
 
@@ -1906,10 +1906,6 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 34]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
-   Omitting or setting a zero value for certain transport parameters can
-   result in 0-RTT data being enabled, but not usable.  The applicable
-   subset of transport parameters that permit sending of application
-   data SHOULD be set to non-zero values for 0-RTT.  This includes
    initial_max_data and either initial_max_streams_bidi and
    initial_max_stream_data_bidi_remote, or initial_max_streams_uni and
    initial_max_stream_data_uni.
@@ -1955,6 +1951,10 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    Handshake packet from the client, it can consider the client address
    to have been validated.
 
+   Prior to validating the client address, servers MUST NOT send more
+   than three times as many bytes as the number of bytes they have
+   received.  This limits the magnitude of any amplification attack that
+
 
 
 Iyengar & Thomson        Expires August 17, 2019               [Page 35]
@@ -1962,9 +1962,6 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 35]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
-   Prior to validating the client address, servers MUST NOT send more
-   than three times as many bytes as the number of bytes they have
-   received.  This limits the magnitude of any amplification attack that
    can be mounted using spoofed source addresses.  In determining this
    limit, servers only count the size of successfully processed packets.
 
@@ -2010,6 +2007,9 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    to return that token, it proves to the server that it received the
    token.
 
+   A server can also use a Retry packet to defer the state and
+   processing costs of connection establishment.  By giving the client a
+   different connection ID to use, a server can cause the connection to
 
 
 
@@ -2018,9 +2018,6 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 36]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
-   A server can also use a Retry packet to defer the state and
-   processing costs of connection establishment.  By giving the client a
-   different connection ID to use, a server can cause the connection to
    be routed to a server instance with more resources available for new
    connections.
 
@@ -2066,6 +2063,9 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    is also unlikely that the client port number is the same on two
    different connections; validating the port is therefore unlikely to
    be successful.
+
+
+
 
 
 
@@ -3571,7 +3571,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
           |             |                      |               |
           | 0x1c - 0x1d | CONNECTION_CLOSE     | Section 19.19 |
           |             |                      |               |
-          | 0x1e        | KEYS_READY           | Section 19.20 |
+          | 0x1e        | KEYS_ACTIVE          | Section 19.20 |
           +-------------+----------------------+---------------+
 
                            Table 3: Frame Types
@@ -3843,7 +3843,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    o  PING and PADDING frames contain no information, so lost PING or
       PADDING frames do not require repair.
 
-   o  KEYS_READY frames are sent until acknowledged or until newer keys
+   o  KEYS_ACTIVE frames are sent until acknowledged or until newer keys
       are used for sending packets.
 
    Endpoints SHOULD prioritize retransmission of data over sending new
@@ -4683,21 +4683,21 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 17.2.2.1.  Abandoning Initial Packets
 
    Endpoints cease both sending and processing Initial packets when it
-   receives a Handshake packet containing a KEYS_READY frame.  Though
-   packets might still be in flight or awaiting acknowledgment, no
-   further Initial packets need to be exchanged beyond this point.
-   Initial packet protection keys are discarded (see Section 4.10 of
-   [QUIC-TLS]) along with any loss recovery and congestion control state
-   (see Sections 5.3.1.2 and 6.9 of [QUIC-RECOVERY]).
+   both sends and receives a Handshake packet containing a KEYS_ACTIVE
+   frame.  Though packets might still be in flight or awaiting
+   acknowledgment, no further Initial packets need to be exchanged
+   beyond this point.  Initial packet protection keys are discarded (see
+   Section 4.10 of [QUIC-TLS]) along with any loss recovery and
+   congestion control state (see Sections 5.3.1.2 and 6.9 of
+   [QUIC-RECOVERY]).
 
    Any data in CRYPTO frames is discarded - and no longer retransmitted
    - when Initial keys are discarded.
 
-17.2.3.  0-RTT
 
-   A 0-RTT packet uses long headers with a type value of 0x1, followed
-   by the Length and Packet Number fields.  The first byte contains the
-   Reserved and Packet Number Length bits.  It is used to carry "early"
+
+
+
 
 
 
@@ -4706,6 +4706,11 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 84]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
+17.2.3.  0-RTT
+
+   A 0-RTT packet uses long headers with a type value of 0x1, followed
+   by the Length and Packet Number fields.  The first byte contains the
+   Reserved and Packet Number Length bits.  It is used to carry "early"
    data from the client to the server as part of the first flight, prior
    to handshake completion.  As part of the TLS handshake, the server
    can accept or reject this early data.
@@ -4748,12 +4753,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    protection for all 0-RTT packets because the same key and nonce could
    be used to protect different content.
 
-   Receiving a Retry packet, especially a Retry that changes the
-   connection ID used for subsequent packets, indicates a strong
-   possibility that 0-RTT packets could be lost.  A client only receives
-   acknowledgments for its 0-RTT packets once the handshake is complete.
-   Consequently, a server might expect 0-RTT packets to start with a
-   packet number of 0.  Therefore, in determining the length of the
+
 
 
 
@@ -4762,6 +4762,12 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 85]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
+   Receiving a Retry packet, especially a Retry that changes the
+   connection ID used for subsequent packets, indicates a strong
+   possibility that 0-RTT packets could be lost.  A client only receives
+   acknowledgments for its 0-RTT packets once the handshake is complete.
+   Consequently, a server might expect 0-RTT packets to start with a
+   packet number of 0.  Therefore, in determining the length of the
    packet number encoding for 0-RTT packets, a client MUST assume that
    all packets up to the current packet number are in flight, starting
    from a packet number of 0.  Thus, 0-RTT packets could need to use a
@@ -4805,18 +4811,17 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    Handshake packets to send subsequent cryptographic handshake messages
    and acknowledgments to the server.
 
-   The Destination Connection ID field in a Handshake packet contains a
-   connection ID that is chosen by the recipient of the packet; the
-   Source Connection ID includes the connection ID that the sender of
-   the packet wishes to use (see Section 7.2).
-
-
 
 
 Iyengar & Thomson        Expires August 17, 2019               [Page 86]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+   The Destination Connection ID field in a Handshake packet contains a
+   connection ID that is chosen by the recipient of the packet; the
+   Source Connection ID includes the connection ID that the sender of
+   the packet wishes to use (see Section 7.2).
 
    Handshake packets are their own packet number space, and thus the
    first Handshake packet sent by a server contains a packet number of
@@ -4829,8 +4834,8 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 
    Like Initial packets (see Section 17.2.2.1), data in CRYPTO frames at
    the Handshake encryption level and the corresponding keys are
-   discarded - and data is no longer retransmitted - when a KEYS_READY
-   frame is received in a 1-RTT packet.
+   discarded - and data is no longer retransmitted - when a KEYS_ACTIVE
+   frame is both sent and received in a 1-RTT packet.
 
 17.2.5.  Retry Packet
 
@@ -4859,13 +4864,8 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 
                           Figure 13: Retry Packet
 
-   A Retry packet (shown in Figure 13) does not contain any protected
-   fields.  In addition to the long header, it contains these additional
-   fields:
 
-   ODCIL:  The four least-significant bits of the first byte of a Retry
-      packet are not protected as they are for other packets with the
-      long header, because Retry packets don't contain a protected
+
 
 
 
@@ -4874,6 +4874,13 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 87]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
+   A Retry packet (shown in Figure 13) does not contain any protected
+   fields.  In addition to the long header, it contains these additional
+   fields:
+
+   ODCIL:  The four least-significant bits of the first byte of a Retry
+      packet are not protected as they are for other packets with the
+      long header, because Retry packets don't contain a protected
       payload.  These bits instead encode the length of the Original
       Destination Connection ID field.  The length uses the same
       encoding as the DCIL and SCIL fields.
@@ -4916,13 +4923,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    includes the provided Retry Token to continue connection
    establishment.
 
-   A client sets the Destination Connection ID field of this Initial
-   packet to the value from the Source Connection ID in the Retry
-   packet.  Changing Destination Connection ID also results in a change
-   to the keys used to protect the Initial packet.  It also sets the
-   Token field to the token provided in the Retry.  The client MUST NOT
-   change the Source Connection ID because the server could include the
-
 
 
 Iyengar & Thomson        Expires August 17, 2019               [Page 88]
@@ -4930,6 +4930,12 @@ Iyengar & Thomson        Expires August 17, 2019               [Page 88]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
+   A client sets the Destination Connection ID field of this Initial
+   packet to the value from the Source Connection ID in the Retry
+   packet.  Changing Destination Connection ID also results in a change
+   to the keys used to protect the Initial packet.  It also sets the
+   Token field to the token provided in the Retry.  The client MUST NOT
+   change the Source Connection ID because the server could include the
    connection ID as part of its token validation logic (see
    Section 8.1.3).
 
@@ -4966,12 +4972,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
 
    This version of QUIC defines a single packet type which uses the
    short packet header.
-
-
-
-
-
-
 
 
 
@@ -6254,18 +6254,18 @@ Internet-Draft           QUIC Transport Protocol           February 2019
       give details beyond the Error Code.  This SHOULD be a UTF-8
       encoded string [RFC3629].
 
-19.20.  KEYS_READY Frame
+19.20.  KEYS_ACTIVE Frame
 
-   An endpoint sends a KEYS_READY frame (type=0x1e) to signal that it
-   has installed keys for reading and writing packets.  Receipt of this
-   frame in a packet indicates that all earlier keys can be safely
+   An endpoint sends a KEYS_ACTIVE frame (type=0x1e) to signal that it
+   has installed keys for both sending and receiving packets.  Once this
+   frame has been both sent and received, older keys can be safely
    discarded.
 
-   The KEYS_READY frame contains no additional fields.
+   The KEYS_ACTIVE frame contains no additional fields.
 
-   The packet that carries a KEYS_READY frame determines which keys are
+   The packet that carries a KEYS_ACTIVE frame determines which keys are
    ready.  The keys with the same key phase as those used in the packet
-   that carries the KEYS_READY frame are present.
+   that carries the KEYS_ACTIVE frame are present.
 
 
 
@@ -6274,30 +6274,31 @@ Iyengar & Thomson        Expires August 17, 2019              [Page 112]
 Internet-Draft           QUIC Transport Protocol           February 2019
 
 
-   An endpoint MUST send a KEYS_READY packet in the first packet it
+   An endpoint MUST send a KEYS_ACTIVE packet in the first packet it
    sends using keys, but only after having successfully processed a
    packet using the corresponding keys.
 
-   KEYS_READY frames are retransmitted when declared lost, however
-   implementations need to take care not to retransmit lost KEYS_READY
+   KEYS_ACTIVE frames are retransmitted when declared lost, however
+   implementations need to take care not to retransmit lost KEYS_ACTIVE
    frames if they initiate a subsequent key update.  This can happen if
-   an acknowledgment for a packet containing a KEYS_READY frame is lost.
+   an acknowledgment for a packet containing a KEYS_ACTIVE frame is
+   lost.
 
-   Endpoints MUST NOT send KEYS_READY frames in Initial or 0-RTT
+   Endpoints MUST NOT send KEYS_ACTIVE frames in Initial or 0-RTT
    packets.
 
-   A KEYS_READY frame used during the handshake can be used to indicate
+   A KEYS_ACTIVE frame used during the handshake can be used to indicate
    the availability of Handshake keys by including it in a Handshake
    packet.  An endpoint sends this frame in its first Handshake packet.
    Once received, an endpoint can discard Initial keys.
 
-   A KEYS_READY frame used after the completion of the handshake in
+   A KEYS_ACTIVE frame used after the completion of the handshake in
    1-RTT packets indicates that Handshake keys are no longer needed.  A
    client sends this frame in its first 1-RTT packet, and a server sends
    this frame in the first packet it sends after completing the
    handshake.  Note that a server might send 1-RTT keys prior to this.
 
-   An endpoint uses the KEYS_READY frame in 1-RTT packets to indicate
+   An endpoint uses the KEYS_ACTIVE frame in 1-RTT packets to indicate
    that it is able to receive a key update (see Section 6 of
    [QUIC-TLS]).
 
@@ -6320,8 +6321,7 @@ Internet-Draft           QUIC Transport Protocol           February 2019
    supplement the ACK frame.  Extension frames are not included in flow
    control unless specified in the extension.
 
-   An IANA registry is used to manage the assignment of frame types, see
-   Section 22.2.
+
 
 
 
@@ -6329,6 +6329,9 @@ Iyengar & Thomson        Expires August 17, 2019              [Page 113]
 
 Internet-Draft           QUIC Transport Protocol           February 2019
 
+
+   An IANA registry is used to manage the assignment of frame types, see
+   Section 22.2.
 
 20.  Transport Error Codes
 
@@ -6375,9 +6378,6 @@ Internet-Draft           QUIC Transport Protocol           February 2019
       parameters that were badly formatted, included an invalid value,
       was absent even though it is mandatory, was present though it is
       forbidden, or is otherwise in error.
-
-
-
 
 
 
