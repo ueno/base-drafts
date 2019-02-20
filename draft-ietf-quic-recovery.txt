@@ -133,7 +133,7 @@ Internet-Draft             QUIC Loss Detection             February 2019
      A.6.  On Receiving an Acknowledgment  . . . . . . . . . . . . .  24
      A.7.  On Packet Acknowledgment  . . . . . . . . . . . . . . . .  26
      A.8.  Setting the Loss Detection Timer  . . . . . . . . . . . .  26
-     A.9.  On Timeout  . . . . . . . . . . . . . . . . . . . . . . .  27
+     A.9.  On Timeout  . . . . . . . . . . . . . . . . . . . . . . .  28
      A.10. Detecting Lost Packets  . . . . . . . . . . . . . . . . .  28
    Appendix B.  Congestion Control Pseudocode  . . . . . . . . . . .  29
      B.1.  Constants of interest . . . . . . . . . . . . . . . . . .  29
@@ -1255,9 +1255,9 @@ Internet-Draft             QUIC Loss Detection             February 2019
       ack_delay in a received ACK frame may be larger due to late
       timers, reordering, or lost ACKs.
 
-   loss_time:  The time at which the next packet will be considered lost
-      based on exceeding the reordering window in time.  Only applies to
-      the ApplicationData packet number space.
+   loss_time[kPacketNumberSpace]:  The time at which the next packet in
+      that packet number space will be considered lost based on
+      exceeding the reordering window in time.
 
    sent_packets[kPacketNumberSpace]:  An association of packet numbers
       in a packet number space to information about them.  Described in
@@ -1271,7 +1271,6 @@ A.4.  Initialization
       loss_detection_timer.reset()
       crypto_count = 0
       pto_count = 0
-      loss_time = 0
       smoothed_rtt = 0
       rttvar = 0
       min_rtt = infinite
@@ -1279,6 +1278,7 @@ A.4.  Initialization
       time_of_last_sent_crypto_packet = 0
       for pn_space in [ Initial, Handshake, ApplicatonData ]:
         largest_acked_packet[pn_space] = 0
+        loss_time[pn_space] = 0
 
 
 
@@ -1458,11 +1458,29 @@ Iyengar & Swett          Expires August 24, 2019               [Page 26]
 Internet-Draft             QUIC Loss Detection             February 2019
 
 
+   // Returns the earliest loss_time and the packet number
+   // space it's from.  Returns 0 if all times are 0.
+   GetEarliestLossTime():
+     time = loss_time[Initial]
+     space = Initial
+     for pn_space in [ Handshake, ApplicatonData ]:
+       if loss_time[pn_space] != 0 &&
+          (time == 0 || loss_time[pn_space] < time):
+         time = loss_time[pn_space];
+         space = pn_space
+     return time, space
+
    SetLossDetectionTimer():
      // Don't arm timer if there are no ack-eliciting packets
      // in flight.
      if (no ack-eliciting packets in flight):
        loss_detection_timer.cancel()
+       return
+
+     loss_time, _ = GetEarliestLossTime()
+     if (loss_time != 0):
+       // Time threshold loss detection.
+       loss_detection_timer.update(loss_time)
        return
 
      if (crypto packets are in flight):
@@ -1477,12 +1495,6 @@ Internet-Draft             QUIC Loss Detection             February 2019
          time_of_last_sent_crypto_packet + timeout)
        return
 
-     if (loss_time != 0):
-       // Time threshold loss detection.
-       // Only applies to the ApplicationData packet number space.
-       loss_detection_timer.update(loss_time)
-       return
-
      // Calculate PTO duration
      timeout =
        smoothed_rtt + 4 * rttvar + max_ack_delay
@@ -1491,18 +1503,6 @@ Internet-Draft             QUIC Loss Detection             February 2019
 
      loss_detection_timer.update(
        time_of_last_sent_ack_eliciting_packet + timeout)
-
-A.9.  On Timeout
-
-   When the loss detection timer expires, the timer's mode determines
-   the action to be performed.
-
-   Pseudocode for OnLossDetectionTimeout follows:
-
-
-
-
-
 
 
 
@@ -1514,15 +1514,24 @@ Iyengar & Swett          Expires August 24, 2019               [Page 27]
 Internet-Draft             QUIC Loss Detection             February 2019
 
 
+A.9.  On Timeout
+
+   When the loss detection timer expires, the timer's mode determines
+   the action to be performed.
+
+   Pseudocode for OnLossDetectionTimeout follows:
+
    OnLossDetectionTimeout():
-     if (crypto packets are in flight):
+     loss_time, pn_space = GetEarliestLossTime()
+     if (loss_time != 0):
+       // Time threshold loss Detection
+       DetectLostPackets(pn_space)
+     // Retransmit crypto data if no packets were lost
+     // and there are still crypto packets in flight.
+     else if (crypto packets are in flight):
        // Crypto retransmission timeout.
        RetransmitUnackedCryptoData()
        crypto_count++
-     else if (loss_time != 0):
-       // Time threshold loss Detection
-       // Only applies to the ApplicationData packet number space.
-       DetectLostPackets(ApplicationData)
      else:
        // PTO
        SendOneOrTwoPackets()
@@ -1556,23 +1565,13 @@ A.10.  Detecting Lost Packets
 
 
 
-
-
-
-
-
-
-
-
-
 Iyengar & Swett          Expires August 24, 2019               [Page 28]
 
 Internet-Draft             QUIC Loss Detection             February 2019
 
 
    DetectLostPackets(pn_space):
-     if (pn_space == ApplicationData):
-       loss_time = 0
+     loss_time[pn_space] = 0
      lost_packets = {}
      loss_delay = kTimeThreshold * max(latest_rtt, smoothed_rtt)
 
@@ -1592,12 +1591,12 @@ Internet-Draft             QUIC Loss Detection             February 2019
          sent_packets.remove(unacked.packet_number)
          if (unacked.in_flight):
            lost_packets.insert(unacked)
-       else if (pn_space == ApplicationData):
-         if (loss_time == 0):
-           loss_time = unacked.time_sent + loss_delay
+       else:
+         if (loss_time[pn_space] == 0):
+           loss_time[pn_space] = unacked.time_sent + loss_delay
          else:
-           loss_time = min(loss_time, unacked.time_sent +
-                                                 loss_delay)
+           loss_time[pn_space] = min(loss_time[pn_space],
+                                     unacked.time_sent + loss_delay)
 
      // Inform the congestion controller of lost packets and
      // let it decide whether to retransmit immediately.
@@ -1617,7 +1616,8 @@ B.1.  Constants of interest
 
    kMaxDatagramSize:  The sender's maximum payload size.  Does not
       include UDP or IP overhead.  The max packet size is used for
-
+      calculating initial and minimum congestion windows.  The
+      RECOMMENDED value is 1200 bytes.
 
 
 
@@ -1625,9 +1625,6 @@ Iyengar & Swett          Expires August 24, 2019               [Page 29]
 
 Internet-Draft             QUIC Loss Detection             February 2019
 
-
-      calculating initial and minimum congestion windows.  The
-      RECOMMENDED value is 1200 bytes.
 
    kInitialWindow:  Default limit on the initial amount of data in
       flight, in bytes.  Taken from [RFC6928].  The RECOMMENDED value is
@@ -1673,6 +1670,9 @@ B.2.  Variables of interest
       causing it to enter recovery.  When a packet sent after this time
       is acknowledged, QUIC exits recovery.
 
+   ssthresh:  Slow start threshold in bytes.  When the congestion window
+      is below ssthresh, the mode is slow start and the window grows by
+      the number of bytes acknowledged.
 
 
 
@@ -1681,10 +1681,6 @@ Iyengar & Swett          Expires August 24, 2019               [Page 30]
 
 Internet-Draft             QUIC Loss Detection             February 2019
 
-
-   ssthresh:  Slow start threshold in bytes.  When the congestion window
-      is below ssthresh, the mode is slow start and the window grows by
-      the number of bytes acknowledged.
 
 B.3.  Initialization
 
@@ -1730,6 +1726,10 @@ B.5.  On Packet Acknowledgement
           // Congestion avoidance.
           congestion_window += kMaxDatagramSize * acked_packet.size
               / congestion_window
+
+
+
+
 
 
 
