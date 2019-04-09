@@ -78,15 +78,15 @@ Table of Contents
        3.1.2.  Monotonically Increasing Packet Numbers . . . . . . .   6
        3.1.3.  No Reneging . . . . . . . . . . . . . . . . . . . . .   6
        3.1.4.  More ACK Ranges . . . . . . . . . . . . . . . . . . .   7
-       3.1.5.  Explicit Correction For Delayed Acknowledgements  . .   7
+       3.1.5.  Encoding Host Delay . . . . . . . . . . . . . . . . .   7
    4.  Generating Acknowledgements . . . . . . . . . . . . . . . . .   7
      4.1.  Crypto Handshake Data . . . . . . . . . . . . . . . . . .   8
      4.2.  ACK Ranges  . . . . . . . . . . . . . . . . . . . . . . .   8
      4.3.  Receiver Tracking of ACK Frames . . . . . . . . . . . . .   8
    5.  Estimating the Round-Trip Time  . . . . . . . . . . . . . . .   9
      5.1.  Generating RTT samples  . . . . . . . . . . . . . . . . .   9
-     5.2.  Computing min_rtt . . . . . . . . . . . . . . . . . . . .  10
-     5.3.  Computing smoothed_rtt and rttvar . . . . . . . . . . . .  10
+     5.2.  Estimating min_rtt  . . . . . . . . . . . . . . . . . . .  10
+     5.3.  Estimating smoothed_rtt and rttvar  . . . . . . . . . . .  10
    6.  Loss Detection  . . . . . . . . . . . . . . . . . . . . . . .  11
      6.1.  Acknowledgement-based Detection . . . . . . . . . . . . .  11
        6.1.1.  Packet Threshold  . . . . . . . . . . . . . . . . . .  12
@@ -345,7 +345,7 @@ Internet-Draft             QUIC Loss Detection                April 2019
    retransmits, and ensures forward progress without relying on
    timeouts.
 
-3.1.5.  Explicit Correction For Delayed Acknowledgements
+3.1.5.  Encoding Host Delay
 
    An endpoint measures the delay incurred between when a packet is
    received and when the corresponding acknowledgment is sent.  The
@@ -477,12 +477,12 @@ Internet-Draft             QUIC Loss Detection                April 2019
    latest_rtt = ack_time - send_time_of_largest_acked
 
    An endpoint uses only locally observed times in generating RTT
-   samples and does not correct for any host delays reported by the peer
+   samples and does not adjust for any host delays reported by the peer
    (Section 3.1.5).
 
    A peer reports host delays for only the largest acknowledged packet
    in an ACK frame, which is assumed by subsequent computations of
-   smoothed_rtt and rttvar in correcting for host delays.  As a result,
+   smoothed_rtt and rttvar in adjusting for host delays.  As a result,
    an RTT sample is only generated using the largest acknowledged packet
    in the received ACK frame.
 
@@ -512,7 +512,7 @@ Internet-Draft             QUIC Loss Detection                April 2019
    rttvar.  Ensuring that RTT estimates retain sufficient history is an
    open research question.
 
-5.2.  Computing min_rtt
+5.2.  Estimating min_rtt
 
    min_rtt is the minimum RTT observed over the lifetime of the
    connection.  min_rtt is set to the latest_rtt on the first sample in
@@ -520,37 +520,37 @@ Internet-Draft             QUIC Loss Detection                April 2019
    subsequent samples.
 
    An endpoint uses only locally observed times in computing the min_rtt
-   and does not correct for host delays reported by the peer
+   and does not adjust for host delays reported by the peer
    (Section 3.1.5).  Doing so allows the endpoint to set a lower bound
    for the smoothed_rtt based entirely on what it observes (see
    Section 5.3), and limits potential underestimation due to
    erroneously-reported delays by the peer.
 
-5.3.  Computing smoothed_rtt and rttvar
+5.3.  Estimating smoothed_rtt and rttvar
 
    smoothed_rtt is an exponentially-weighted moving average of an
    endpoint's RTT samples, and rttvar is the endpoint's estimated
    variance in the RTT samples.
 
-   smoothed_rtt estimates path latency by correcting RTT samples for
-   peer-reported host delays (Section 3.1.5).  A peer limits any delay
-   in sending an acknowledgement for an ack-eliciting packet to no
-   greater than the advertised max_ack_delay transport parameter.
-   Consequently, when a peer reports an Ack Delay that is greater than
-   its max_ack_delay, the delay is attributed to reasons out of the
-   peer's control, such as scheduler latency at the peer or loss of
-   previous ACK frames.  Any delays beyond the peer's max_ack_delay are
-   therefore considered effectively part of path delay and incorporated
-   into the smoothed_rtt estimate.
+   smoothed_rtt uses path latency after adjusting RTT samples for peer-
+   reported host delays (Section 3.1.5).  A peer limits any delay in
+   sending an acknowledgement for an ack-eliciting packet to no greater
+   than the advertised max_ack_delay transport parameter.  Consequently,
+   when a peer reports an Ack Delay that is greater than its
+   max_ack_delay, the delay is attributed to reasons out of the peer's
+   control, such as scheduler latency at the peer or loss of previous
+   ACK frames.  Any delays beyond the peer's max_ack_delay are therefore
+   considered effectively part of path delay and incorporated into the
+   smoothed_rtt estimate.
 
-   When correcting an RTT sample using peer-reported acknowledgement
+   When adjusting an RTT sample using peer-reported acknowledgement
    delays, an endpoint:
 
    o  MUST use the lesser of the value reported in Ack Delay field of
       the ACK frame and the peer's max_ack_delay transport parameter
       (Section 3.1.5).
 
-   o  MUST NOT apply the correction if the resulting RTT sample is
+   o  MUST NOT apply the adjustment if the resulting RTT sample is
       smaller than the min_rtt.  This limits the underestimation that a
       misreporting peer can cause to the smoothed_rtt.
 
