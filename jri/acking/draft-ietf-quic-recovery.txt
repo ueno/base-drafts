@@ -437,7 +437,7 @@ Internet-Draft             QUIC Loss Detection                April 2019
    any host delays - importantly, for delayed acknowledgements - when
    estimating the path RTT.  In certain deployments, a packet might be
    held in the OS kernel or elsewhere on the host before being processed
-   by the QUIC stack.  Where possible, an endpoint SHOULD include these
+   by the QUIC stack.  Where possible, an endpoint MAY include these
    delays when populating the Ack Delay field in an ACK frame.
 
    An endpoint MUST NOT excessively delay acknowledgements of ack-
@@ -473,8 +473,7 @@ Internet-Draft             QUIC Loss Detection                April 2019
    An endpoint generates an RTT sample on receiving an ACK frame that
    meets the following two conditions:
 
-   o  the largest acknowledged packet number is higher than any
-      previously seen, and
+   o  the largest acknowledged packet number is newly acknowledged, and
 
    o  at least one of the newly acknowledged packets was ack-eliciting.
 
@@ -497,7 +496,8 @@ Internet-Draft             QUIC Loss Detection                April 2019
    ACK frame SHOULD NOT be used to update RTT estimates if it does not
    newly acknowledge the largest acknowledged packet.
 
-
+   An RTT sample MUST NOT be generated on receiving an ACK frame that
+   does not newly acknowledge at least one ack-eliciting packet.  A peer
 
 
 
@@ -506,8 +506,6 @@ Iyengar & Swett         Expires October 11, 2019                [Page 9]
 Internet-Draft             QUIC Loss Detection                April 2019
 
 
-   An RTT sample MUST NOT be generated on receiving an ACK frame that
-   does not newly acknowledge at least one ack-eliciting packet.  A peer
    does not send an ACK frame on receiving only non-ack-eliciting
    packets, and an ACK frame that is subsequently sent can include an
    arbitrarily large Ack Delay field.  Ignoring such ACK frames avoids
@@ -553,7 +551,9 @@ Internet-Draft             QUIC Loss Detection                April 2019
    When adjusting an RTT sample using peer-reported acknowledgement
    delays, an endpoint:
 
-
+   o  MUST use the lesser of the value reported in Ack Delay field of
+      the ACK frame and the peer's max_ack_delay transport parameter
+      (Section 4.4).
 
 
 
@@ -561,10 +561,6 @@ Iyengar & Swett         Expires October 11, 2019               [Page 10]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-   o  MUST use the lesser of the value reported in Ack Delay field of
-      the ACK frame and the peer's max_ack_delay transport parameter
-      (Section 4.4).
 
    o  MUST NOT apply the adjustment if the resulting RTT sample is
       smaller than the min_rtt.  This limits the underestimation that a
@@ -611,16 +607,16 @@ Internet-Draft             QUIC Loss Detection                April 2019
    o  The packet is unacknowledged, in-flight, and was sent prior to an
       acknowledged packet.
 
+   o  Either its packet number is kPacketThreshold smaller than an
+      acknowledged packet (Section 6.1.1), or it was sent long enough in
+      the past (Section 6.1.2).
+
 
 
 Iyengar & Swett         Expires October 11, 2019               [Page 11]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-   o  Either its packet number is kPacketThreshold smaller than an
-      acknowledged packet (Section 6.1.1), or it was sent long enough in
-      the past (Section 6.1.2).
 
    The acknowledgement indicates that a packet sent later was delivered,
    while the packet and time thresholds provide some tolerance for
@@ -665,7 +661,11 @@ Internet-Draft             QUIC Loss Detection                April 2019
       sustained increase in the actual RTT, but the smoothed SRTT has
       not yet caught up.
 
-
+   Implementations MAY experiment with absolute thresholds, thresholds
+   from previous connections, adaptive thresholds, or including RTT
+   variance.  Smaller thresholds reduce reordering resilience and
+   increase spurious retransmissions, and larger thresholds increase
+   loss detection delay.
 
 
 
@@ -673,12 +673,6 @@ Iyengar & Swett         Expires October 11, 2019               [Page 12]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-   Implementations MAY experiment with absolute thresholds, thresholds
-   from previous connections, adaptive thresholds, or including RTT
-   variance.  Smaller thresholds reduce reordering resilience and
-   increase spurious retransmissions, and larger thresholds increase
-   loss detection delay.
 
 6.2.  Crypto Retransmission Timeout
 
@@ -721,6 +715,12 @@ Internet-Draft             QUIC Loss Detection                April 2019
    an acknowledgement for a new packet, the sender SHOULD double the
    crypto retransmission timeout and set a timer for this period.
 
+   When crypto packets are in flight, the probe timer (Section 6.3) is
+   not active.
+
+
+
+
 
 
 
@@ -729,9 +729,6 @@ Iyengar & Swett         Expires October 11, 2019               [Page 13]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-   When crypto packets are in flight, the probe timer (Section 6.3) is
-   not active.
 
 6.2.1.  Retry and Version Negotiation
 
@@ -778,6 +775,9 @@ Internet-Draft             QUIC Loss Detection                April 2019
    A Probe Timeout (PTO) triggers a probe packet when ack-eliciting data
    is in flight but an acknowledgement is not received within the
    expected period of time.  A PTO enables a connection to recover from
+   loss of tail packets or acks.  The PTO algorithm used in QUIC
+   implements the reliability functions of Tail Loss Probe [TLP] [RACK],
+   RTO [RFC5681] and F-RTO algorithms for TCP [RFC5682], and the timeout
 
 
 
@@ -786,9 +786,6 @@ Iyengar & Swett         Expires October 11, 2019               [Page 14]
 Internet-Draft             QUIC Loss Detection                April 2019
 
 
-   loss of tail packets or acks.  The PTO algorithm used in QUIC
-   implements the reliability functions of Tail Loss Probe [TLP] [RACK],
-   RTO [RFC5681] and F-RTO algorithms for TCP [RFC5682], and the timeout
    computation is based on TCP's retransmission timeout period
    [RFC6298].
 
@@ -835,6 +832,9 @@ Internet-Draft             QUIC Loss Detection                April 2019
    expiration increases resilience to packet drops, thus reducing the
    probability of consecutive PTO events.
 
+   Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet
+   SHOULD carry new data when possible.  A probe packet MAY carry
+
 
 
 Iyengar & Swett         Expires October 11, 2019               [Page 15]
@@ -842,8 +842,6 @@ Iyengar & Swett         Expires October 11, 2019               [Page 15]
 Internet-Draft             QUIC Loss Detection                April 2019
 
 
-   Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet
-   SHOULD carry new data when possible.  A probe packet MAY carry
    retransmitted unacknowledged data when new data is unavailable, when
    flow control does not permit new data to be sent, or to
    opportunistically reduce loss recovery delay.  Implementations MAY
@@ -887,6 +885,8 @@ Internet-Draft             QUIC Loss Detection                April 2019
    acks can delay loss recovery and for the small number of connections
    where less than packet per 25ms is delivered, acking every packet is
    beneficial to congestion control and loss recovery.
+
+
 
 
 
@@ -1531,9 +1531,9 @@ Internet-Draft             QUIC Loss Detection                April 2019
      adjusted_rtt = latest_rtt
      if (latest_rtt - min_rtt > ack_delay):
        adjusted_rtt = latest_rtt - ack_delay
-     // Based on {{RFC6298}}.
+     // First RTT sample.
      if (smoothed_rtt == 0):
-       smoothed_rtt = adjusted_rtt
+       smoothed_rtt = latest_rtt
        rttvar = latest_rtt / 2
      else:
        rttvar_sample = abs(smoothed_rtt - adjusted_rtt)
