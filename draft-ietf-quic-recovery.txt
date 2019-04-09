@@ -1527,19 +1527,14 @@ Internet-Draft             QUIC Loss Detection                April 2019
      return time, space
 
    SetLossDetectionTimer():
-     // Don't arm timer if there are no ack-eliciting packets
-     // in flight.
-     if (no ack-eliciting packets in flight):
-       loss_detection_timer.cancel()
-       return
-
      loss_time, _ = GetEarliestLossTime()
      if (loss_time != 0):
        // Time threshold loss detection.
        loss_detection_timer.update(loss_time)
        return
 
-     if (crypto packets are in flight):
+     if (crypto packets are in flight
+         || endpoint is client without 1-RTT keys):
        // Crypto retransmission timer.
        if (smoothed_rtt == 0):
          timeout = 2 * kInitialRtt
@@ -1551,6 +1546,12 @@ Internet-Draft             QUIC Loss Detection                April 2019
          time_of_last_sent_crypto_packet + timeout)
        return
 
+     // Don't arm timer if there are no ack-eliciting packets
+     // in flight.
+     if (no ack-eliciting packets in flight):
+       loss_detection_timer.cancel()
+       return
+
      // Calculate PTO duration
      timeout =
        smoothed_rtt + max(4 * rttvar, kGranularity) + max_ack_delay
@@ -1558,7 +1559,6 @@ Internet-Draft             QUIC Loss Detection                April 2019
 
      loss_detection_timer.update(
        time_of_last_sent_ack_eliciting_packet + timeout)
-
 
 
 
@@ -1588,6 +1588,14 @@ A.9.  On Timeout
        // Crypto retransmission timeout.
        RetransmitUnackedCryptoData()
        crypto_count++
+     else if (endpoint is client without 1-RTT keys):
+       // Send anti-deadlock packet: padded to earn more anti-
+       // amplification credit, unpadded to prove address ownership.
+       if (has Handshake keys):
+          SendOneHandshakePacket()
+        else:
+          SendOnePaddedInitialPacket()
+       crypto_count++
      else:
        // PTO
        SendOneOrTwoPackets()
@@ -1603,14 +1611,6 @@ A.10.  Detecting Lost Packets
    largest acknowledged packet is supplied.
 
    Pseudocode for DetectLostPackets follows:
-
-
-
-
-
-
-
-
 
 
 
