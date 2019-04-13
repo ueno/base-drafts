@@ -148,7 +148,7 @@ Internet-Draft             QUIC Loss Detection                April 2019
      B.5.  On Packet Acknowledgement . . . . . . . . . . . . . . . .  34
      B.6.  On New Congestion Event . . . . . . . . . . . . . . . . .  35
      B.7.  Process ECN Information . . . . . . . . . . . . . . . . .  35
-     B.8.  On Packets Lost . . . . . . . . . . . . . . . . . . . . .  36
+     B.8.  On Packets Lost . . . . . . . . . . . . . . . . . . . . .  35
    Appendix C.  Change Log . . . . . . . . . . . . . . . . . . . . .  36
      C.1.  Since draft-ietf-quic-recovery-19 . . . . . . . . . . . .  36
      C.2.  Since draft-ietf-quic-recovery-18 . . . . . . . . . . . .  36
@@ -158,7 +158,7 @@ Internet-Draft             QUIC Loss Detection                April 2019
      C.6.  Since draft-ietf-quic-recovery-13 . . . . . . . . . . . .  38
      C.7.  Since draft-ietf-quic-recovery-12 . . . . . . . . . . . .  38
      C.8.  Since draft-ietf-quic-recovery-11 . . . . . . . . . . . .  38
-     C.9.  Since draft-ietf-quic-recovery-10 . . . . . . . . . . . .  39
+     C.9.  Since draft-ietf-quic-recovery-10 . . . . . . . . . . . .  38
      C.10. Since draft-ietf-quic-recovery-09 . . . . . . . . . . . .  39
      C.11. Since draft-ietf-quic-recovery-08 . . . . . . . . . . . .  39
      C.12. Since draft-ietf-quic-recovery-07 . . . . . . . . . . . .  39
@@ -173,8 +173,8 @@ Internet-Draft             QUIC Loss Detection                April 2019
      C.13. Since draft-ietf-quic-recovery-06 . . . . . . . . . . . .  39
      C.14. Since draft-ietf-quic-recovery-05 . . . . . . . . . . . .  39
      C.15. Since draft-ietf-quic-recovery-04 . . . . . . . . . . . .  39
-     C.16. Since draft-ietf-quic-recovery-03 . . . . . . . . . . . .  40
-     C.17. Since draft-ietf-quic-recovery-02 . . . . . . . . . . . .  40
+     C.16. Since draft-ietf-quic-recovery-03 . . . . . . . . . . . .  39
+     C.17. Since draft-ietf-quic-recovery-02 . . . . . . . . . . . .  39
      C.18. Since draft-ietf-quic-recovery-01 . . . . . . . . . . . .  40
      C.19. Since draft-ietf-quic-recovery-00 . . . . . . . . . . . .  40
      C.20. Since draft-iyengar-quic-loss-recovery-01 . . . . . . . .  40
@@ -1523,9 +1523,8 @@ Internet-Draft             QUIC Loss Detection                April 2019
 
 
    UpdateRtt(ack_delay):
-     assert(latest_rtt != 0)
+     // First RTT sample.
      if (smoothed_rtt == 0):
-       // First RTT sample.
        min_rtt = latest_rtt
        smoothed_rtt = latest_rtt
        rttvar = latest_rtt / 2
@@ -1560,6 +1559,7 @@ A.7.  On Packet Acknowledgment
         if (acked_packet.in_flight):
           OnPacketAckedCC(acked_packet)
         sent_packets[pn_space].remove(acked_packet.packet_number)
+
 
 
 
@@ -1739,7 +1739,6 @@ Internet-Draft             QUIC Loss Detection                April 2019
 
 
    DetectLostPackets(pn_space):
-     assert(latest_rtt != 0)
      loss_time[pn_space] = 0
      lost_packets = {}
      loss_delay = kTimeThreshold * max(latest_rtt, smoothed_rtt)
@@ -1785,7 +1784,8 @@ B.1.  Constants of interest
 
    kMaxDatagramSize:  The sender's maximum payload size.  Does not
       include UDP or IP overhead.  The max packet size is used for
-
+      calculating initial and minimum congestion windows.  The
+      RECOMMENDED value is 1200 bytes.
 
 
 
@@ -1793,9 +1793,6 @@ Iyengar & Swett         Expires October 15, 2019               [Page 32]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-      calculating initial and minimum congestion windows.  The
-      RECOMMENDED value is 1200 bytes.
 
    kInitialWindow:  Default limit on the initial amount of data in
       flight, in bytes.  Taken from [RFC6928], but increased slightly to
@@ -1841,6 +1838,9 @@ B.2.  Variables of interest
 
    congestion_recovery_start_time:  The time when QUIC first detects
       congestion due to loss or ECN, causing it to enter congestion
+      recovery.  When a packet sent after this time is acknowledged,
+      QUIC exits congestion recovery.
+
 
 
 
@@ -1849,9 +1849,6 @@ Iyengar & Swett         Expires October 15, 2019               [Page 33]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-      recovery.  When a packet sent after this time is acknowledged,
-      QUIC exits congestion recovery.
 
    ssthresh:  Slow start threshold in bytes.  When the congestion window
       is below ssthresh, the mode is slow start and the window grows by
@@ -1881,31 +1878,6 @@ B.5.  On Packet Acknowledgement
    Invoked from loss detection's OnPacketAcked and is supplied with the
    acked_packet from sent_packets.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Iyengar & Swett         Expires October 15, 2019               [Page 34]
-
-Internet-Draft             QUIC Loss Detection                April 2019
-
-
       InCongestionRecovery(sent_time):
         return sent_time <= congestion_recovery_start_time
 
@@ -1926,6 +1898,13 @@ Internet-Draft             QUIC Loss Detection                April 2019
           // Congestion avoidance.
           congestion_window += kMaxDatagramSize * acked_packet.size
               / congestion_window
+
+
+
+Iyengar & Swett         Expires October 15, 2019               [Page 34]
+
+Internet-Draft             QUIC Loss Detection                April 2019
+
 
 B.6.  On New Congestion Event
 
@@ -1954,6 +1933,27 @@ B.7.  Process ECN Information
           ecn_ce_counter = ack.ce_counter
           CongestionEvent(sent_packets[ack.largest_acked].time_sent)
 
+B.8.  On Packets Lost
+
+   Invoked by loss detection from DetectLostPackets when new packets are
+   detected lost.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1961,11 +1961,6 @@ Iyengar & Swett         Expires October 15, 2019               [Page 35]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-B.8.  On Packets Lost
-
-   Invoked by loss detection from DetectLostPackets when new packets are
-   detected lost.
 
       InPersistentCongestion(largest_lost_packet):
         pto = smoothed_rtt + max(4 * rttvar, kGranularity) +
@@ -2011,16 +2006,17 @@ C.2.  Since draft-ietf-quic-recovery-18
       and don't make persistent congestion more aggressive than RTO
       verified was (#2365, #2244)
 
+   o  Move pseudocode to the appendices (#2408)
+
+   o  What to send on multiple PTOs (#2380)
+
+
 
 
 Iyengar & Swett         Expires October 15, 2019               [Page 36]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-   o  Move pseudocode to the appendices (#2408)
-
-   o  What to send on multiple PTOs (#2380)
 
 C.3.  Since draft-ietf-quic-recovery-17
 
@@ -2066,6 +2062,10 @@ C.4.  Since draft-ietf-quic-recovery-16
    o  Reduce congestion window after idle, unless pacing is used (#2007,
       #2023)
 
+   o  Disable RTT calculation for packets that don't elicit
+      acknowledgment (#2060, #2078)
+
+   o  Limit ack_delay by max_ack_delay (#2060, #2099)
 
 
 
@@ -2073,11 +2073,6 @@ Iyengar & Swett         Expires October 15, 2019               [Page 37]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-   o  Disable RTT calculation for packets that don't elicit
-      acknowledgment (#2060, #2078)
-
-   o  Limit ack_delay by max_ack_delay (#2060, #2099)
 
    o  Initial keys are discarded once Handshake are avaialble (#1951,
       #2045)
@@ -2119,8 +2114,13 @@ C.8.  Since draft-ietf-quic-recovery-11
 
    No significant changes.
 
+C.9.  Since draft-ietf-quic-recovery-10
 
+   o  Improved text on ack generation (#1139, #1159)
 
+   o  Make references to TCP recovery mechanisms informational (#1195)
+
+   o  Define time_of_last_sent_handshake_packet (#1171)
 
 
 
@@ -2129,14 +2129,6 @@ Iyengar & Swett         Expires October 15, 2019               [Page 38]
 
 Internet-Draft             QUIC Loss Detection                April 2019
 
-
-C.9.  Since draft-ietf-quic-recovery-10
-
-   o  Improved text on ack generation (#1139, #1159)
-
-   o  Make references to TCP recovery mechanisms informational (#1195)
-
-   o  Define time_of_last_sent_handshake_packet (#1171)
 
    o  Added signal from TLS the data it includes needs to be sent in a
       Retry packet (#1061, #1199)
@@ -2174,18 +2166,6 @@ C.15.  Since draft-ietf-quic-recovery-04
 
    No significant changes.
 
-
-
-
-
-
-
-
-Iyengar & Swett         Expires October 15, 2019               [Page 39]
-
-Internet-Draft             QUIC Loss Detection                April 2019
-
-
 C.16.  Since draft-ietf-quic-recovery-03
 
    No significant changes.
@@ -2198,6 +2178,13 @@ C.17.  Since draft-ietf-quic-recovery-02
 
    o  Require connection abort if a skipped packet was acknowledged
       (#415)
+
+
+
+Iyengar & Swett         Expires October 15, 2019               [Page 39]
+
+Internet-Draft             QUIC Loss Detection                April 2019
+
 
    o  Simplify RTO calculations (#142, #417)
 
@@ -2235,13 +2222,6 @@ Authors' Addresses
    Email: jri.ietf@gmail.com
 
 
-
-
-Iyengar & Swett         Expires October 15, 2019               [Page 40]
-
-Internet-Draft             QUIC Loss Detection                April 2019
-
-
    Ian Swett (editor)
    Google
 
@@ -2257,40 +2237,4 @@ Internet-Draft             QUIC Loss Detection                April 2019
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Iyengar & Swett         Expires October 15, 2019               [Page 41]
+Iyengar & Swett         Expires October 15, 2019               [Page 40]
