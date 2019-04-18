@@ -855,11 +855,13 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <h3 id="rfc.section.6.3.2">
 <a href="#rfc.section.6.3.2">6.3.2.</a> <a href="#sending-probe-packets" id="sending-probe-packets">Sending Probe Packets</a>
 </h3>
-<p id="rfc.section.6.3.2.p.1">When a PTO timer expires, the sender MUST send one ack-eliciting packet as a probe, unless there is nothing to send. A sender MAY send up to two ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single packet loss.</p>
-<p id="rfc.section.6.3.2.p.2">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drops, thus reducing the probability of consecutive PTO events.</p>
-<p id="rfc.section.6.3.2.p.3">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
-<p id="rfc.section.6.3.2.p.4">When the PTO timer expires multiple times and new data cannot be sent, implementations must choose between sending the same payload every time or sending different payloads.  Sending the same payload may be simpler and ensures the highest priority frames arrive first.  Sending different payloads each time reduces the chances of spurious retransmission.</p>
-<p id="rfc.section.6.3.2.p.5">When a PTO timer expires, new or previously-sent data may not be available to send and packets may still be in flight.  A sender can be blocked from sending new data in the future if packets are left in flight.  Under these conditions, a sender SHOULD mark any packets still in flight as lost.  If a sender wishes to establish delivery of packets still in flight, it MAY send an ack-eliciting packet and re-arm the PTO timer instead.</p>
+<p id="rfc.section.6.3.2.p.1">When a PTO timer expires, a sender MUST send at least one ack-eliciting packet as a probe, unless there is no data available to send.  An endpoint MAY send up to two ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single packet loss.</p>
+<p id="rfc.section.6.3.2.p.2">It is possible that the sender has no new or previously-sent data to send.  As an example, consider the following sequence of events: new application data is sent in a STREAM frame, deemed lost, then retransmitted in a new packet, and then the original transmission is acknowledged.  In the absence of any new application data, a PTO timer expiration now would find the sender with no new or previously-sent data to send.</p>
+<p id="rfc.section.6.3.2.p.3">When there is no data to send, the sender SHOULD send a PING or other ack-eliciting frame in a single packet, re-arming the PTO timer.</p>
+<p id="rfc.section.6.3.2.p.4">Alternatively, instead of sending an ack-eliciting packet, the sender MAY mark any packets still in flight as lost.  Doing so avoids sending an additional packet, but increases the risk that loss is declared too aggressively, resulting in an unnecessary rate reduction by the congestion controller.</p>
+<p id="rfc.section.6.3.2.p.5">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drops, thus reducing the probability of consecutive PTO events.</p>
+<p id="rfc.section.6.3.2.p.6">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
+<p id="rfc.section.6.3.2.p.7">When the PTO timer expires multiple times and new data cannot be sent, implementations must choose between sending the same payload every time or sending different payloads.  Sending the same payload may be simpler and ensures the highest priority frames arrive first.  Sending different payloads each time reduces the chances of spurious retransmission.</p>
 <h3 id="rfc.section.6.3.3">
 <a href="#rfc.section.6.3.3">6.3.3.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
 </h3>
@@ -1360,7 +1362,8 @@ OnLossDetectionTimeout():
        SendOnePaddedInitialPacket()
     crypto_count++
   else:
-    // PTO
+    // PTO. Send new data if available, else retransmit old data.
+    // If neither is available, send a single PING frame.
     SendOneOrTwoPackets()
     pto_count++
 
@@ -1522,7 +1525,7 @@ DetectLostPackets(pn_space):
 <h2 id="rfc.appendix.B.8">
 <a href="#rfc.appendix.B.8">B.8.</a> <a href="#on-packets-lost" id="on-packets-lost">On Packets Lost</a>
 </h2>
-<p id="rfc.section.B.8.p.1">Invoked by loss detection from DetectLostPackets when new packets are detected lost.</p>
+<p id="rfc.section.B.8.p.1">Invoked from DetectLostPackets when packets are deemed lost.</p>
 <pre>
    InPersistentCongestion(largest_lost_packet):
      pto = smoothed_rtt + max(4 * rttvar, kGranularity) +
