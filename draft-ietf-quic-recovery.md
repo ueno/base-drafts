@@ -1076,8 +1076,11 @@ Pseudocode for OnAckReceived and UpdateRtt follow:
 
 ~~~
 OnAckReceived(ack, pn_space):
-  largest_acked_packet[pn_space] =
-      max(largest_acked_packet[pn_space], ack.largest_acked)
+  if (largest_acked_packet[pn_space] == infinite):
+    largest_acked_packet[pn_space] = ack.largest_acked
+  else:
+    largest_acked_packet[pn_space] =
+        max(largest_acked_packet[pn_space], ack.largest_acked)
 
   // Nothing to do if there are no newly acked packets.
   newly_acked_packets = DetermineNewlyAckedPackets(ack, pn_space)
@@ -1257,6 +1260,7 @@ Pseudocode for DetectLostPackets follows:
 
 ~~~
 DetectLostPackets(pn_space):
+  assert(largest_acked_packet[pn_space] != infinite)
   loss_time[pn_space] = 0
   lost_packets = {}
   loss_delay = kTimeThreshold * max(latest_rtt, smoothed_rtt)
@@ -1264,17 +1268,14 @@ DetectLostPackets(pn_space):
   // Packets sent before this time are deemed lost.
   lost_send_time = now() - loss_delay
 
-  // Packets with packet numbers before this are deemed lost.
-  lost_pn = largest_acked_packet[pn_space] - kPacketThreshold
-
   foreach unacked in sent_packets:
     if (unacked.packet_number > largest_acked_packet[pn_space]):
       continue
 
     // Mark packet as lost, or set time when it should be marked.
     if (unacked.time_sent <= lost_send_time ||
-        (largest_acked_packet[pn_space] != infinite &&
-         unacked.packet_number <= lost_pn)):
+        largest_acked_packet[pn_space] >=
+          unacked.packet_number + kPacketThreshold):
       sent_packets.remove(unacked.packet_number)
       if (unacked.in_flight):
         lost_packets.insert(unacked)
