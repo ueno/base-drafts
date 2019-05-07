@@ -455,7 +455,8 @@ Internet-Draft             QUIC Loss Detection                  May 2019
    endpoint promises to never delay acknowledgments of an ack-eliciting
    packet by more than the indicated value.  If it does, any excess
    accrues to the RTT estimate and could result in spurious
-   retransmissions from the peer.
+   retransmissions from the peer.  For Initial and Handshake packets, a
+   max_ack_delay of 0 is used.
 
 5.  Estimating the Round-Trip Time
 
@@ -497,7 +498,6 @@ Internet-Draft             QUIC Loss Detection                  May 2019
    does not newly acknowledge at least one ack-eliciting packet.  A peer
    does not send an ACK frame on receiving only non-ack-eliciting
    packets, so an ACK frame that is subsequently sent can include an
-
 
 
 
@@ -1430,9 +1430,10 @@ Internet-Draft             QUIC Loss Detection                  May 2019
    min_rtt:  The minimum RTT seen in the connection, ignoring ack delay.
 
    max_ack_delay:  The maximum amount of time by which the receiver
-      intends to delay acknowledgments, in milliseconds.  The actual
-      ack_delay in a received ACK frame may be larger due to late
-      timers, reordering, or lost ACKs.
+      intends to delay acknowledgments for packets in the
+      ApplicationData packet number space.  The actual ack_delay in a
+      received ACK frame may be larger due to late timers, reordering,
+      or lost ACKs.
 
    loss_time[kPacketNumberSpace]:  The time at which the next packet in
       that packet number space will be considered lost based on
@@ -1452,7 +1453,6 @@ A.4.  Initialization
 
 
 
-
 Iyengar & Swett         Expires November 8, 2019               [Page 26]
 
 Internet-Draft             QUIC Loss Detection                  May 2019
@@ -1465,6 +1465,7 @@ Internet-Draft             QUIC Loss Detection                  May 2019
       smoothed_rtt = 0
       rttvar = 0
       min_rtt = 0
+      max_ack_delay = 0
       time_of_last_sent_ack_eliciting_packet = 0
       time_of_last_sent_crypto_packet = 0
       for pn_space in [ Initial, Handshake, ApplicationData ]:
@@ -1505,7 +1506,6 @@ A.6.  On Receiving an Acknowledgment
 
    OnAckReceived(ack, pn_space):
      if (largest_acked_packet[pn_space] == infinite):
-       largest_acked_packet[pn_space] = ack.largest_acked
 
 
 
@@ -1514,6 +1514,7 @@ Iyengar & Swett         Expires November 8, 2019               [Page 27]
 Internet-Draft             QUIC Loss Detection                  May 2019
 
 
+       largest_acked_packet[pn_space] = ack.largest_acked
      else:
        largest_acked_packet[pn_space] =
            max(largest_acked_packet[pn_space], ack.largest_acked)
@@ -1529,7 +1530,10 @@ Internet-Draft             QUIC Loss Detection                  May 2019
          IncludesAckEliciting(newly_acked_packets))
        latest_rtt =
          now - sent_packets[pn_space][ack.largest_acked].time_sent
-       UpdateRtt(ack.ack_delay)
+       ack_delay = 0
+       if pn_space == ApplicationData:
+         ack_delay = ack.ack_delay
+       UpdateRtt(ack_delay)
 
      // Process ECN information if present.
      if (ACK frame contains ECN information):
@@ -1558,10 +1562,6 @@ Internet-Draft             QUIC Loss Detection                  May 2019
      min_rtt = min(min_rtt, latest_rtt)
      // Limit ack_delay by max_ack_delay
      ack_delay = min(ack_delay, max_ack_delay)
-     // Adjust for ack delay if plausible.
-     adjusted_rtt = latest_rtt
-     if (latest_rtt > min_rtt + ack_delay):
-       adjusted_rtt = latest_rtt - ack_delay
 
 
 
@@ -1569,6 +1569,11 @@ Iyengar & Swett         Expires November 8, 2019               [Page 28]
 
 Internet-Draft             QUIC Loss Detection                  May 2019
 
+
+     // Adjust for ack delay if plausible.
+     adjusted_rtt = latest_rtt
+     if (latest_rtt > min_rtt + ack_delay):
+       adjusted_rtt = latest_rtt - ack_delay
 
      rttvar = 3/4 * rttvar + 1/4 * abs(smoothed_rtt - adjusted_rtt)
      smoothed_rtt = 7/8 * smoothed_rtt + 1/8 * adjusted_rtt
@@ -1604,11 +1609,6 @@ A.8.  Setting the Loss Detection Timer
    fire immediately.
 
    Pseudocode for SetLossDetectionTimer follows:
-
-
-
-
-
 
 
 

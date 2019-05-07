@@ -719,7 +719,7 @@ ul.toc li {
 <a href="#rfc.section.4.4">4.4.</a> <a href="#host-delay" id="host-delay">Measuring and Reporting Host Delay</a>
 </h2>
 <p id="rfc.section.4.4.p.1">An endpoint measures the delay incurred between when a packet is received and when the corresponding acknowledgment is sent.  The endpoint encodes this host delay for the largest acknowledged packet in the Ack Delay field of an ACK frame (see Section 19.3 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>).  This allows the receiver of the ACK to adjust for any host delays, which is important for delayed acknowledgements, when estimating the path RTT.  In certain deployments, a packet might be held in the OS kernel or elsewhere on the host before being processed by the QUIC stack. Where possible, an endpoint MAY include these delays when populating the Ack Delay field in an ACK frame.</p>
-<p id="rfc.section.4.4.p.2">An endpoint MUST NOT excessively delay acknowledgements of ack-eliciting packets.  The maximum ack delay is communicated in the max_ack_delay transport parameter, see Section 18.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  max_ack_delay implies an explicit contract: an endpoint promises to never delay acknowledgments of an ack-eliciting packet by more than the indicated value. If it does, any excess accrues to the RTT estimate and could result in spurious retransmissions from the peer.</p>
+<p id="rfc.section.4.4.p.2">An endpoint MUST NOT excessively delay acknowledgements of ack-eliciting packets.  The maximum ack delay is communicated in the max_ack_delay transport parameter, see Section 18.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  max_ack_delay implies an explicit contract: an endpoint promises to never delay acknowledgments of an ack-eliciting packet by more than the indicated value. If it does, any excess accrues to the RTT estimate and could result in spurious retransmissions from the peer. For Initial and Handshake packets, a max_ack_delay of 0 is used.</p>
 <h1 id="rfc.section.5">
 <a href="#rfc.section.5">5.</a> <a href="#compute-rtt" id="compute-rtt">Estimating the Round-Trip Time</a>
 </h1>
@@ -1166,7 +1166,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <dt>min_rtt:</dt>
 <dd style="margin-left: 8">The minimum RTT seen in the connection, ignoring ack delay.</dd>
 <dt>max_ack_delay:</dt>
-<dd style="margin-left: 8">The maximum amount of time by which the receiver intends to delay acknowledgments, in milliseconds.  The actual ack_delay in a received ACK frame may be larger due to late timers, reordering, or lost ACKs.</dd>
+<dd style="margin-left: 8">The maximum amount of time by which the receiver intends to delay acknowledgments for packets in the ApplicationData packet number space. The actual ack_delay in a received ACK frame may be larger due to late timers, reordering, or lost ACKs.</dd>
 <dt>loss_time[kPacketNumberSpace]:</dt>
 <dd style="margin-left: 8">The time at which the next packet in that packet number space will be considered lost based on exceeding the reordering window in time.</dd>
 <dt>sent_packets[kPacketNumberSpace]:</dt>
@@ -1184,6 +1184,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
    smoothed_rtt = 0
    rttvar = 0
    min_rtt = 0
+   max_ack_delay = 0
    time_of_last_sent_ack_eliciting_packet = 0
    time_of_last_sent_crypto_packet = 0
    for pn_space in [ Initial, Handshake, ApplicationData ]:
@@ -1237,7 +1238,10 @@ OnAckReceived(ack, pn_space):
       IncludesAckEliciting(newly_acked_packets))
     latest_rtt =
       now - sent_packets[pn_space][ack.largest_acked].time_sent
-    UpdateRtt(ack.ack_delay)
+    ack_delay = 0
+    if pn_space == ApplicationData:
+      ack_delay = ack.ack_delay
+    UpdateRtt(ack_delay)
 
   // Process ECN information if present.
   if (ACK frame contains ECN information):
