@@ -374,6 +374,7 @@ ul.toc li {
 <link href="#rfc.section.14.1" rel="Chapter" title="14.1 Path Maximum Transmission Unit (PMTU)">
 <link href="#rfc.section.14.2" rel="Chapter" title="14.2 ICMP Packet Too Big Messages">
 <link href="#rfc.section.14.3" rel="Chapter" title="14.3 Datagram Packetization Layer PMTU Discovery">
+<link href="#rfc.section.14.3.1" rel="Chapter" title="14.3.1 PMTU Probes Containing Source Connection ID">
 <link href="#rfc.section.15" rel="Chapter" title="15 Versions">
 <link href="#rfc.section.16" rel="Chapter" title="16 Variable-Length Integer Encoding">
 <link href="#rfc.section.17" rel="Chapter" title="17 Packet Formats">
@@ -706,7 +707,9 @@ ul.toc li {
 </li>
 <li>14.3.   <a href="#rfc.section.14.3">Datagram Packetization Layer PMTU Discovery</a>
 </li>
-</ul><li>15.   <a href="#rfc.section.15">Versions</a>
+<ul><li>14.3.1.   <a href="#rfc.section.14.3.1">PMTU Probes Containing Source Connection ID</a>
+</li>
+</ul></ul><li>15.   <a href="#rfc.section.15">Versions</a>
 </li>
 <li>16.   <a href="#rfc.section.16">Variable-Length Integer Encoding</a>
 </li>
@@ -1881,7 +1884,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <a href="#rfc.section.12.2">12.2.</a> <a href="#packet-coalesce" id="packet-coalesce">Coalescing Packets</a>
 </h2>
 <p id="rfc.section.12.2.p.1">Initial (<a href="#packet-initial" class="xref">Section 17.2.2</a>), 0-RTT (<a href="#packet-0rtt" class="xref">Section 17.2.3</a>), and Handshake (<a href="#packet-handshake" class="xref">Section 17.2.4</a>) packets contain a Length field, which determines the end of the packet.  The length includes both the Packet Number and Payload fields, both of which are confidentiality protected and initially of unknown length. The length of the Payload field is learned once header protection is removed.</p>
-<p id="rfc.section.12.2.p.2">Using the Length field, a sender can coalesce multiple QUIC packets into one UDP datagram.  This can reduce the number of UDP datagrams needed to complete the cryptographic handshake and starting sending data.  Receivers MUST be able to process coalesced packets.</p>
+<p id="rfc.section.12.2.p.2">Using the Length field, a sender can coalesce multiple QUIC packets into one UDP datagram.  This can reduce the number of UDP datagrams needed to complete the cryptographic handshake and start sending data.  This can also be used to construct PMTU probes (see <a href="#pmtu-probes-src-cid" class="xref">Section 14.3.1</a>).  Receivers MUST be able to process coalesced packets.</p>
 <p id="rfc.section.12.2.p.3">Coalescing packets in order of increasing encryption levels (Initial, 0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be able to process all the packets in a single pass.  A packet with a short header does not include a length, so it can only be the last packet included in a UDP datagram.</p>
 <p id="rfc.section.12.2.p.4">Senders MUST NOT coalesce QUIC packets for different connections into a single UDP datagram. Receivers SHOULD ignore any subsequent packets with a different Destination Connection ID than the first packet in the datagram.</p>
 <p id="rfc.section.12.2.p.5">Every QUIC packet that is coalesced into a single UDP datagram is separate and complete.  Though the values of some fields in the packet header might be redundant, no fields are omitted.  The receiver of coalesced QUIC packets MUST individually process each QUIC packet and separately acknowledge them, as if they were received as the payload of different UDP datagrams.  For example, if decryption fails (because the keys are not available or any other reason), the receiver MAY either discard or buffer the packet for later processing and MUST attempt to process the remaining packets.</p>
@@ -2182,6 +2185,10 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <p id="rfc.section.14.3.p.3">PING and PADDING frames can be used to generate PMTU probe packets. These frames might not be retransmitted if a probe packet containing them is lost.  However, these frames do consume congestion window, which could delay the transmission of subsequent application data.</p>
 <p id="rfc.section.14.3.p.4">A PING frame can be included in a PMTU probe to ensure that a valid probe is acknowledged.</p>
 <p id="rfc.section.14.3.p.5">The considerations for processing ICMP messages in the previous section also apply if these messages are used by DPLPMTUD.</p>
+<h3 id="rfc.section.14.3.1">
+<a href="#rfc.section.14.3.1">14.3.1.</a> <a href="#pmtu-probes-src-cid" id="pmtu-probes-src-cid">PMTU Probes Containing Source Connection ID</a>
+</h3>
+<p id="rfc.section.14.3.1.p.1">Endpoints that rely on the destination connection ID for routing QUIC packets are likely to require that the connection ID be included in PMTU probe packets to route any resulting ICMP messages (<a href="#icmp-pmtud" class="xref">Section 14.2</a>) back to the correct endpoint.  However, only long header packets (<a href="#long-header" class="xref">Section 17.2</a>) contain source connection IDs, and long header packets are not decrypted or acknowledged by the peer once the handshake is complete.  One way to construct a PMTU probe is to coalesce (see <a href="#packet-coalesce" class="xref">Section 12.2</a>) a Handshake packet (<a href="#packet-handshake" class="xref">Section 17.2.4</a>) with a short header packet in a single UDP datagram.  If the UDP datagram reaches the endpoint, the Handshake packet will be ignored, but the short header packet will be acknowledged.  If the UDP datagram elicits an ICMP message, that message will likely contain the source connection ID within the quoted portion of the UDP datagram.</p>
 <h1 id="rfc.section.15">
 <a href="#rfc.section.15">15.</a> <a href="#versions" id="versions">Versions</a>
 </h1>

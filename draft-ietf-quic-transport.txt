@@ -178,6 +178,7 @@ Internet-Draft           QUIC Transport Protocol                May 2019
      14.1.  Path Maximum Transmission Unit (PMTU)  . . . . . . . . .  75
      14.2.  ICMP Packet Too Big Messages . . . . . . . . . . . . . .  76
      14.3.  Datagram Packetization Layer PMTU Discovery  . . . . . .  77
+       14.3.1.  PMTU Probes Containing Source Connection ID  . . . .  77
    15. Versions  . . . . . . . . . . . . . . . . . . . . . . . . . .  77
    16. Variable-Length Integer Encoding  . . . . . . . . . . . . . .  78
    17. Packet Formats  . . . . . . . . . . . . . . . . . . . . . . .  79
@@ -217,7 +218,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
      19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 116
    20. Transport Error Codes . . . . . . . . . . . . . . . . . . . . 116
      20.1.  Application Protocol Error Codes . . . . . . . . . . . . 118
-   21. Security Considerations . . . . . . . . . . . . . . . . . . . 118
 
 
 
@@ -226,6 +226,7 @@ Iyengar & Thomson       Expires November 9, 2019                [Page 4]
 Internet-Draft           QUIC Transport Protocol                May 2019
 
 
+   21. Security Considerations . . . . . . . . . . . . . . . . . . . 118
      21.1.  Handshake Denial of Service  . . . . . . . . . . . . . . 118
      21.2.  Amplification Attack . . . . . . . . . . . . . . . . . . 119
      21.3.  Optimistic ACK Attack  . . . . . . . . . . . . . . . . . 119
@@ -269,7 +270,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . . 144
    Contributors  . . . . . . . . . . . . . . . . . . . . . . . . . . 144
    Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . . 144
-
 
 
 
@@ -3460,12 +3460,12 @@ Internet-Draft           QUIC Transport Protocol                May 2019
 
    Using the Length field, a sender can coalesce multiple QUIC packets
    into one UDP datagram.  This can reduce the number of UDP datagrams
-   needed to complete the cryptographic handshake and starting sending
-   data.  Receivers MUST be able to process coalesced packets.
+   needed to complete the cryptographic handshake and start sending
+   data.  This can also be used to construct PMTU probes (see
+   Section 14.3.1).  Receivers MUST be able to process coalesced
+   packets.
 
-   Coalescing packets in order of increasing encryption levels (Initial,
-   0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be
-   able to process all the packets in a single pass.  A packet with a
+
 
 
 
@@ -3474,6 +3474,9 @@ Iyengar & Thomson       Expires November 9, 2019               [Page 62]
 Internet-Draft           QUIC Transport Protocol                May 2019
 
 
+   Coalescing packets in order of increasing encryption levels (Initial,
+   0-RTT, Handshake, 1-RTT) makes it more likely the receiver will be
+   able to process all the packets in a single pass.  A packet with a
    short header does not include a length, so it can only be the last
    packet included in a UDP datagram.
 
@@ -3518,9 +3521,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    o  Initial space: All Initial packets (Section 17.2.2) are in this
       space.
 
-   o  Handshake space: All Handshake packets (Section 17.2.4) are in
-      this space.
-
 
 
 
@@ -3529,6 +3529,9 @@ Iyengar & Thomson       Expires November 9, 2019               [Page 63]
 
 Internet-Draft           QUIC Transport Protocol                May 2019
 
+
+   o  Handshake space: All Handshake packets (Section 17.2.4) are in
+      this space.
 
    o  Application data space: All 0-RTT and 1-RTT encrypted packets
       (Section 12.1) are in this space.
@@ -3575,9 +3578,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    consists of a sequence of complete frames, as shown in Figure 7.
    Version Negotiation, Stateless Reset, and Retry packets do not
    contain frames.
-
-
-
 
 
 
@@ -4278,6 +4278,22 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    The considerations for processing ICMP messages in the previous
    section also apply if these messages are used by DPLPMTUD.
 
+14.3.1.  PMTU Probes Containing Source Connection ID
+
+   Endpoints that rely on the destination connection ID for routing QUIC
+   packets are likely to require that the connection ID be included in
+   PMTU probe packets to route any resulting ICMP messages
+   (Section 14.2) back to the correct endpoint.  However, only long
+   header packets (Section 17.2) contain source connection IDs, and long
+   header packets are not decrypted or acknowledged by the peer once the
+   handshake is complete.  One way to construct a PMTU probe is to
+   coalesce (see Section 12.2) a Handshake packet (Section 17.2.4) with
+   a short header packet in a single UDP datagram.  If the UDP datagram
+   reaches the endpoint, the Handshake packet will be ignored, but the
+   short header packet will be acknowledged.  If the UDP datagram
+   elicits an ICMP message, that message will likely contain the source
+   connection ID within the quoted portion of the UDP datagram.
+
 15.  Versions
 
    QUIC versions are identified using a 32-bit unsigned number.
@@ -4290,6 +4306,13 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    version.  The properties of QUIC that are guaranteed to be consistent
    across all versions of the protocol are described in
    [QUIC-INVARIANTS].
+
+
+
+Iyengar & Thomson       Expires November 9, 2019               [Page 77]
+
+Internet-Draft           QUIC Transport Protocol                May 2019
+
 
    Version 0x00000001 of QUIC uses TLS as a cryptographic handshake
    protocol, as described in [QUIC-TLS].
@@ -4306,14 +4329,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    Reserved version numbers will probably never represent a real
    protocol; a client MAY use one of these version numbers with the
    expectation that the server will initiate version negotiation; a
-
-
-
-Iyengar & Thomson       Expires November 9, 2019               [Page 77]
-
-Internet-Draft           QUIC Transport Protocol                May 2019
-
-
    server MAY advertise support for one of these versions and can expect
    that clients ignore the value.
 
@@ -4347,6 +4362,14 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    encode 6, 14, 30, or 62 bit values respectively.  Table 4 summarizes
    the encoding properties.
 
+
+
+
+Iyengar & Thomson       Expires November 9, 2019               [Page 78]
+
+Internet-Draft           QUIC Transport Protocol                May 2019
+
+
           +------+--------+-------------+-----------------------+
           | 2Bit | Length | Usable Bits | Range                 |
           +------+--------+-------------+-----------------------+
@@ -4360,15 +4383,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
           +------+--------+-------------+-----------------------+
 
                    Table 4: Summary of Integer Encodings
-
-
-
-
-
-Iyengar & Thomson       Expires November 9, 2019               [Page 78]
-
-Internet-Draft           QUIC Transport Protocol                May 2019
-
 
    For example, the eight byte sequence c2 19 7c 5e ff 14 e8 8c (in
    hexadecimal) decodes to the decimal value 151288809941952652; the
@@ -4403,6 +4417,15 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    packet is delayed in transit such that it arrives after many higher-
    numbered packets have been received.  An endpoint SHOULD use a large
    enough packet number encoding to allow the packet number to be
+
+
+
+
+Iyengar & Thomson       Expires November 9, 2019               [Page 79]
+
+Internet-Draft           QUIC Transport Protocol                May 2019
+
+
    recovered even if the packet arrives after packets that are sent
    afterwards.
 
@@ -4418,14 +4441,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
 
    At a receiver, protection of the packet number is removed prior to
    recovering the full packet number.  The full packet number is then
-
-
-
-Iyengar & Thomson       Expires November 9, 2019               [Page 79]
-
-Internet-Draft           QUIC Transport Protocol                May 2019
-
-
    reconstructed based on the number of significant bits present, the
    value of those bits, and the largest packet number received on a
    successfully authenticated packet.  Recovering the full packet number
@@ -4458,6 +4473,15 @@ Internet-Draft           QUIC Transport Protocol                May 2019
 
                     Figure 9: Long Header Packet Format
 
+
+
+
+
+Iyengar & Thomson       Expires November 9, 2019               [Page 80]
+
+Internet-Draft           QUIC Transport Protocol                May 2019
+
+
    Long headers are used for packets that are sent prior to the
    establishment of 1-RTT keys.  Once both conditions are met, a sender
    switches to sending packets using the short header (Section 17.3).
@@ -4472,15 +4496,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    Fixed Bit:  The next bit (0x40) of byte 0 is set to 1.  Packets
       containing a zero value for this bit are not valid packets in this
       version and MUST be discarded.
-
-
-
-
-
-Iyengar & Thomson       Expires November 9, 2019               [Page 80]
-
-Internet-Draft           QUIC Transport Protocol                May 2019
-
 
    Long Packet Type (T):  The next two bits (those with a mask of 0x30)
       of byte 0 contain a packet type.  Packet types are listed in
@@ -4515,21 +4530,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
       between 4 and 18 bytes.  Section 7.2 describes the use of this
       field in more detail.
 
-   In this version of QUIC, the following packet types with the long
-   header are defined:
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -4537,6 +4537,9 @@ Iyengar & Thomson       Expires November 9, 2019               [Page 81]
 
 Internet-Draft           QUIC Transport Protocol                May 2019
 
+
+   In this version of QUIC, the following packet types with the long
+   header are defined:
 
                    +------+-----------+----------------+
                    | Type | Name      | Section        |
@@ -4582,9 +4585,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
       bits are protected using header protection (see Section 5.4 of
       [QUIC-TLS]).
 
-   Length:  The length of the remainder of the packet (that is, the
-      Packet Number and Payload fields) in bytes, encoded as a variable-
-      length integer (Section 16).
 
 
 
@@ -4593,6 +4593,10 @@ Iyengar & Thomson       Expires November 9, 2019               [Page 82]
 
 Internet-Draft           QUIC Transport Protocol                May 2019
 
+
+   Length:  The length of the remainder of the packet (that is, the
+      Packet Number and Payload fields) in bytes, encoded as a variable-
+      length integer (Section 16).
 
    Packet Number:  The packet number field is 1 to 4 bytes long.  The
       packet number has confidentiality protection separate from packet
@@ -4638,10 +4642,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
 
    The value in the Unused field is selected randomly by the server.
    Clients MUST ignore the value of this field.  Servers SHOULD set the
-   most significant bit of this field (0x40) to 1 so that Version
-   Negotiation packets appear to have the Fixed Bit field.
-
-
 
 
 
@@ -4649,6 +4649,9 @@ Iyengar & Thomson       Expires November 9, 2019               [Page 83]
 
 Internet-Draft           QUIC Transport Protocol                May 2019
 
+
+   most significant bit of this field (0x40) to 1 so that Version
+   Negotiation packets appear to have the Fixed Bit field.
 
    The Version field of a Version Negotiation packet MUST be set to
    0x00000000.
@@ -4684,9 +4687,6 @@ Internet-Draft           QUIC Transport Protocol                May 2019
    An Initial packet uses long headers with a type value of 0x0.  It
    carries the first CRYPTO frames sent by the client and server to
    perform key exchange, and carries ACKs in either direction.
-
-
-
 
 
 
