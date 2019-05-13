@@ -373,7 +373,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Bishop, M., Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-http-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-05-10" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-05-13" />
   <meta name="dct.abstract" content="The QUIC transport protocol has several features that are desirable in a transport for HTTP, such as stream multiplexing, per-stream flow control, and low-latency connection establishment.  This document describes a mapping of HTTP semantics over QUIC.  This document also identifies HTTP/2 features that are subsumed by QUIC, and describes how HTTP/2 extensions can be ported to HTTP/3." />
   <meta name="description" content="The QUIC transport protocol has several features that are desirable in a transport for HTTP, such as stream multiplexing, per-stream flow control, and low-latency connection establishment.  This document describes a mapping of HTTP semantics over QUIC.  This document also identifies HTTP/2 features that are subsumed by QUIC, and describes how HTTP/2 extensions can be ported to HTTP/3." />
 
@@ -394,10 +394,10 @@ ul.toc li {
 </tr>
 <tr>
 <td class="left">Intended status: Standards Track</td>
-<td class="right">May 10, 2019</td>
+<td class="right">May 13, 2019</td>
 </tr>
 <tr>
-<td class="left">Expires: November 11, 2019</td>
+<td class="left">Expires: November 14, 2019</td>
 <td class="right"></td>
 </tr>
 
@@ -417,7 +417,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on November 11, 2019.</p>
+<p>This Internet-Draft will expire on November 14, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -1199,19 +1199,18 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <li>Pushes, identified by the Push ID of the promised resource (<a href="#frame-push-promise" class="xref">Section 4.2.6</a>)</li>
 <li>Placeholders, identified by a Placeholder ID</li>
 </ul>
-<p id="rfc.section.5.3.p.4">Taken together, the dependencies across all prioritized elements in a connection form a dependency tree. An element can depend on another element or on the root of the tree.  The tree also contains a dedicated placeholder with index &#8220;-1&#8221; which depends on the root of the tree with a weight of zero.  This placeholder cannot be reprioritized.  The structure of the dependency tree changes as PRIORITY frames modify the dependency links between other prioritized elements.</p>
-<p id="rfc.section.5.3.p.5">All dependent streams are allocated an integer weight between 0 and 255 (inclusive).</p>
+<p id="rfc.section.5.3.p.4">Taken together, the dependencies across all prioritized elements in a connection form a dependency tree. An element can depend on another element or on the root of the tree.  The tree also contains an orphan placeholder.  This placeholder cannot be reprioritized, and no resources should be allocated to descendants of the orphan placeholder if progress can be made on descendants of the root.  The structure of the dependency tree changes as PRIORITY frames modify the dependency links between other prioritized elements.</p>
+<p id="rfc.section.5.3.p.5">All dependent streams are allocated an integer weight between 1 and 256 (inclusive), derived by adding one to the weight expressed in the PRIORITY frame.</p>
 <p id="rfc.section.5.3.p.6">Streams with the same parent SHOULD be allocated resources proportionally based on their weight.  Thus, if stream B depends on stream A with weight 4, stream C depends on stream A with weight 12, and no progress can be made on stream A, stream B ideally receives one-third of the resources allocated to stream C.</p>
-<p id="rfc.section.5.3.p.7">A weight of zero indicates that no resources should be allocated to the indicated stream if progress can be made on other streams dependent on the same parent.</p>
-<p id="rfc.section.5.3.p.8">A reference to an element which is no longer in the tree is treated as a reference to placeholder &#8220;-1&#8221;. Due to reordering between streams, an element can also be prioritized which is not yet in the tree. Such elements are added to the tree with the requested priority.  If a prioritized element depends on another element which is not yet in the tree, the requested parent is first added to the tree with the default priority.</p>
-<p id="rfc.section.5.3.p.9">When a prioritized element is first created, it has a default initial weight of 16 and a default dependency. Requests and placeholders are dependent on the placeholder with index &#8220;-1&#8221;; pushes are dependent on the client request on which the PUSH_PROMISE frame was sent.</p>
-<p id="rfc.section.5.3.p.10">Requests may override the default initial values by including a PRIORITY frame (see <a href="#frame-priority" class="xref">Section 4.2.3</a>) at the beginning of the stream. These priorities can be updated by sending a PRIORITY frame on the control stream.</p>
+<p id="rfc.section.5.3.p.7">A reference to an element which is no longer in the tree is treated as a reference to the orphan placeholder. Due to reordering between streams, an element can also be prioritized which is not yet in the tree. Such elements are added to the tree with the requested priority.  If a prioritized element depends on another element which is not yet in the tree, the requested parent is first added to the tree with the default priority.</p>
+<p id="rfc.section.5.3.p.8">When a prioritized element is first created, it has a default initial weight of 16 and a default dependency. Requests and placeholders are dependent on the orphan placeholder; pushes are dependent on the client request on which the PUSH_PROMISE frame was sent.</p>
+<p id="rfc.section.5.3.p.9">Requests may override the default initial values by including a PRIORITY frame (see <a href="#frame-priority" class="xref">Section 4.2.3</a>) at the beginning of the stream. These priorities can be updated by sending a PRIORITY frame on the control stream.</p>
 <h3 id="rfc.section.5.3.1">
 <a href="#rfc.section.5.3.1">5.3.1.</a> <a href="#placeholders" id="placeholders">Placeholders</a>
 </h3>
 <p id="rfc.section.5.3.1.p.1">In HTTP/2, certain implementations used closed or unused streams as placeholders in describing the relative priority of requests.  This created confusion as servers could not reliably identify which elements of the priority tree could be discarded safely. Clients could potentially reference closed streams long after the server had discarded state, leading to disparate views of the prioritization the client had attempted to express.</p>
 <p id="rfc.section.5.3.1.p.2">In HTTP/3, a number of placeholders are explicitly permitted by the server using the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting. Because the server commits to maintaining these placeholders in the prioritization tree, clients can use them with confidence that the server will not have discarded the state. Clients MUST NOT send the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting; receipt of this setting by a server MUST be treated as a connection error of type <samp>HTTP_WRONG_SETTING_DIRECTION</samp>.</p>
-<p id="rfc.section.5.3.1.p.3">Client-controlled placeholders are identified by an ID between zero and one less than the number of placeholders the server has permitted.  The placeholder with index &#8220;-1&#8221; cannot be prioritized or referenced by the client.</p>
+<p id="rfc.section.5.3.1.p.3">Client-controlled placeholders are identified by an ID between zero and one less than the number of placeholders the server has permitted.  The orphan placeholder cannot be prioritized or referenced by the client.</p>
 <p id="rfc.section.5.3.1.p.4">Like streams, client-controlled placeholders have priority information associated with them.</p>
 <h3 id="rfc.section.5.3.2">
 <a href="#rfc.section.5.3.2">5.3.2.</a> <a href="#priority-tree-maintenance" id="priority-tree-maintenance">Priority Tree Maintenance</a>
