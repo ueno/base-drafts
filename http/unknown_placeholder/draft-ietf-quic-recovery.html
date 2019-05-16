@@ -382,7 +382,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-05-13" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-05-16" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -406,12 +406,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: November 14, 2019</td>
+<td class="left">Expires: November 17, 2019</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">May 13, 2019</td>
+<td class="right">May 16, 2019</td>
 </tr>
 
     	
@@ -430,7 +430,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on November 14, 2019.</p>
+<p>This Internet-Draft will expire on November 17, 2019.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -758,11 +758,12 @@ latest_rtt = ack_time - send_time_of_largest_acked
 <a href="#rfc.section.5.3">5.3.</a> <a href="#smoothed-rtt" id="smoothed-rtt">Estimating smoothed_rtt and rttvar</a>
 </h2>
 <p id="rfc.section.5.3.p.1">smoothed_rtt is an exponentially-weighted moving average of an endpoint&#8217;s RTT samples, and rttvar is the endpoint&#8217;s estimated variance in the RTT samples.</p>
-<p id="rfc.section.5.3.p.2">smoothed_rtt uses path latency after adjusting RTT samples for peer-reported host delays (<a href="#host-delay" class="xref">Section 4.4</a>).  A peer limits any delay in sending an acknowledgement for an ack-eliciting packet to no greater than the advertised max_ack_delay transport parameter.  Consequently, when a peer reports an Ack Delay that is greater than its max_ack_delay, the delay is attributed to reasons out of the peer&#8217;s control, such as scheduler latency at the peer or loss of previous ACK frames.  Any delays beyond the peer&#8217;s max_ack_delay are therefore considered effectively part of path delay and incorporated into the smoothed_rtt estimate.</p>
+<p id="rfc.section.5.3.p.2">The calculation of smoothed_rtt uses path latency after adjusting RTT samples for host delays (<a href="#host-delay" class="xref">Section 4.4</a>).  For packets sent in the ApplicationData packet number space, a peer limits any delay in sending an acknowledgement for an ack-eliciting packet to no greater than the value it advertised in the max_ack_delay transport parameter.  Consequently, when a peer reports an Ack Delay that is greater than its max_ack_delay, the delay is attributed to reasons out of the peer&#8217;s control, such as scheduler latency at the peer or loss of previous ACK frames.  Any delays beyond the peer&#8217;s max_ack_delay are therefore considered effectively part of path delay and incorporated into the smoothed_rtt estimate.</p>
 <p id="rfc.section.5.3.p.3">When adjusting an RTT sample using peer-reported acknowledgement delays, an endpoint:</p>
 <p></p>
 
 <ul>
+<li>MUST ignore the Ack Delay field of the ACK frame for packets sent in the Initial and Handshake packet number space.</li>
 <li>MUST use the lesser of the value reported in Ack Delay field of the ACK frame and the peer&#8217;s max_ack_delay transport parameter (<a href="#host-delay" class="xref">Section 4.4</a>).</li>
 <li>MUST NOT apply the adjustment if the resulting RTT sample is smaller than the min_rtt.  This limits the underestimation that a misreporting peer can cause to the smoothed_rtt.</li>
 </ul>
@@ -827,9 +828,10 @@ rttvar = 3/4 * rttvar + 1/4 * rttvar_sample
 <p id="rfc.section.6.2.p.4">When a crypto packet is sent, the sender MUST set a timer for twice the smoothed RTT.  This timer MUST be updated when a new crypto packet is sent and when an acknowledgement is received which computes a new RTT sample. Upon timeout, the sender MUST retransmit all unacknowledged CRYPTO data if possible.  The sender MUST NOT declare in-flight crypto packets as lost when the crypto timer expires.</p>
 <p id="rfc.section.6.2.p.5">On each consecutive expiration of the crypto timer without receiving an acknowledgement for a new packet, the sender MUST double the crypto retransmission timeout and set a timer for this period.</p>
 <p id="rfc.section.6.2.p.6">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited, as specified in Section 8.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  If not all unacknowledged CRYPTO data can be sent, then all unacknowledged CRYPTO data sent in Initial packets should be retransmitted.  If no data can be sent, then no alarm should be armed until data has been received from the client.</p>
-<p id="rfc.section.6.2.p.7">Because the server could be blocked until more packets are received, the client MUST ensure that the crypto retransmission timer is set if there is unacknowledged crypto data or if the client does not yet have 1-RTT keys.  If the crypto retransmission timer expires before the client has 1-RTT keys, it is possible that the client may not have any crypto data to retransmit.  However, the client MUST send a new packet, containing only PING or PADDING frames if necessary, to allow the server to continue sending data. If Handshake keys are available to the client, it MUST send a Handshake packet, and otherwise it MUST send an Initial packet in a UDP datagram of at least 1200 bytes.</p>
-<p id="rfc.section.6.2.p.8">The crypto retransmission timer is not set if the time threshold <a href="#time-threshold" class="xref">Section 6.1.2</a> loss detection timer is set.  The time threshold loss detection timer is expected to both expire earlier than the crypto retransmission timeout and be less likely to spuriously retransmit data.  The Initial and Handshake packet number spaces will typically contain a small number of packets, so losses are less likely to be detected using packet-threshold loss detection.</p>
-<p id="rfc.section.6.2.p.9">When the crypto retransmission timer is active, the probe timer (<a href="#pto" class="xref">Section 6.3</a>) is not active.</p>
+<p id="rfc.section.6.2.p.7">Because the server could be blocked until more packets are received, the client MUST ensure that the crypto retransmission timer is set if there is unacknowledged crypto data or if the client does not yet have 1-RTT keys.  If the crypto retransmission timer expires before the client has 1-RTT keys, it is possible that the client may not have any crypto data to retransmit.  However, the client MUST send a new packet, containing only PADDING frames if necessary, to allow the server to continue sending data. If Handshake keys are available to the client, it MUST send a Handshake packet, and otherwise it MUST send an Initial packet in a UDP datagram of at least 1200 bytes.</p>
+<p id="rfc.section.6.2.p.8">Because packets only containing PADDING do not elicit an acknowledgement, they may never be acknowledged, but they are removed from bytes in flight when the client gets Handshake keys and the Initial keys are discarded.</p>
+<p id="rfc.section.6.2.p.9">The crypto retransmission timer is not set if the time threshold <a href="#time-threshold" class="xref">Section 6.1.2</a> loss detection timer is set.  The time threshold loss detection timer is expected to both expire earlier than the crypto retransmission timeout and be less likely to spuriously retransmit data.  The Initial and Handshake packet number spaces will typically contain a small number of packets, so losses are less likely to be detected using packet-threshold loss detection.</p>
+<p id="rfc.section.6.2.p.10">When the crypto retransmission timer is active, the probe timer (<a href="#pto" class="xref">Section 6.3</a>) is not active.</p>
 <h3 id="rfc.section.6.2.1">
 <a href="#rfc.section.6.2.1">6.2.1.</a> <a href="#retry-and-version-negotiation" id="retry-and-version-negotiation">Retry and Version Negotiation</a>
 </h3>
@@ -1544,10 +1546,11 @@ DetectLostPackets(pn_space):
      pto = smoothed_rtt + max(4 * rttvar, kGranularity) +
        max_ack_delay
      congestion_period = pto * kPersistentCongestionThreshold
-     // Determine if all packets in the window before the
+     // Determine if all packets in the time period before the
      // newest lost packet, including the edges, are marked
      // lost
-     return IsWindowLost(largest_lost_packet, congestion_period)
+     return AreAllPacketsLost(largest_lost_packet,
+                              congestion_period)
 
    OnPacketsLost(lost_packets):
      // Remove lost packets from bytes_in_flight.
