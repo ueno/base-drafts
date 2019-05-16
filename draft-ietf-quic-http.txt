@@ -126,15 +126,15 @@ Internet-Draft                   HTTP/3                         May 2019
        7.2.6.  PUSH_PROMISE  . . . . . . . . . . . . . . . . . . . .  33
        7.2.7.  GOAWAY  . . . . . . . . . . . . . . . . . . . . . . .  34
        7.2.8.  MAX_PUSH_ID . . . . . . . . . . . . . . . . . . . . .  35
-       7.2.9.  DUPLICATE_PUSH  . . . . . . . . . . . . . . . . . . .  35
-       7.2.10. Reserved Frame Types  . . . . . . . . . . . . . . . .  36
+       7.2.9.  DUPLICATE_PUSH  . . . . . . . . . . . . . . . . . . .  36
+       7.2.10. Reserved Frame Types  . . . . . . . . . . . . . . . .  37
    8.  Error Handling  . . . . . . . . . . . . . . . . . . . . . . .  37
      8.1.  HTTP/3 Error Codes  . . . . . . . . . . . . . . . . . . .  37
    9.  Extensions to HTTP/3  . . . . . . . . . . . . . . . . . . . .  39
-   10. Security Considerations . . . . . . . . . . . . . . . . . . .  39
+   10. Security Considerations . . . . . . . . . . . . . . . . . . .  40
    11. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  40
      11.1.  Registration of HTTP/3 Identification String . . . . . .  40
-     11.2.  Registration of QUIC Version Hint Alt-Svc Parameter  . .  40
+     11.2.  Registration of QUIC Version Hint Alt-Svc Parameter  . .  41
      11.3.  Frame Types  . . . . . . . . . . . . . . . . . . . . . .  41
      11.4.  Settings Parameters  . . . . . . . . . . . . . . . . . .  42
      11.5.  Error Codes  . . . . . . . . . . . . . . . . . . . . . .  43
@@ -1709,11 +1709,14 @@ Internet-Draft                   HTTP/3                         May 2019
    SETTINGS frames always apply to a connection, never a single stream.
    A SETTINGS frame MUST be sent as the first frame of each control
    stream (see Section 6.2.1) by each peer, and MUST NOT be sent
-   subsequently or on any other stream.  If an endpoint receives a
-   SETTINGS frame on a different stream, the endpoint MUST respond with
-   a connection error of type HTTP_WRONG_STREAM.  If an endpoint
-   receives a second SETTINGS frame, the endpoint MUST respond with a
-   connection error of type HTTP_UNEXPECTED_FRAME.
+   subsequently.  If an endpoint receives a second SETTINGS frame on the
+   control stream, the endpoint MUST respond with a connection error of
+   type HTTP_UNEXPECTED_FRAME.
+
+   SETTINGS frames MUST NOT be sent on any steam other than the control
+   stream.  If an endpoint receives a SETTINGS frame on a different
+   stream, the endpoint MUST respond with a connection error of type
+   HTTP_WRONG_STREAM.
 
    SETTINGS parameters are not negotiated; they describe characteristics
    of the sending peer, which can be used by the receiving peer.
@@ -1727,9 +1730,6 @@ Internet-Draft                   HTTP/3                         May 2019
    peer.  For example, a client might be willing to consume a very large
    response header, while servers are more cautious about request size.
 
-   Parameters MUST NOT occur more than once in the SETTINGS frame.  A
-   receiver MAY treat the presence of the same parameter more than once
-   as a connection error of type HTTP_MALFORMED_FRAME.
 
 
 
@@ -1737,6 +1737,10 @@ Bishop                  Expires November 17, 2019              [Page 31]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   Parameters MUST NOT occur more than once in the SETTINGS frame.  A
+   receiver MAY treat the presence of the same parameter more than once
+   as a connection error of type HTTP_MALFORMED_FRAME.
 
    The payload of a SETTINGS frame consists of zero or more parameters.
    Each parameter consists of a setting identifier and a value, both
@@ -1779,13 +1783,9 @@ Internet-Draft                   HTTP/3                         May 2019
    Additional settings can be defined by extensions to HTTP/3; see
    Section 9 for more details.
 
-7.2.5.2.  Initialization
 
-   An HTTP implementation MUST NOT send frames or requests which would
-   be invalid based on its current understanding of the peer's settings.
-   All settings begin at an initial value, and are updated upon receipt
-   of a SETTINGS frame.  For servers, the initial value of each client
-   setting is the default value.
+
+
 
 
 
@@ -1793,6 +1793,14 @@ Bishop                  Expires November 17, 2019              [Page 32]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+7.2.5.2.  Initialization
+
+   An HTTP implementation MUST NOT send frames or requests which would
+   be invalid based on its current understanding of the peer's settings.
+   All settings begin at an initial value, and are updated upon receipt
+   of a SETTINGS frame.  For servers, the initial value of each client
+   setting is the default value.
 
    For clients using a 1-RTT QUIC connection, the initial value of each
    server setting is the default value.  When a 0-RTT QUIC connection is
@@ -1833,6 +1841,15 @@ Internet-Draft                   HTTP/3                         May 2019
       (Section 4.4), CANCEL_PUSH frames (Section 7.2.4), DUPLICATE_PUSH
       frames (Section 7.2.9), and PRIORITY frames (Section 7.2.3).
 
+
+
+
+
+Bishop                  Expires November 17, 2019              [Page 33]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
    Header Block:  QPACK-compressed request header fields for the
       promised response.  See [QPACK] for more details.
 
@@ -1842,13 +1859,6 @@ Internet-Draft                   HTTP/3                         May 2019
    receipt of a PUSH_PROMISE that contains a larger Push ID than the
    client has advertised or a Push ID which has already been promised as
    a connection error of type HTTP_MALFORMED_FRAME.
-
-
-
-Bishop                  Expires November 17, 2019              [Page 33]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
    If a PUSH_PROMISE frame is received on the control stream, the client
    MUST respond with a connection error (Section 8) of type
@@ -1888,16 +1898,6 @@ Internet-Draft                   HTTP/3                         May 2019
    a GOAWAY frame on any stream as a connection error (Section 8) of
    type HTTP_UNEXPECTED_FRAME.
 
-   The GOAWAY frame applies to the connection, not a specific stream.  A
-   client MUST treat a GOAWAY frame on a stream other than the control
-   stream as a connection error (Section 8) of type
-   HTTP_UNEXPECTED_FRAME.
-
-   See Section 5.2 for more information on the use of the GOAWAY frame.
-
-
-
-
 
 
 
@@ -1905,6 +1905,13 @@ Bishop                  Expires November 17, 2019              [Page 34]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   The GOAWAY frame applies to the connection, not a specific stream.  A
+   client MUST treat a GOAWAY frame on a stream other than the control
+   stream as a connection error (Section 8) of type
+   HTTP_UNEXPECTED_FRAME.
+
+   See Section 5.2 for more information on the use of the GOAWAY frame.
 
 7.2.8.  MAX_PUSH_ID
 
@@ -1944,6 +1951,17 @@ Internet-Draft                   HTTP/3                         May 2019
    previously received MUST be treated as a connection error of type
    HTTP_MALFORMED_FRAME.
 
+
+
+
+
+
+
+Bishop                  Expires November 17, 2019              [Page 35]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
 7.2.9.  DUPLICATE_PUSH
 
    The DUPLICATE_PUSH frame (type=0xE) is used by servers to indicate
@@ -1953,14 +1971,6 @@ Internet-Draft                   HTTP/3                         May 2019
    The DUPLICATE_PUSH frame is always sent on a request stream.  Receipt
    of a DUPLICATE_PUSH frame on any other stream MUST be treated as a
    connection error of type HTTP_WRONG_STREAM.
-
-
-
-
-Bishop                  Expires November 17, 2019              [Page 35]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
    A client MUST NOT send a DUPLICATE_PUSH frame.  A server MUST treat
    the receipt of a DUPLICATE_PUSH frame as a connection error of type
@@ -1997,6 +2007,17 @@ Internet-Draft                   HTTP/3                         May 2019
    they have since consumed and discarded are forced to ignore the
    DUPLICATE_PUSH.
 
+
+
+
+
+
+
+Bishop                  Expires November 17, 2019              [Page 36]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
 7.2.10.  Reserved Frame Types
 
    Frame types of the format "0x1f * N + 0x21" for integer values of N
@@ -2008,15 +2029,6 @@ Internet-Draft                   HTTP/3                         May 2019
 
    The payload and length of the frames are selected in any manner the
    implementation chooses.
-
-
-
-
-
-Bishop                  Expires November 17, 2019              [Page 36]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
 8.  Error Handling
 
@@ -2053,6 +2065,15 @@ Internet-Draft                   HTTP/3                         May 2019
    HTTP_REQUEST_CANCELLED (0x05):  The request or its response is
       cancelled.
 
+
+
+
+
+Bishop                  Expires November 17, 2019              [Page 37]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
    HTTP_INCOMPLETE_REQUEST (0x06):  The client's stream terminated
       without containing a fully-formed request.
 
@@ -2064,15 +2085,6 @@ Internet-Draft                   HTTP/3                         May 2019
 
    HTTP_VERSION_FALLBACK (0x09):  The requested operation cannot be
       served over HTTP/3.  The peer should retry over HTTP/1.1.
-
-
-
-
-
-Bishop                  Expires November 17, 2019              [Page 37]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
    HTTP_WRONG_STREAM (0x0A):  A frame was received on a stream where it
       is not permitted.
@@ -2109,6 +2121,15 @@ Internet-Draft                   HTTP/3                         May 2019
    HTTP_REQUEST_REJECTED (0x0014):  A server rejected a request without
       performing any application processing.
 
+
+
+
+
+Bishop                  Expires November 17, 2019              [Page 38]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
    HTTP_GENERAL_PROTOCOL_ERROR (0x00FF):  Peer violated protocol
       requirements in a way which doesn't match a more specific error
       code, or endpoint declines to use the more specific error code.
@@ -2119,16 +2140,6 @@ Internet-Draft                   HTTP/3                         May 2019
       MAX_PUSH_ID frame would be indicated with the code (0x10D).  The
       last byte "0xff" is used to indicate any frame type greater than
       "0xfe".
-
-
-
-
-
-
-Bishop                  Expires November 17, 2019              [Page 38]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
 9.  Extensions to HTTP/3
 
@@ -2166,6 +2177,15 @@ Internet-Draft                   HTTP/3                         May 2019
    be used for that purpose.  If both peers set a value that indicates
    willingness to use the extension, then the extension can be used.  If
    a setting is used for extension negotiation, the default value MUST
+
+
+
+
+Bishop                  Expires November 17, 2019              [Page 39]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
    be defined in such a fashion that the extension is disabled if the
    setting is omitted.
 
@@ -2177,14 +2197,6 @@ Internet-Draft                   HTTP/3                         May 2019
    resistant to traffic analysis, HTTP/3 can rely on QUIC PADDING frames
    or employ the reserved frame and stream types discussed in
    Section 7.2.10 and Section 6.2.3.
-
-
-
-
-Bishop                  Expires November 17, 2019              [Page 39]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
    When HTTP Alternative Services is used for discovery for HTTP/3
    endpoints, the security considerations of [ALTSVC] also apply.
@@ -2223,6 +2235,13 @@ Internet-Draft                   HTTP/3                         May 2019
 
    Specification:  This document
 
+
+
+Bishop                  Expires November 17, 2019              [Page 40]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
 11.2.  Registration of QUIC Version Hint Alt-Svc Parameter
 
    This document creates a new registration for version-negotiation
@@ -2232,15 +2251,6 @@ Internet-Draft                   HTTP/3                         May 2019
    Parameter:  "quic"
 
    Specification:  This document, Section 3.2.1
-
-
-
-
-
-Bishop                  Expires November 17, 2019              [Page 40]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
 11.3.  Frame Types
 
@@ -2269,16 +2279,6 @@ Internet-Draft                   HTTP/3                         May 2019
       parts of the frame that are conditionally present.
 
    The entries in the following table are registered by this document.
-
-
-
-
-
-
-
-
-
-
 
 
 
