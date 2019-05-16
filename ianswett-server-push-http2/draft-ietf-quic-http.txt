@@ -98,12 +98,12 @@ Table of Contents
      4.4.  Server Push . . . . . . . . . . . . . . . . . . . . . . .  17
    5.  Connection Closure  . . . . . . . . . . . . . . . . . . . . .  18
      5.1.  Idle Connections  . . . . . . . . . . . . . . . . . . . .  18
-     5.2.  Connection Shutdown . . . . . . . . . . . . . . . . . . .  18
+     5.2.  Connection Shutdown . . . . . . . . . . . . . . . . . . .  19
      5.3.  Immediate Application Closure . . . . . . . . . . . . . .  20
      5.4.  Transport Closure . . . . . . . . . . . . . . . . . . . .  20
-   6.  Stream Mapping and Usage  . . . . . . . . . . . . . . . . . .  20
+   6.  Stream Mapping and Usage  . . . . . . . . . . . . . . . . . .  21
      6.1.  Bidirectional Streams . . . . . . . . . . . . . . . . . .  21
-     6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  21
+     6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  22
        6.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .  23
        6.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .  23
 
@@ -904,8 +904,12 @@ Internet-Draft                   HTTP/3                         May 2019
 
 4.4.  Server Push
 
-   HTTP/3 server push is similar to what is described in HTTP/2 [HTTP2],
-   but uses different mechanisms.
+   Server push is an interaction mode introduced in HTTP/2 [HTTP2] which
+   permits a server to push a request-response exchange to a client in
+   anticipation of the client making the indicated request.  This trades
+   off network usage against a potential latency gain.  HTTP/3 server
+   push is similar to what is described in HTTP/2 [HTTP2], but uses
+   different mechanisms.
 
    Each server push is identified by a unique Push ID.  This Push ID is
    used in a single PUSH_PROMISE frame (see Section 7.2.6) which carries
@@ -942,10 +946,6 @@ Internet-Draft                   HTTP/3                         May 2019
 
    Due to reordering, DUPLICATE_PUSH frames or push stream data can
    arrive before the corresponding PUSH_PROMISE frame.  When a client
-   receives a DUPLICATE_PUSH frame for an as-yet-unknown Push ID, the
-   request headers of the push are not immediately available.  The
-   client can either delay generating new requests for content
-   referenced following the DUPLICATE_PUSH frame until the request
 
 
 
@@ -954,6 +954,10 @@ Bishop                  Expires November 17, 2019              [Page 17]
 Internet-Draft                   HTTP/3                         May 2019
 
 
+   receives a DUPLICATE_PUSH frame for an as-yet-unknown Push ID, the
+   request headers of the push are not immediately available.  The
+   client can either delay generating new requests for content
+   referenced following the DUPLICATE_PUSH frame until the request
    headers become available, or can initiate requests for discovered
    resources and cancel the requests if the requested resource is
    already being pushed.  When a client receives a new push stream with
@@ -997,11 +1001,7 @@ Internet-Draft                   HTTP/3                         May 2019
    latency cost of connection establishment to servers.  Servers SHOULD
    NOT actively keep connections open.
 
-5.2.  Connection Shutdown
 
-   Even when a connection is not idle, either endpoint can decide to
-   stop using the connection and let the connection close gracefully.
-   Since clients drive request generation, clients perform a connection
 
 
 
@@ -1010,6 +1010,11 @@ Bishop                  Expires November 17, 2019              [Page 18]
 Internet-Draft                   HTTP/3                         May 2019
 
 
+5.2.  Connection Shutdown
+
+   Even when a connection is not idle, either endpoint can decide to
+   stop using the connection and let the connection close gracefully.
+   Since clients drive request generation, clients perform a connection
    shutdown by not sending additional requests on the connection;
    responses and pushed responses associated to previous requests will
    continue to completion.  Servers perform the same function by
@@ -1052,12 +1057,7 @@ Internet-Draft                   HTTP/3                         May 2019
    server started to process that POST request if the server does not
    send a GOAWAY frame to indicate what streams it might have acted on.
 
-   A client that is unable to retry requests loses all requests that are
-   in flight when the server closes the connection.  A server MAY send
-   multiple GOAWAY frames indicating different stream IDs, but MUST NOT
-   increase the value they send in the last Stream ID, since clients
-   might already have retried unprocessed requests on another
-   connection.  A server that is attempting to gracefully shut down a
+
 
 
 
@@ -1066,6 +1066,12 @@ Bishop                  Expires November 17, 2019              [Page 19]
 Internet-Draft                   HTTP/3                         May 2019
 
 
+   A client that is unable to retry requests loses all requests that are
+   in flight when the server closes the connection.  A server MAY send
+   multiple GOAWAY frames indicating different stream IDs, but MUST NOT
+   increase the value they send in the last Stream ID, since clients
+   might already have retried unprocessed requests on another
+   connection.  A server that is attempting to gracefully shut down a
    connection SHOULD send an initial GOAWAY frame with the last Stream
    ID set to the current value of QUIC's MAX_STREAM_ID and SHOULD NOT
    increase the MAX_STREAM_ID thereafter.  This signals to the client
@@ -1108,12 +1114,6 @@ Internet-Draft                   HTTP/3                         May 2019
    assume that any request which was sent, whether in whole or in part,
    might have been processed.
 
-6.  Stream Mapping and Usage
-
-   A QUIC stream provides reliable in-order delivery of bytes, but makes
-   no guarantees about order of delivery with regard to bytes on other
-   streams.  On the wire, data is framed into QUIC STREAM frames, but
-   this framing is invisible to the HTTP framing layer.  The transport
 
 
 
@@ -1122,6 +1122,12 @@ Bishop                  Expires November 17, 2019              [Page 20]
 Internet-Draft                   HTTP/3                         May 2019
 
 
+6.  Stream Mapping and Usage
+
+   A QUIC stream provides reliable in-order delivery of bytes, but makes
+   no guarantees about order of delivery with regard to bytes on other
+   streams.  On the wire, data is framed into QUIC STREAM frames, but
+   this framing is invisible to the HTTP framing layer.  The transport
    layer buffers and orders received QUIC STREAM frames, exposing the
    data contained within as a reliable byte stream to the application.
    Although QUIC permits out-of-order delivery within a stream HTTP/3
@@ -1161,13 +1167,7 @@ Internet-Draft                   HTTP/3                         May 2019
    MUST omit or specify a value of zero for the QUIC transport parameter
    "initial_max_bidi_streams".
 
-6.2.  Unidirectional Streams
 
-   Unidirectional streams, in either direction, are used for a range of
-   purposes.  The purpose is indicated by a stream type, which is sent
-   as a variable-length integer at the start of the stream.  The format
-   and structure of data that follows this integer is determined by the
-   stream type.
 
 
 
@@ -1177,6 +1177,14 @@ Bishop                  Expires November 17, 2019              [Page 21]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+6.2.  Unidirectional Streams
+
+   Unidirectional streams, in either direction, are used for a range of
+   purposes.  The purpose is indicated by a stream type, which is sent
+   as a variable-length integer at the start of the stream.  The format
+   and structure of data that follows this integer is determined by the
+   stream type.
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1217,14 +1225,6 @@ Internet-Draft                   HTTP/3                         May 2019
    semantics of existing protocol components, including QPACK or other
    extensions, MUST NOT be sent until the peer is known to support them.
 
-   A sender can close or reset a unidirectional stream unless otherwise
-   specified.  A receiver MUST tolerate unidirectional streams being
-   closed or reset prior to the reception of the unidirectional stream
-   header.
-
-
-
-
 
 
 
@@ -1233,6 +1233,11 @@ Bishop                  Expires November 17, 2019              [Page 22]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   A sender can close or reset a unidirectional stream unless otherwise
+   specified.  A receiver MUST tolerate unidirectional streams being
+   closed or reset prior to the reception of the unidirectional stream
+   header.
 
 6.2.1.  Control Streams
 
@@ -1273,11 +1278,6 @@ Internet-Draft                   HTTP/3                         May 2019
    Only servers can push; if a server receives a client-initiated push
    stream, this MUST be treated as a connection error of type
    HTTP_WRONG_STREAM_DIRECTION.
-
-
-
-
-
 
 
 
