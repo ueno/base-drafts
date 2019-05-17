@@ -92,7 +92,7 @@ Table of Contents
        4.1.1.  Header Formatting and Compression . . . . . . . . . .  12
        4.1.2.  Request Cancellation and Rejection  . . . . . . . . .  13
      4.2.  The CONNECT Method  . . . . . . . . . . . . . . . . . . .  13
-     4.3.  Prioritization  . . . . . . . . . . . . . . . . . . . . .  14
+     4.3.  Prioritization  . . . . . . . . . . . . . . . . . . . . .  15
        4.3.1.  Placeholders  . . . . . . . . . . . . . . . . . . . .  15
        4.3.2.  Priority Tree Maintenance . . . . . . . . . . . . . .  16
      4.4.  Server Push . . . . . . . . . . . . . . . . . . . . . . .  17
@@ -100,7 +100,7 @@ Table of Contents
      5.1.  Idle Connections  . . . . . . . . . . . . . . . . . . . .  18
      5.2.  Connection Shutdown . . . . . . . . . . . . . . . . . . .  19
      5.3.  Immediate Application Closure . . . . . . . . . . . . . .  20
-     5.4.  Transport Closure . . . . . . . . . . . . . . . . . . . .  20
+     5.4.  Transport Closure . . . . . . . . . . . . . . . . . . . .  21
    6.  Stream Mapping and Usage  . . . . . . . . . . . . . . . . . .  21
      6.1.  Bidirectional Streams . . . . . . . . . . . . . . . . . .  21
      6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  22
@@ -752,6 +752,12 @@ Internet-Draft                   HTTP/3                         May 2019
    number of TCP segments is not guaranteed to map predictably to the
    size and number of HTTP DATA or QUIC STREAM frames.
 
+   Once the CONNECT method has completed, only DATA frames are permitted
+   to be sent on the stream.  Extension frames MAY be used if
+   specifically permitted by the definition of the extension.  Receipt
+   of any other frame type MUST be treated as a connection error of type
+   HTTP_UNEXPECTED_FRAME.
+
    The TCP connection can be closed by either peer.  When the client
    ends the request stream (that is, the receive stream at the proxy
    enters the "Data Recvd" state), the proxy will set the FIN bit on its
@@ -769,14 +775,8 @@ Internet-Draft                   HTTP/3                         May 2019
    send a TCP segment with the RST bit set if it detects an error with
    the stream or the QUIC connection.
 
-4.3.  Prioritization
 
-   HTTP/3 uses a priority scheme similar to that described in [HTTP2],
-   Section 5.3.  In this priority scheme, a given element can be
-   designated as dependent upon another element.  This information is
-   expressed in the PRIORITY frame Section 7.2.3 which identifies the
-   element and the dependency.  The elements that can be prioritized
-   are:
+
 
 
 
@@ -785,6 +785,15 @@ Bishop                  Expires November 18, 2019              [Page 14]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+4.3.  Prioritization
+
+   HTTP/3 uses a priority scheme similar to that described in [HTTP2],
+   Section 5.3.  In this priority scheme, a given element can be
+   designated as dependent upon another element.  This information is
+   expressed in the PRIORITY frame Section 7.2.3 which identifies the
+   element and the dependency.  The elements that can be prioritized
+   are:
 
    o  Requests, identified by the ID of the request stream
 
@@ -824,15 +833,6 @@ Internet-Draft                   HTTP/3                         May 2019
    discarded state, leading to disparate views of the prioritization the
    client had attempted to express.
 
-   In HTTP/3, a number of placeholders are explicitly permitted by the
-   server using the "SETTINGS_NUM_PLACEHOLDERS" setting.  Because the
-   server commits to maintaining these placeholders in the
-   prioritization tree, clients can use them with confidence that the
-   server will not have discarded the state.  Clients MUST NOT send the
-   "SETTINGS_NUM_PLACEHOLDERS" setting; receipt of this setting by a
-   server MUST be treated as a connection error of type
-   "HTTP_WRONG_SETTING_DIRECTION".
-
 
 
 
@@ -841,6 +841,15 @@ Bishop                  Expires November 18, 2019              [Page 15]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   In HTTP/3, a number of placeholders are explicitly permitted by the
+   server using the "SETTINGS_NUM_PLACEHOLDERS" setting.  Because the
+   server commits to maintaining these placeholders in the
+   prioritization tree, clients can use them with confidence that the
+   server will not have discarded the state.  Clients MUST NOT send the
+   "SETTINGS_NUM_PLACEHOLDERS" setting; receipt of this setting by a
+   server MUST be treated as a connection error of type
+   "HTTP_WRONG_SETTING_DIRECTION".
 
    Placeholders are identified by an ID between zero and one less than
    the number of placeholders the server has permitted.
@@ -881,15 +890,6 @@ Internet-Draft                   HTTP/3                         May 2019
 
                 Figure 1: Example of Priority Tree Pruning
 
-   In the example in Figure 1, "P" represents a Placeholder, "A"
-   represents an active node, and "I" represents an inactive node.  In
-   the first step, the server discards two inactive branches (each a
-   single node).  In the second step, the server condenses an interior
-   inactive node.  Note that these transformations will result in no
-   change in the resources allocated to a particular active stream.
-
-
-
 
 
 
@@ -897,6 +897,13 @@ Bishop                  Expires November 18, 2019              [Page 16]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   In the example in Figure 1, "P" represents a Placeholder, "A"
+   represents an active node, and "I" represents an inactive node.  In
+   the first step, the server discards two inactive branches (each a
+   single node).  In the second step, the server condenses an interior
+   inactive node.  Note that these transformations will result in no
+   change in the resources allocated to a particular active stream.
 
    Clients SHOULD assume the server is actively performing such pruning
    and SHOULD NOT declare a dependency on a stream it knows to have been
@@ -939,13 +946,6 @@ Internet-Draft                   HTTP/3                         May 2019
    parts of the response is important.  The server SHOULD send
    PUSH_PROMISE or DUPLICATE_PUSH frames prior to sending HEADERS or
    DATA frames that reference the promised responses.  This reduces the
-   chance that a client requests a resource that will be pushed by the
-   server.
-
-   When a server later fulfills a promise, the server push response is
-   conveyed on a push stream (see Section 6.2.2).  The push stream
-   identifies the Push ID of the promise that it fulfills, then contains
-
 
 
 
@@ -954,6 +954,12 @@ Bishop                  Expires November 18, 2019              [Page 17]
 Internet-Draft                   HTTP/3                         May 2019
 
 
+   chance that a client requests a resource that will be pushed by the
+   server.
+
+   When a server later fulfills a promise, the server push response is
+   conveyed on a push stream (see Section 6.2.2).  The push stream
+   identifies the Push ID of the promise that it fulfills, then contains
    a response to the promised request using the same format described
    for responses in Section 4.1.
 
@@ -996,12 +1002,6 @@ Internet-Draft                   HTTP/3                         May 2019
    than the server's advertised idle timeout, and SHOULD do so if
    approaching the idle timeout.
 
-   HTTP clients are expected to request that the transport keep
-   connections open while there are responses outstanding for requests
-   or server pushes, as described in Section 19.2 of [QUIC-TRANSPORT].
-   If the client is not expecting a response from the server, allowing
-   an idle connection to time out is preferred over expending effort
-   maintaining a connection that might not be needed.  A gateway MAY
 
 
 
@@ -1010,6 +1010,12 @@ Bishop                  Expires November 18, 2019              [Page 18]
 Internet-Draft                   HTTP/3                         May 2019
 
 
+   HTTP clients are expected to request that the transport keep
+   connections open while there are responses outstanding for requests
+   or server pushes, as described in Section 19.2 of [QUIC-TRANSPORT].
+   If the client is not expecting a response from the server, allowing
+   an idle connection to time out is preferred over expending effort
+   maintaining a connection that might not be needed.  A gateway MAY
    maintain connections in anticipation of need rather than incur the
    latency cost of connection establishment to servers.  Servers SHOULD
    NOT actively keep connections open.
@@ -1051,13 +1057,7 @@ Internet-Draft                   HTTP/3                         May 2019
    connection terminates.  Servers MAY reject individual requests on
    streams below the indicated ID if these requests were not processed.
 
-   Servers SHOULD send a GOAWAY frame when the closing of a connection
-   is known in advance, even if the advance notice is small, so that the
-   remote peer can know whether a request has been partially processed
-   or not.  For example, if an HTTP client sends a POST at the same time
-   that a server closes a QUIC connection, the client cannot know if the
-   server started to process that POST request if the server does not
-   send a GOAWAY frame to indicate what streams it might have acted on.
+
 
 
 
@@ -1065,6 +1065,14 @@ Bishop                  Expires November 18, 2019              [Page 19]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   Servers SHOULD send a GOAWAY frame when the closing of a connection
+   is known in advance, even if the advance notice is small, so that the
+   remote peer can know whether a request has been partially processed
+   or not.  For example, if an HTTP client sends a POST at the same time
+   that a server closes a QUIC connection, the client cannot know if the
+   server started to process that POST request if the server does not
+   send a GOAWAY frame to indicate what streams it might have acted on.
 
    A client that is unable to retry requests loses all requests that are
    in flight when the server closes the connection.  A server MAY send
@@ -1103,6 +1111,17 @@ Internet-Draft                   HTTP/3                         May 2019
    same packet as the QUIC CONNECTION_CLOSE frame improves the chances
    of the frame being received by clients.
 
+
+
+
+
+
+
+Bishop                  Expires November 18, 2019              [Page 20]
+
+Internet-Draft                   HTTP/3                         May 2019
+
+
 5.4.  Transport Closure
 
    For various reasons, the QUIC transport could indicate to the
@@ -1113,14 +1132,6 @@ Internet-Draft                   HTTP/3                         May 2019
    If a connection terminates without a GOAWAY frame, clients MUST
    assume that any request which was sent, whether in whole or in part,
    might have been processed.
-
-
-
-
-Bishop                  Expires November 18, 2019              [Page 20]
-
-Internet-Draft                   HTTP/3                         May 2019
-
 
 6.  Stream Mapping and Usage
 
@@ -1159,17 +1170,6 @@ Internet-Draft                   HTTP/3                         May 2019
 
    These streams carry frames related to the request/response (see
    Section 4.1).  When a stream terminates cleanly, if the last frame on
-   the stream was truncated, this MUST be treated as a connection error
-   (see HTTP_MALFORMED_FRAME in Section 8.1).  Streams which terminate
-   abruptly may be reset at any point in the frame.
-
-   HTTP/3 does not use server-initiated bidirectional streams; clients
-   MUST omit or specify a value of zero for the QUIC transport parameter
-   "initial_max_bidi_streams".
-
-
-
-
 
 
 
@@ -1177,6 +1177,14 @@ Bishop                  Expires November 18, 2019              [Page 21]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   the stream was truncated, this MUST be treated as a connection error
+   (see HTTP_MALFORMED_FRAME in Section 8.1).  Streams which terminate
+   abruptly may be reset at any point in the frame.
+
+   HTTP/3 does not use server-initiated bidirectional streams; clients
+   MUST omit or specify a value of zero for the QUIC transport parameter
+   "initial_max_bidi_streams".
 
 6.2.  Unidirectional Streams
 
@@ -1217,14 +1225,6 @@ Internet-Draft                   HTTP/3                         May 2019
    by the recipient, the remainder of the stream cannot be consumed as
    the semantics are unknown.  Recipients of unknown stream types MAY
    trigger a QUIC STOP_SENDING frame with an error code of
-   HTTP_UNKNOWN_STREAM_TYPE, but MUST NOT consider such streams to be a
-   connection error of any kind.
-
-   Implementations MAY send stream types before knowing whether the peer
-   supports them.  However, stream types which could modify the state or
-   semantics of existing protocol components, including QPACK or other
-   extensions, MUST NOT be sent until the peer is known to support them.
-
 
 
 
@@ -1233,6 +1233,14 @@ Bishop                  Expires November 18, 2019              [Page 22]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   HTTP_UNKNOWN_STREAM_TYPE, but MUST NOT consider such streams to be a
+   connection error of any kind.
+
+   Implementations MAY send stream types before knowing whether the peer
+   supports them.  However, stream types which could modify the state or
+   semantics of existing protocol components, including QPACK or other
+   extensions, MUST NOT be sent until the peer is known to support them.
 
    A sender can close or reset a unidirectional stream unless otherwise
    specified.  A receiver MUST tolerate unidirectional streams being
@@ -1275,20 +1283,16 @@ Internet-Draft                   HTTP/3                         May 2019
    frames, as defined in Section 7.2, and fulfills a promised server
    push.  Server push and Push IDs are described in Section 4.4.
 
-   Only servers can push; if a server receives a client-initiated push
-   stream, this MUST be treated as a connection error of type
-   HTTP_WRONG_STREAM_DIRECTION.
-
-
-
-
-
 
 
 Bishop                  Expires November 18, 2019              [Page 23]
 
 Internet-Draft                   HTTP/3                         May 2019
 
+
+   Only servers can push; if a server receives a client-initiated push
+   stream, this MUST be treated as a connection error of type
+   HTTP_WRONG_STREAM_DIRECTION.
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1325,10 +1329,6 @@ Internet-Draft                   HTTP/3                         May 2019
    streams types on which they are permitted; see Table 1 for an
    overiew.  A comparison between HTTP/2 and HTTP/3 frames is provided
    in Appendix A.2.
-
-
-
-
 
 
 
