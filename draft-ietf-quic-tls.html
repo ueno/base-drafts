@@ -945,12 +945,18 @@ server_initial_secret = HKDF-Expand-Label(initial_secret,
 <p id="rfc.section.5.3.p.1">The Authentication Encryption with Associated Data (AEAD) <a href="#AEAD" class="xref">[AEAD]</a> function used for QUIC packet protection is the AEAD that is negotiated for use with the TLS connection.  For example, if TLS is using the TLS_AES_128_GCM_SHA256, the AEAD_AES_128_GCM function is used.</p>
 <p id="rfc.section.5.3.p.2">Packets are protected prior to applying header protection (<a href="#header-protect" class="xref">Section 5.4</a>).  The unprotected packet header is part of the associated data (A).  When removing packet protection, an endpoint first removes the header protection.</p>
 <p id="rfc.section.5.3.p.3">All QUIC packets other than Version Negotiation and Retry packets are protected with an AEAD algorithm <a href="#AEAD" class="xref">[AEAD]</a>. Prior to establishing a shared secret, packets are protected with AEAD_AES_128_GCM and a key derived from the Destination Connection ID in the client&#8217;s first Initial packet (see <a href="#initial-secrets" class="xref">Section 5.2</a>).  This provides protection against off-path attackers and robustness against QUIC version unaware middleboxes, but not against on-path attackers.</p>
-<p id="rfc.section.5.3.p.4">QUIC can use any of the ciphersuites defined in <a href="#TLS13" class="xref">[TLS13]</a> with the exception of TLS_AES_128_CCM_8_SHA256.  The AEAD for that ciphersuite, AEAD_AES_128_CCM_8 <a href="#CCM" class="xref">[CCM]</a>, does not produce a large enough authentication tag for use with the header protection designs provided (see <a href="#header-protect" class="xref">Section 5.4</a>).  All other ciphersuites defined in <a href="#TLS13" class="xref">[TLS13]</a> have a 16-byte authentication tag and produce an output 16 bytes larger than their input.</p>
-<p id="rfc.section.5.3.p.5">The key and IV for the packet are computed as described in <a href="#protection-keys" class="xref">Section 5.1</a>.  The nonce, N, is formed by combining the packet protection IV with the packet number.  The 62 bits of the reconstructed QUIC packet number in network byte order are left-padded with zeros to the size of the IV.  The exclusive OR of the padded packet number and the IV forms the AEAD nonce.</p>
-<p id="rfc.section.5.3.p.6">The associated data, A, for the AEAD is the contents of the QUIC header, starting from the flags byte in either the short or long header, up to and including the unprotected packet number.</p>
-<p id="rfc.section.5.3.p.7">The input plaintext, P, for the AEAD is the payload of the QUIC packet, as described in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.</p>
-<p id="rfc.section.5.3.p.8">The output ciphertext, C, of the AEAD is transmitted in place of P.</p>
-<p id="rfc.section.5.3.p.9">Some AEAD functions have limits for how many packets can be encrypted under the same key and IV (see for example <a href="#AEBounds" class="xref">[AEBounds]</a>).  This might be lower than the packet number limit.  An endpoint MUST initiate a key update (<a href="#key-update" class="xref">Section 6</a>) prior to exceeding any limit set for the AEAD that is in use.</p>
+<p id="rfc.section.5.3.p.4">QUIC can use any of the ciphersuites defined in <a href="#TLS13" class="xref">[TLS13]</a> with the exception of TLS_AES_128_CCM_8_SHA256.  A ciphersuite MUST NOT be negotiated unless a header protection scheme is defined for the ciphersuite.  This document defines a header protection scheme for all ciphersuites defined in <a href="#TLS13" class="xref">[TLS13]</a> aside from TLS_AES_128_CCM_8_SHA256.  These ciphersuites have a 16-byte authentication tag and produce an output 16 bytes larger than their input.</p>
+<p></p>
+
+<dl>
+<dt>Note:</dt>
+<dd style="margin-left: 8">An endpoint MUST NOT reject a ClientHello that offers a ciphersuite that it does not support, or it would be impossible to deploy a new ciphersuite.  This also applies to TLS_AES_128_CCM_8_SHA256.</dd>
+</dl>
+<p id="rfc.section.5.3.p.6">The key and IV for the packet are computed as described in <a href="#protection-keys" class="xref">Section 5.1</a>.  The nonce, N, is formed by combining the packet protection IV with the packet number.  The 62 bits of the reconstructed QUIC packet number in network byte order are left-padded with zeros to the size of the IV.  The exclusive OR of the padded packet number and the IV forms the AEAD nonce.</p>
+<p id="rfc.section.5.3.p.7">The associated data, A, for the AEAD is the contents of the QUIC header, starting from the flags byte in either the short or long header, up to and including the unprotected packet number.</p>
+<p id="rfc.section.5.3.p.8">The input plaintext, P, for the AEAD is the payload of the QUIC packet, as described in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.</p>
+<p id="rfc.section.5.3.p.9">The output ciphertext, C, of the AEAD is transmitted in place of P.</p>
+<p id="rfc.section.5.3.p.10">Some AEAD functions have limits for how many packets can be encrypted under the same key and IV (see for example <a href="#AEBounds" class="xref">[AEBounds]</a>).  This might be lower than the packet number limit.  An endpoint MUST initiate a key update (<a href="#key-update" class="xref">Section 6</a>) prior to exceeding any limit set for the AEAD that is in use.</p>
 <h2 id="rfc.section.5.4">
 <a href="#rfc.section.5.4">5.4.</a> <a href="#header-protect" id="header-protect">Header Protection</a>
 </h2>
@@ -1018,7 +1024,7 @@ Common Fields:
 <p id="rfc.section.5.4.2.p.1">The header protection algorithm uses both the header protection key and a sample of the ciphertext from the packet Payload field.</p>
 <p id="rfc.section.5.4.2.p.2">The same number of bytes are always sampled, but an allowance needs to be made for the endpoint removing protection, which will not know the length of the Packet Number field.  In sampling the packet ciphertext, the Packet Number field is assumed to be 4 bytes long (its maximum possible encoded length).</p>
 <p id="rfc.section.5.4.2.p.3">An endpoint MUST discard packets that are not long enough to contain a complete sample.</p>
-<p id="rfc.section.5.4.2.p.4">To ensure that sufficient data is available for sampling, packets are padded so that the combined lengths of the encoded packet number and protected payload is at least 4 bytes longer than the sample required for header protection.  For the AEAD functions defined in <a href="#TLS13" class="xref">[TLS13]</a>, which have 16-byte expansions and 16-byte header protection samples, this results in needing at least 3 bytes of frames in the unprotected payload if the packet number is encoded on a single byte, or 2 bytes of frames for a 2-byte packet number encoding.</p>
+<p id="rfc.section.5.4.2.p.4">To ensure that sufficient data is available for sampling, packets are padded so that the combined lengths of the encoded packet number and protected payload is at least 4 bytes longer than the sample required for header protection.  The ciphersuites defined in <a href="#TLS13" class="xref">[TLS13]</a> - other than TLS_AES_128_CCM_8_SHA256, for which a header protection scheme is not defined in this document - have 16-byte expansions and 16-byte header protection samples.  This results in needing at least 3 bytes of frames in the unprotected payload if the packet number is encoded on a single byte, or 2 bytes of frames for a 2-byte packet number encoding.</p>
 <p id="rfc.section.5.4.2.p.5">The sampled ciphertext for a packet with a short header can be determined by the following pseudocode:</p>
 <pre>
 sample_offset = 1 + len(connection_id) + 4
@@ -1278,11 +1284,6 @@ protected_field = field XOR PRF(hp_key, sample)
 <td class="reference"><b id="AEBounds">[AEBounds]</b></td>
 <td class="top">
 <a>Luykx, A.</a> and <a>K. Paterson</a>, "<a href="http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf">Limits on Authenticated Encryption Use in TLS</a>", March 2016.</td>
-</tr>
-<tr>
-<td class="reference"><b id="CCM">[CCM]</b></td>
-<td class="top">
-<a>McGrew, D.</a> and <a>D. Bailey</a>, "<a href="https://tools.ietf.org/html/rfc6655">AES-CCM Cipher Suites for Transport Layer Security (TLS)</a>", RFC 6655, DOI 10.17487/RFC6655, July 2012.</td>
 </tr>
 <tr>
 <td class="reference"><b id="IMC">[IMC]</b></td>
