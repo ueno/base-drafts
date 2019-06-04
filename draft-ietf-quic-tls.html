@@ -288,9 +288,11 @@ ul.toc li {
 <link href="#rfc.section.3" rel="Chapter" title="3 Protocol Overview">
 <link href="#rfc.section.4" rel="Chapter" title="4 Carrying TLS Messages">
 <link href="#rfc.section.4.1" rel="Chapter" title="4.1 Interface to TLS">
-<link href="#rfc.section.4.1.1" rel="Chapter" title="4.1.1 Sending and Receiving Handshake Messages">
-<link href="#rfc.section.4.1.2" rel="Chapter" title="4.1.2 Encryption Level Changes">
-<link href="#rfc.section.4.1.3" rel="Chapter" title="4.1.3 TLS Interface Summary">
+<link href="#rfc.section.4.1.1" rel="Chapter" title="4.1.1 Handshake Complete">
+<link href="#rfc.section.4.1.2" rel="Chapter" title="4.1.2 Handshake Confirmed">
+<link href="#rfc.section.4.1.3" rel="Chapter" title="4.1.3 Sending and Receiving Handshake Messages">
+<link href="#rfc.section.4.1.4" rel="Chapter" title="4.1.4 Encryption Level Changes">
+<link href="#rfc.section.4.1.5" rel="Chapter" title="4.1.5 TLS Interface Summary">
 <link href="#rfc.section.4.2" rel="Chapter" title="4.2 TLS Version">
 <link href="#rfc.section.4.3" rel="Chapter" title="4.3 ClientHello Size">
 <link href="#rfc.section.4.4" rel="Chapter" title="4.4 Peer Authentication">
@@ -299,7 +301,9 @@ ul.toc li {
 <link href="#rfc.section.4.7" rel="Chapter" title="4.7 HelloRetryRequest">
 <link href="#rfc.section.4.8" rel="Chapter" title="4.8 TLS Errors">
 <link href="#rfc.section.4.9" rel="Chapter" title="4.9 Discarding Unused Keys">
-<link href="#rfc.section.4.10" rel="Chapter" title="4.10 Discarding Initial Keys">
+<link href="#rfc.section.4.9.1" rel="Chapter" title="4.9.1 Discarding Initial Keys">
+<link href="#rfc.section.4.9.2" rel="Chapter" title="4.9.2 Discarding Handshake Keys">
+<link href="#rfc.section.4.9.3" rel="Chapter" title="4.9.3 Discarding 0-RTT Keys">
 <link href="#rfc.section.5" rel="Chapter" title="5 Packet Protection">
 <link href="#rfc.section.5.1" rel="Chapter" title="5.1 Packet Protection Keys">
 <link href="#rfc.section.5.2" rel="Chapter" title="5.2 Initial Secrets">
@@ -430,11 +434,15 @@ ul.toc li {
 </li>
 <ul><li>4.1.   <a href="#rfc.section.4.1">Interface to TLS</a>
 </li>
-<ul><li>4.1.1.   <a href="#rfc.section.4.1.1">Sending and Receiving Handshake Messages</a>
+<ul><li>4.1.1.   <a href="#rfc.section.4.1.1">Handshake Complete</a>
 </li>
-<li>4.1.2.   <a href="#rfc.section.4.1.2">Encryption Level Changes</a>
+<li>4.1.2.   <a href="#rfc.section.4.1.2">Handshake Confirmed</a>
 </li>
-<li>4.1.3.   <a href="#rfc.section.4.1.3">TLS Interface Summary</a>
+<li>4.1.3.   <a href="#rfc.section.4.1.3">Sending and Receiving Handshake Messages</a>
+</li>
+<li>4.1.4.   <a href="#rfc.section.4.1.4">Encryption Level Changes</a>
+</li>
+<li>4.1.5.   <a href="#rfc.section.4.1.5">TLS Interface Summary</a>
 </li>
 </ul><li>4.2.   <a href="#rfc.section.4.2">TLS Version</a>
 </li>
@@ -452,9 +460,13 @@ ul.toc li {
 </li>
 <li>4.9.   <a href="#rfc.section.4.9">Discarding Unused Keys</a>
 </li>
-<li>4.10.   <a href="#rfc.section.4.10">Discarding Initial Keys</a>
+<ul><li>4.9.1.   <a href="#rfc.section.4.9.1">Discarding Initial Keys</a>
 </li>
-</ul><li>5.   <a href="#rfc.section.5">Packet Protection</a>
+<li>4.9.2.   <a href="#rfc.section.4.9.2">Discarding Handshake Keys</a>
+</li>
+<li>4.9.3.   <a href="#rfc.section.4.9.3">Discarding 0-RTT Keys</a>
+</li>
+</ul></ul><li>5.   <a href="#rfc.section.5">Packet Protection</a>
 </li>
 <ul><li>5.1.   <a href="#rfc.section.5.1">Packet Protection Keys</a>
 </li>
@@ -760,14 +772,22 @@ ul.toc li {
 </ul>
 <p id="rfc.section.4.1.p.3">Additional functions might be needed to configure TLS.</p>
 <h3 id="rfc.section.4.1.1">
-<a href="#rfc.section.4.1.1">4.1.1.</a> <a href="#sending-and-receiving-handshake-messages" id="sending-and-receiving-handshake-messages">Sending and Receiving Handshake Messages</a>
+<a href="#rfc.section.4.1.1">4.1.1.</a> <a href="#handshake-complete" id="handshake-complete">Handshake Complete</a>
 </h3>
-<p id="rfc.section.4.1.1.p.1">In order to drive the handshake, TLS depends on being able to send and receive handshake messages. There are two basic functions on this interface: one where QUIC requests handshake messages and one where QUIC provides handshake packets.</p>
-<p id="rfc.section.4.1.1.p.2">Before starting the handshake QUIC provides TLS with the transport parameters (see <a href="#quic_parameters" class="xref">Section 8.2</a>) that it wishes to carry.</p>
-<p id="rfc.section.4.1.1.p.3">A QUIC client starts TLS by requesting TLS handshake bytes from TLS.  The client acquires handshake bytes before sending its first packet.  A QUIC server starts the process by providing TLS with the client&#8217;s handshake bytes.</p>
-<p id="rfc.section.4.1.1.p.4">At any given time, the TLS stack at an endpoint will have a current sending encryption level and receiving encryption level. Each encryption level is associated with a different flow of bytes, which is reliably transmitted to the peer in CRYPTO frames. When TLS provides handshake bytes to be sent, they are appended to the current flow and any packet that includes the CRYPTO frame is protected using keys from the corresponding encryption level.</p>
-<p id="rfc.section.4.1.1.p.5">QUIC takes the unprotected content of TLS handshake records as the content of CRYPTO frames. TLS record protection is not used by QUIC. QUIC assembles CRYPTO frames into QUIC packets, which are protected using QUIC packet protection.</p>
-<p id="rfc.section.4.1.1.p.6">When an endpoint receives a QUIC packet containing a CRYPTO frame from the network, it proceeds as follows:</p>
+<p id="rfc.section.4.1.1.p.1">In this document, the TLS handshake is considered complete when the TLS stack has reported that the handshake is complete.  This happens when the TLS stack has both sent a Finished message and verified the peer&#8217;s Finished message.  Verifying the peer&#8217;s Finished provides the endpoints with an assurance that previous handshake messages have not been modified.  Note that the handshake does not complete at both endpoints simultaneously.  Consequently, any requirement that is based on the completion of the handshake depends on the perspective of the endpoint in question.</p>
+<h3 id="rfc.section.4.1.2">
+<a href="#rfc.section.4.1.2">4.1.2.</a> <a href="#handshake-confirmed" id="handshake-confirmed">Handshake Confirmed</a>
+</h3>
+<p id="rfc.section.4.1.2.p.1">In this document, the TLS handshake is considered confirmed at an endpoint when the following two conditions are met: the handshake is complete, and the endpoint has received an acknowledgment for a packet sent with 1-RTT keys.  This second condition can be implemented by recording the lowest packet number sent with 1-RTT keys, and the highest value of the Largest Acknowledged field in any received 1-RTT ACK frame: once the latter is higher than or equal to the former, the handshake is confirmed.</p>
+<h3 id="rfc.section.4.1.3">
+<a href="#rfc.section.4.1.3">4.1.3.</a> <a href="#sending-and-receiving-handshake-messages" id="sending-and-receiving-handshake-messages">Sending and Receiving Handshake Messages</a>
+</h3>
+<p id="rfc.section.4.1.3.p.1">In order to drive the handshake, TLS depends on being able to send and receive handshake messages. There are two basic functions on this interface: one where QUIC requests handshake messages and one where QUIC provides handshake packets.</p>
+<p id="rfc.section.4.1.3.p.2">Before starting the handshake QUIC provides TLS with the transport parameters (see <a href="#quic_parameters" class="xref">Section 8.2</a>) that it wishes to carry.</p>
+<p id="rfc.section.4.1.3.p.3">A QUIC client starts TLS by requesting TLS handshake bytes from TLS.  The client acquires handshake bytes before sending its first packet.  A QUIC server starts the process by providing TLS with the client&#8217;s handshake bytes.</p>
+<p id="rfc.section.4.1.3.p.4">At any given time, the TLS stack at an endpoint will have a current sending encryption level and receiving encryption level. Each encryption level is associated with a different flow of bytes, which is reliably transmitted to the peer in CRYPTO frames. When TLS provides handshake bytes to be sent, they are appended to the current flow and any packet that includes the CRYPTO frame is protected using keys from the corresponding encryption level.</p>
+<p id="rfc.section.4.1.3.p.5">QUIC takes the unprotected content of TLS handshake records as the content of CRYPTO frames. TLS record protection is not used by QUIC. QUIC assembles CRYPTO frames into QUIC packets, which are protected using QUIC packet protection.</p>
+<p id="rfc.section.4.1.3.p.6">When an endpoint receives a QUIC packet containing a CRYPTO frame from the network, it proceeds as follows:</p>
 <p></p>
 
 <ul>
@@ -775,23 +795,15 @@ ul.toc li {
 <li>If the packet is from a previously installed encryption level, it MUST not contain data which extends past the end of previously received data in that flow. Implementations MUST treat any violations of this requirement as a connection error of type PROTOCOL_VIOLATION.</li>
 <li>If the packet is from a new encryption level, it is saved for later processing by TLS.  Once TLS moves to receiving from this encryption level, saved data can be provided.  When providing data from any new encryption level to TLS, if there is data from a previous encryption level that TLS has not consumed, this MUST be treated as a connection error of type PROTOCOL_VIOLATION.</li>
 </ul>
-<p id="rfc.section.4.1.1.p.8">Each time that TLS is provided with new data, new handshake bytes are requested from TLS.  TLS might not provide any bytes if the handshake messages it has received are incomplete or it has no data to send.</p>
-<p id="rfc.section.4.1.1.p.9">Once the TLS handshake is complete, this is indicated to QUIC along with any final handshake bytes that TLS needs to send.  TLS also provides QUIC with the transport parameters that the peer advertised during the handshake.</p>
-<p id="rfc.section.4.1.1.p.10">Once the handshake is complete, TLS becomes passive.  TLS can still receive data from its peer and respond in kind, but it will not need to send more data unless specifically requested - either by an application or QUIC.  One reason to send data is that the server might wish to provide additional or updated session tickets to a client.</p>
-<p id="rfc.section.4.1.1.p.11">When the handshake is complete, QUIC only needs to provide TLS with any data that arrives in CRYPTO streams.  In the same way that is done during the handshake, new data is requested from TLS after providing received data.</p>
-<p></p>
-
-<dl>
-<dt>Important:</dt>
-<dd style="margin-left: 8">Until the handshake is reported as complete, the connection and key exchange are not properly authenticated at the server.  Even though 1-RTT keys are available to a server after receiving the first handshake messages from a client, the server cannot consider the client to be authenticated until it receives and validates the client&#8217;s Finished message.  A server MUST NOT process 1-RTT packets until the handshake is complete.  A server MAY buffer or discard 1-RTT packets that it cannot read.</dd>
-<dt></dt>
-<dd style="margin-left: 8">The requirement for the server to wait for the client Finished message creates a dependency on that message being delivered.  A client can avoid the potential for head-of-line blocking that this implies by sending a copy of the CRYPTO frame that carries the Finished message in multiple packets.  This enables immediate server processing for those packets.</dd>
-</dl>
-<h3 id="rfc.section.4.1.2">
-<a href="#rfc.section.4.1.2">4.1.2.</a> <a href="#encryption-level-changes" id="encryption-level-changes">Encryption Level Changes</a>
+<p id="rfc.section.4.1.3.p.8">Each time that TLS is provided with new data, new handshake bytes are requested from TLS.  TLS might not provide any bytes if the handshake messages it has received are incomplete or it has no data to send.</p>
+<p id="rfc.section.4.1.3.p.9">Once the TLS handshake is complete, this is indicated to QUIC along with any final handshake bytes that TLS needs to send.  TLS also provides QUIC with the transport parameters that the peer advertised during the handshake.</p>
+<p id="rfc.section.4.1.3.p.10">Once the handshake is complete, TLS becomes passive.  TLS can still receive data from its peer and respond in kind, but it will not need to send more data unless specifically requested - either by an application or QUIC.  One reason to send data is that the server might wish to provide additional or updated session tickets to a client.</p>
+<p id="rfc.section.4.1.3.p.11">When the handshake is complete, QUIC only needs to provide TLS with any data that arrives in CRYPTO streams.  In the same way that is done during the handshake, new data is requested from TLS after providing received data.</p>
+<h3 id="rfc.section.4.1.4">
+<a href="#rfc.section.4.1.4">4.1.4.</a> <a href="#encryption-level-changes" id="encryption-level-changes">Encryption Level Changes</a>
 </h3>
-<p id="rfc.section.4.1.2.p.1">As keys for new encryption levels become available, TLS provides QUIC with those keys.  Separately, as TLS starts using keys at a given encryption level, TLS indicates to QUIC that it is now reading or writing with keys at that encryption level.  These events are not asynchronous; they always occur immediately after TLS is provided with new handshake bytes, or after TLS produces handshake bytes.</p>
-<p id="rfc.section.4.1.2.p.2">TLS provides QUIC with three items as a new encryption level becomes available:</p>
+<p id="rfc.section.4.1.4.p.1">As keys for new encryption levels become available, TLS provides QUIC with those keys.  Separately, as TLS starts using keys at a given encryption level, TLS indicates to QUIC that it is now reading or writing with keys at that encryption level.  These events are not asynchronous; they always occur immediately after TLS is provided with new handshake bytes, or after TLS produces handshake bytes.</p>
+<p id="rfc.section.4.1.4.p.2">TLS provides QUIC with three items as a new encryption level becomes available:</p>
 <p></p>
 
 <ul>
@@ -799,12 +811,12 @@ ul.toc li {
 <li>An Authenticated Encryption with Associated Data (AEAD) function</li>
 <li>A Key Derivation Function (KDF)</li>
 </ul>
-<p id="rfc.section.4.1.2.p.4">These values are based on the values that TLS negotiates and are used by QUIC to generate packet and header protection keys (see <a href="#packet-protection" class="xref">Section 5</a> and <a href="#header-protect" class="xref">Section 5.4</a>).</p>
-<p id="rfc.section.4.1.2.p.5">If 0-RTT is possible, it is ready after the client sends a TLS ClientHello message or the server receives that message.  After providing a QUIC client with the first handshake bytes, the TLS stack might signal the change to 0-RTT keys. On the server, after receiving handshake bytes that contain a ClientHello message, a TLS server might signal that 0-RTT keys are available.</p>
-<p id="rfc.section.4.1.2.p.6">Although TLS only uses one encryption level at a time, QUIC may use more than one level. For instance, after sending its Finished message (using a CRYPTO frame at the Handshake encryption level) an endpoint can send STREAM data (in 1-RTT encryption). If the Finished message is lost, the endpoint uses the Handshake encryption level to retransmit the lost message.  Reordering or loss of packets can mean that QUIC will need to handle packets at multiple encryption levels.  During the handshake, this means potentially handling packets at higher and lower encryption levels than the current encryption level used by TLS.</p>
-<p id="rfc.section.4.1.2.p.7">In particular, server implementations need to be able to read packets at the Handshake encryption level at the same time as the 0-RTT encryption level.  A client could interleave ACK frames that are protected with Handshake keys with 0-RTT data and the server needs to process those acknowledgments in order to detect lost Handshake packets.</p>
-<h3 id="rfc.section.4.1.3">
-<a href="#rfc.section.4.1.3">4.1.3.</a> <a href="#tls-interface-summary" id="tls-interface-summary">TLS Interface Summary</a>
+<p id="rfc.section.4.1.4.p.4">These values are based on the values that TLS negotiates and are used by QUIC to generate packet and header protection keys (see <a href="#packet-protection" class="xref">Section 5</a> and <a href="#header-protect" class="xref">Section 5.4</a>).</p>
+<p id="rfc.section.4.1.4.p.5">If 0-RTT is possible, it is ready after the client sends a TLS ClientHello message or the server receives that message.  After providing a QUIC client with the first handshake bytes, the TLS stack might signal the change to 0-RTT keys. On the server, after receiving handshake bytes that contain a ClientHello message, a TLS server might signal that 0-RTT keys are available.</p>
+<p id="rfc.section.4.1.4.p.6">Although TLS only uses one encryption level at a time, QUIC may use more than one level. For instance, after sending its Finished message (using a CRYPTO frame at the Handshake encryption level) an endpoint can send STREAM data (in 1-RTT encryption). If the Finished message is lost, the endpoint uses the Handshake encryption level to retransmit the lost message.  Reordering or loss of packets can mean that QUIC will need to handle packets at multiple encryption levels.  During the handshake, this means potentially handling packets at higher and lower encryption levels than the current encryption level used by TLS.</p>
+<p id="rfc.section.4.1.4.p.7">In particular, server implementations need to be able to read packets at the Handshake encryption level at the same time as the 0-RTT encryption level.  A client could interleave ACK frames that are protected with Handshake keys with 0-RTT data and the server needs to process those acknowledgments in order to detect lost Handshake packets.</p>
+<h3 id="rfc.section.4.1.5">
+<a href="#rfc.section.4.1.5">4.1.5.</a> <a href="#tls-interface-summary" id="tls-interface-summary">TLS Interface Summary</a>
 </h3>
 <p><a href="#exchange-summary" class="xref">Figure 3</a> summarizes the exchange between QUIC and TLS for both client and server. Each arrow is tagged with the encryption level used for that transmission.</p>
 <div id="rfc.figure.3"></div>
@@ -887,19 +899,26 @@ Handshake Received
 <h2 id="rfc.section.4.9">
 <a href="#rfc.section.4.9">4.9.</a> <a href="#discarding-unused-keys" id="discarding-unused-keys">Discarding Unused Keys</a>
 </h2>
-<p id="rfc.section.4.9.p.1">After QUIC moves to a new encryption level, packet protection keys for previous encryption levels can be discarded.  This occurs several times during the handshake, as well as when keys are updated (see <a href="#key-update" class="xref">Section 6</a>).  Initial packet protection keys are treated specially; see <a href="#discard-initial" class="xref">Section 4.10</a>.</p>
+<p id="rfc.section.4.9.p.1">After QUIC moves to a new encryption level, packet protection keys for previous encryption levels can be discarded.  This occurs several times during the handshake, as well as when keys are updated; see <a href="#key-update" class="xref">Section 6</a>.</p>
 <p id="rfc.section.4.9.p.2">Packet protection keys are not discarded immediately when new keys are available.  If packets from a lower encryption level contain CRYPTO frames, frames that retransmit that data MUST be sent at the same encryption level.  Similarly, an endpoint generates acknowledgements for packets at the same encryption level as the packet being acknowledged.  Thus, it is possible that keys for a lower encryption level are needed for a short time after keys for a newer encryption level are available.</p>
 <p id="rfc.section.4.9.p.3">An endpoint cannot discard keys for a given encryption level unless it has both received and acknowledged all CRYPTO frames for that encryption level and when all CRYPTO frames for that encryption level have been acknowledged by its peer.  However, this does not guarantee that no further packets will need to be received or sent at that encryption level because a peer might not have received all the acknowledgements necessary to reach the same state.</p>
-<p id="rfc.section.4.9.p.4">After all CRYPTO frames for a given encryption level have been sent and all expected CRYPTO frames received, and all the corresponding acknowledgments have been received or sent, an endpoint starts a timer.  For 0-RTT keys, which do not carry CRYPTO frames, this timer starts when the first packets protected with 1-RTT are sent or received.  To limit the effect of packet loss around a change in keys, endpoints MUST retain packet protection keys for that encryption level for at least three times the current Probe Timeout (PTO) interval as defined in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.  Retaining keys for this interval allows packets containing CRYPTO or ACK frames at that encryption level to be sent if packets are determined to be lost or new packets require acknowledgment.</p>
-<p id="rfc.section.4.9.p.5">Though an endpoint might retain older keys, new data MUST be sent at the highest currently-available encryption level.  Only ACK frames and retransmissions of data in CRYPTO frames are sent at a previous encryption level.  These packets MAY also include PADDING frames.</p>
-<p id="rfc.section.4.9.p.6">Once this timer expires, an endpoint MUST NOT either accept or generate new packets using those packet protection keys.  An endpoint can discard packet protection keys for that encryption level.</p>
-<p id="rfc.section.4.9.p.7">Key updates (see <a href="#key-update" class="xref">Section 6</a>) can be used to update 1-RTT keys before keys from other encryption levels are discarded.  In that case, packets protected with the newest packet protection keys and packets sent two updates prior will appear to use the same keys.  After the handshake is complete, endpoints only need to maintain the two latest sets of packet protection keys and MAY discard older keys.  Updating keys multiple times rapidly can cause packets to be effectively lost if packets are significantly delayed.  Because key updates can only be performed once per round trip time, only packets that are delayed by more than a round trip will be lost as a result of changing keys; such packets will be marked as lost before this, as they leave a gap in the sequence of packet numbers.</p>
-<h2 id="rfc.section.4.10">
-<a href="#rfc.section.4.10">4.10.</a> <a href="#discard-initial" id="discard-initial">Discarding Initial Keys</a>
-</h2>
-<p id="rfc.section.4.10.p.1">Packets protected with Initial secrets (<a href="#initial-secrets" class="xref">Section 5.2</a>) are not authenticated, meaning that an attacker could spoof packets with the intent to disrupt a connection.  To limit these attacks, Initial packet protection keys can be discarded more aggressively than other keys.</p>
-<p id="rfc.section.4.10.p.2">The successful use of Handshake packets indicates that no more Initial packets need to be exchanged, as these keys can only be produced after receiving all CRYPTO frames from Initial packets.  Thus, a client MUST discard Initial keys when it first sends a Handshake packet and a server MUST discard Initial keys when it first successfully processes a Handshake packet.  Endpoints MUST NOT send Initial packets after this point.</p>
-<p id="rfc.section.4.10.p.3">This results in abandoning loss recovery state for the Initial encryption level and ignoring any outstanding Initial packets.</p>
+<p id="rfc.section.4.9.p.4">Though an endpoint might retain older keys, new data MUST be sent at the highest currently-available encryption level.  Only ACK frames and retransmissions of data in CRYPTO frames are sent at a previous encryption level.  These packets MAY also include PADDING frames.</p>
+<h3 id="rfc.section.4.9.1">
+<a href="#rfc.section.4.9.1">4.9.1.</a> <a href="#discarding-initial-keys" id="discarding-initial-keys">Discarding Initial Keys</a>
+</h3>
+<p id="rfc.section.4.9.1.p.1">Packets protected with Initial secrets (<a href="#initial-secrets" class="xref">Section 5.2</a>) are not authenticated, meaning that an attacker could spoof packets with the intent to disrupt a connection.  To limit these attacks, Initial packet protection keys can be discarded more aggressively than other keys.</p>
+<p id="rfc.section.4.9.1.p.2">The successful use of Handshake packets indicates that no more Initial packets need to be exchanged, as these keys can only be produced after receiving all CRYPTO frames from Initial packets.  Thus, a client MUST discard Initial keys when it first sends a Handshake packet and a server MUST discard Initial keys when it first successfully processes a Handshake packet.  Endpoints MUST NOT send Initial packets after this point.</p>
+<p id="rfc.section.4.9.1.p.3">This results in abandoning loss recovery state for the Initial encryption level and ignoring any outstanding Initial packets.</p>
+<h3 id="rfc.section.4.9.2">
+<a href="#rfc.section.4.9.2">4.9.2.</a> <a href="#discarding-handshake-keys" id="discarding-handshake-keys">Discarding Handshake Keys</a>
+</h3>
+<p id="rfc.section.4.9.2.p.1">An endpoint MUST NOT discard its handshake keys until the TLS handshake is confirmed (<a href="#handshake-confirmed" class="xref">Section 4.1.2</a>).  An endpoint SHOULD discard its handshake keys as soon as it has confirmed the handshake.  Most application protocols will send data after the handshake, resulting in acknowledgements that allow both endpoints to discard their handshake keys promptly.  Endpoints that do not have reason to send immediately after completing the handshake MAY send ack-eliciting frames, such as PING, which will cause the handshake to be confirmed when they are acknowledged.</p>
+<h3 id="rfc.section.4.9.3">
+<a href="#rfc.section.4.9.3">4.9.3.</a> <a href="#discarding-0-rtt-keys" id="discarding-0-rtt-keys">Discarding 0-RTT Keys</a>
+</h3>
+<p id="rfc.section.4.9.3.p.1">0-RTT and 1-RTT packets share the same packet number space, and clients do not send 0-RTT packets after sending a 1-RTT packet (<a href="#using-early-data" class="xref">Section 5.6</a>).</p>
+<p id="rfc.section.4.9.3.p.2">Therefore, a client SHOULD discard 0-RTT keys as soon as it installs 1-RTT keys, since they have no use after that moment.</p>
+<p id="rfc.section.4.9.3.p.3">Additionally, a server MAY discard 0-RTT keys as soon as it receives a 1-RTT packet.  However, due to packet reordering, a 0-RTT packet could arrive after a 1-RTT packet.  Servers MAY temporarily retain 0-RTT keys to allow decrypting reordered packets without requiring their contents to be retransmitted with 1-RTT keys.  After receiving a 1-RTT packet, servers MUST discard 0-RTT keys within a short time; the RECOMMENDED time period is three times the Probe Timeout (PTO, see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).  A server MAY discard 0-RTT keys earlier if it determines that it has received all 0-RTT packets, which can be done by keeping track of missing packet numbers.</p>
 <h1 id="rfc.section.5">
 <a href="#rfc.section.5">5.</a> <a href="#packet-protection" id="packet-protection">Packet Protection</a>
 </h1>
@@ -1074,6 +1093,7 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 <p id="rfc.section.5.6.p.2">A client MUST only use 0-RTT keys to protect data that is idempotent.  A client MAY wish to apply additional restrictions on what data it sends prior to the completion of the TLS handshake.  A client otherwise treats 0-RTT keys as equivalent to 1-RTT keys, except that it MUST NOT send ACKs with 0-RTT keys.</p>
 <p id="rfc.section.5.6.p.3">A client that receives an indication that its 0-RTT data has been accepted by a server can send 0-RTT data until it receives all of the server&#8217;s handshake messages.  A client SHOULD stop sending 0-RTT data if it receives an indication that 0-RTT data has been rejected.</p>
 <p id="rfc.section.5.6.p.4">A server MUST NOT use 0-RTT keys to protect packets; it uses 1-RTT keys to protect acknowledgements of 0-RTT packets.  A client MUST NOT attempt to decrypt 0-RTT packets it receives and instead MUST discard them.</p>
+<p id="rfc.section.5.6.p.5">Once a client has installed 1-RTT keys, it MUST NOT send any more 0-RTT packets.</p>
 <p></p>
 
 <dl>
@@ -1084,20 +1104,30 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 <a href="#rfc.section.5.7">5.7.</a> <a href="#pre-hs-protected" id="pre-hs-protected">Receiving Out-of-Order Protected Frames</a>
 </h2>
 <p id="rfc.section.5.7.p.1">Due to reordering and loss, protected packets might be received by an endpoint before the final TLS handshake messages are received.  A client will be unable to decrypt 1-RTT packets from the server, whereas a server will be able to decrypt 1-RTT packets from the client.</p>
-<p id="rfc.section.5.7.p.2">However, a server MUST NOT process data from incoming 1-RTT protected packets before verifying either the client Finished message or - in the case that the server has chosen to use a pre-shared key - the pre-shared key binder (see Section 4.2.11 of <a href="#TLS13" class="xref">[TLS13]</a>).  Verifying these values provides the server with an assurance that the ClientHello has not been modified.  Packets protected with 1-RTT keys MAY be stored and later decrypted and used once the handshake is complete.</p>
-<p id="rfc.section.5.7.p.3">A server could receive packets protected with 0-RTT keys prior to receiving a TLS ClientHello.  The server MAY retain these packets for later decryption in anticipation of receiving a ClientHello.</p>
+<p id="rfc.section.5.7.p.2">Even though 1-RTT keys are available to a server after receiving the first handshake messages from a client, it is missing assurances on the client state:</p>
+<p></p>
+
+<ul>
+<li>The client is not authenticated, unless the server has chosen to use a pre-shared key and validated the client&#8217;s pre-shared key binder; see Section 4.2.11 of <a href="#TLS13" class="xref">[TLS13]</a>.</li>
+<li>The client has not demonstrated liveness, unless a RETRY packet was used.</li>
+<li>Any received 0-RTT data that the server responds to might be due to a replay attack.</li>
+</ul>
+<p id="rfc.section.5.7.p.4">Therefore, the server&#8217;s use of 1-RTT keys is limited before the handshake is complete.  A server MUST NOT process data from incoming 1-RTT protected packets before the TLS handshake is complete.  Because sending acknowledgments indicates that all frames in a packet have been processed, a server cannot send acknowledgments for 1-RTT packets until the TLS handshake is complete.  Received packets protected with 1-RTT keys MAY be stored and later decrypted and used once the handshake is complete.</p>
+<p id="rfc.section.5.7.p.5">The requirement for the server to wait for the client Finished message creates a dependency on that message being delivered.  A client can avoid the potential for head-of-line blocking that this implies by sending its 1-RTT packets coalesced with a handshake packet containing a copy of the CRYPTO frame that carries the Finished message, until one of the handshake packets is acknowledged.  This enables immediate server processing for those packets.</p>
+<p id="rfc.section.5.7.p.6">A server could receive packets protected with 0-RTT keys prior to receiving a TLS ClientHello.  The server MAY retain these packets for later decryption in anticipation of receiving a ClientHello.</p>
 <h1 id="rfc.section.6">
 <a href="#rfc.section.6">6.</a> <a href="#key-update" id="key-update">Key Update</a>
 </h1>
-<p id="rfc.section.6.p.1">Once the 1-RTT keys are established and the short header is in use, it is possible to update the keys. The KEY_PHASE bit in the short header is used to indicate whether key updates have occurred. The KEY_PHASE bit is initially set to 0 and then inverted with each key update.</p>
+<p id="rfc.section.6.p.1">Once the handshake is confirmed, it is possible to update the keys. The KEY_PHASE bit in the short header is used to indicate whether key updates have occurred. The KEY_PHASE bit is initially set to 0 and then inverted with each key update.</p>
 <p id="rfc.section.6.p.2">The KEY_PHASE bit allows a recipient to detect a change in keying material without necessarily needing to receive the first packet that triggered the change.  An endpoint that notices a changed KEY_PHASE bit can update keys and decrypt the packet that contains the changed bit.</p>
 <p id="rfc.section.6.p.3">This mechanism replaces the TLS KeyUpdate message.  Endpoints MUST NOT send a TLS KeyUpdate message.  Endpoints MUST treat the receipt of a TLS KeyUpdate message as a connection error of type 0x10a, equivalent to a fatal TLS alert of unexpected_message (see <a href="#tls-errors" class="xref">Section 4.8</a>).</p>
-<p id="rfc.section.6.p.4">An endpoint MUST NOT initiate more than one key update at a time.  A new key cannot be used until the endpoint has received and successfully decrypted a packet with a matching KEY_PHASE.</p>
-<p id="rfc.section.6.p.5">A receiving endpoint detects an update when the KEY_PHASE bit does not match what it is expecting.  It creates a new secret (see Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>) and the corresponding read key and IV using the KDF function provided by TLS.  The header protection key is not updated.</p>
-<p id="rfc.section.6.p.6">If the packet can be decrypted and authenticated using the updated key and IV, then the keys the endpoint uses for packet protection are also updated.  The next packet sent by the endpoint will then use the new keys.</p>
-<p id="rfc.section.6.p.7">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends will simply use the new keys.  If an endpoint detects a second update before it has sent any packets with updated keys, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a fatal error and abort the connection.</p>
-<p id="rfc.section.6.p.8">An endpoint SHOULD retain old keys for a period of no more than three times the Probe Timeout (PTO; see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>).  After this period, old keys and their corresponding secrets SHOULD be discarded.  Retaining keys allow endpoints to process packets that were sent with old keys and delayed in the network.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
-<p id="rfc.section.6.p.9">This ensures that once the handshake is complete, packets with the same KEY_PHASE will have the same packet protection keys, unless there are multiple key updates in a short time frame succession and significant packet reordering.</p>
+<p id="rfc.section.6.p.4">An endpoint MUST NOT initiate the first key update until the handshake is confirmed (<a href="#handshake-confirmed" class="xref">Section 4.1.2</a>). An endpoint MUST NOT initiate a subsequent key update until it has received an acknowledgment for a packet sent at the current KEY_PHASE.  This can be implemented by tracking the lowest packet number sent with each KEY_PHASE, and the highest acknowledged packet number in the 1-RTT space: once the latter is higher than or equal to the former, another key update can be initiated.</p>
+<p id="rfc.section.6.p.5">Endpoints MAY limit the number of keys they retain to two sets for removing packet protection and one set for protecting packets.  Older keys can be discarded.  Updating keys multiple times rapidly can cause packets to be effectively lost if packets are significantly reordered.  Therefore, an endpoint SHOULD NOT initiate a key update for some time after it has last updated keys; the RECOMMENDED time period is three times the PTO. This avoids valid reordered packets being dropped by the peer as a result of the peer discarding older keys.</p>
+<p id="rfc.section.6.p.6">A receiving endpoint detects an update when the KEY_PHASE bit does not match what it is expecting.  It creates a new secret (see Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>) and the corresponding read key and IV using the KDF function provided by TLS.  The header protection key is not updated.</p>
+<p id="rfc.section.6.p.7">If the packet can be decrypted and authenticated using the updated key and IV, then the keys the endpoint uses for packet protection are also updated.  The next packet sent by the endpoint MUST then use the new keys.  Once an endpoint has sent a packet encrypted with a given key phase, it MUST NOT send a packet encrypted with an older key phase.</p>
+<p id="rfc.section.6.p.8">An endpoint does not always need to send packets when it detects that its peer has updated keys.  The next packet that it sends will simply use the new keys.  If an endpoint detects a second update before it has sent any packets with updated keys, it indicates that its peer has updated keys twice without awaiting a reciprocal update.  An endpoint MUST treat consecutive key updates as a fatal error and abort the connection.</p>
+<p id="rfc.section.6.p.9">An endpoint SHOULD retain old keys for a period of no more than three times the PTO.  After this period, old keys and their corresponding secrets SHOULD be discarded.  Retaining keys allow endpoints to process packets that were sent with old keys and delayed in the network.  Packets with higher packet numbers always use the updated keys and MUST NOT be decrypted with old keys.</p>
+<p id="rfc.section.6.p.10">This ensures that once the handshake is complete, packets with the same KEY_PHASE will have the same packet protection keys, unless there are multiple key updates in a short time frame succession and significant packet reordering.</p>
 <div id="rfc.figure.6"></div>
 <div id="ex-key-update"></div>
 <pre>
@@ -1113,8 +1143,8 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
                       &lt;--------
 </pre>
 <p class="figure">Figure 6: Key Update</p>
-<p id="rfc.section.6.p.10">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
-<p id="rfc.section.6.p.11">In deciding when to update keys, endpoints MUST NOT exceed the limits for use of specific keys, as described in Section 5.5 of <a href="#TLS13" class="xref">[TLS13]</a>.</p>
+<p id="rfc.section.6.p.11">A packet that triggers a key update could arrive after successfully processing a packet with a higher packet number.  This is only possible if there is a key compromise and an attack, or if the peer is incorrectly reverting to use of old keys.  Because the latter cannot be differentiated from an attack, an endpoint MUST immediately terminate the connection if it detects this condition.</p>
+<p id="rfc.section.6.p.12">In deciding when to update keys, endpoints MUST NOT exceed the limits for use of specific keys, as described in Section 5.5 of <a href="#TLS13" class="xref">[TLS13]</a>.</p>
 <h1 id="rfc.section.7">
 <a href="#rfc.section.7">7.</a> <a href="#security-of-initial-messages" id="security-of-initial-messages">Security of Initial Messages</a>
 </h1>
