@@ -802,7 +802,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <h2 id="rfc.section.4.3">
 <a href="#rfc.section.4.3">4.3.</a> <a href="#priority" id="priority">Prioritization</a>
 </h2>
-<p id="rfc.section.4.3.p.1">HTTP/3 uses a priority scheme similar to that described in <a href="#HTTP2" class="xref">[HTTP2]</a>, Section 5.3. In this priority scheme, a given element can be designated as dependent upon another element. This information is expressed in the PRIORITY frame <a href="#frame-priority" class="xref">Section 7.2.3</a> which identifies the element and the dependency. The elements that can be prioritized are:</p>
+<p id="rfc.section.4.3.p.1">The purpose of prioritization is to allow a client to express how it would prefer the server to allocate resources when managing concurrent streams.  Most importantly, priority can be used to select streams for transmitting frames when there is limited capacity for sending.</p>
+<p id="rfc.section.4.3.p.2">HTTP/3 uses a priority scheme similar to that described in <a href="#RFC7540" class="xref">[RFC7540]</a>, Section 5.3. In this priority scheme, a given element can be designated as dependent upon another element.  Each dependency is assigned a relative weight, a number that is used to determine the relative proportion of available resources that are assigned to streams dependent on the same stream. This information is expressed in the PRIORITY frame <a href="#frame-priority" class="xref">Section 7.2.3</a> which identifies the element and the dependency. The elements that can be prioritized are:</p>
 <p></p>
 
 <ul>
@@ -810,17 +811,19 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <li>Pushes, identified by the Push ID of the promised resource (<a href="#frame-push-promise" class="xref">Section 7.2.6</a>)</li>
 <li>Placeholders, identified by a Placeholder ID</li>
 </ul>
-<p id="rfc.section.4.3.p.3">Taken together, the dependencies across all prioritized elements in a connection form a dependency tree. An element can depend on another element or on the root of the tree. A reference to an element which is no longer in the tree is treated as a reference to the root of the tree. The structure of the dependency tree changes as PRIORITY frames modify the dependency links between prioritized elements.</p>
-<p id="rfc.section.4.3.p.4">Due to reordering between streams, an element can also be prioritized which is not yet in the tree. Such elements are added to the tree with the requested priority.</p>
-<p id="rfc.section.4.3.p.5">When a prioritized element is first created, it has a default initial weight of 16 and a default dependency. Requests and placeholders are dependent on the root of the priority tree; pushes are dependent on the client request on which the PUSH_PROMISE frame was sent.</p>
-<p id="rfc.section.4.3.p.6">Requests may override the default initial values by including a PRIORITY frame (see <a href="#frame-priority" class="xref">Section 7.2.3</a>) at the beginning of the stream. These priorities can be updated by sending a PRIORITY frame on the control stream.</p>
+<p id="rfc.section.4.3.p.4">Taken together, the dependencies across all prioritized elements in a connection form a dependency tree. An element can depend on another element or on the root of the tree.  The tree also contains an orphan placeholder.  This placeholder cannot be reprioritized, and no resources should be allocated to descendants of the orphan placeholder if progress can be made on descendants of the root.  The structure of the dependency tree changes as PRIORITY frames modify the dependency links between other prioritized elements.</p>
+<p id="rfc.section.4.3.p.5">All dependent streams are allocated an integer weight between 1 and 256 (inclusive), derived by adding one to the weight expressed in the PRIORITY frame.</p>
+<p id="rfc.section.4.3.p.6">Streams with the same parent SHOULD be allocated resources proportionally based on their weight.  Thus, if stream B depends on stream A with weight 4, stream C depends on stream A with weight 12, and no progress can be made on stream A, stream B ideally receives one-third of the resources allocated to stream C.</p>
+<p id="rfc.section.4.3.p.7">A reference to an element which is no longer in the tree is treated as a reference to the orphan placeholder. Due to reordering between streams, an element can also be prioritized which is not yet in the tree. Such elements are added to the tree with the requested priority.  If a prioritized element depends on another element which is not yet in the tree, the requested parent is first added to the tree with the default priority.</p>
+<p id="rfc.section.4.3.p.8">When a prioritized element is first created, it has a default initial weight of 16 and a default dependency. Requests and placeholders are dependent on the orphan placeholder; pushes are dependent on the client request on which the PUSH_PROMISE frame was sent.</p>
+<p id="rfc.section.4.3.p.9">Requests may override the default initial values by including a PRIORITY frame (see <a href="#frame-priority" class="xref">Section 7.2.3</a>) at the beginning of the stream. These priorities can be updated by sending a PRIORITY frame on the control stream.</p>
 <h3 id="rfc.section.4.3.1">
 <a href="#rfc.section.4.3.1">4.3.1.</a> <a href="#placeholders" id="placeholders">Placeholders</a>
 </h3>
 <p id="rfc.section.4.3.1.p.1">In HTTP/2, certain implementations used closed or unused streams as placeholders in describing the relative priority of requests.  This created confusion as servers could not reliably identify which elements of the priority tree could be discarded safely. Clients could potentially reference closed streams long after the server had discarded state, leading to disparate views of the prioritization the client had attempted to express.</p>
 <p id="rfc.section.4.3.1.p.2">In HTTP/3, a number of placeholders are explicitly permitted by the server using the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting. Because the server commits to maintaining these placeholders in the prioritization tree, clients can use them with confidence that the server will not have discarded the state. Clients MUST NOT send the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting; receipt of this setting by a server MUST be treated as a connection error of type <samp>HTTP_WRONG_SETTING_DIRECTION</samp>.</p>
-<p id="rfc.section.4.3.1.p.3">Placeholders are identified by an ID between zero and one less than the number of placeholders the server has permitted.</p>
-<p id="rfc.section.4.3.1.p.4">Like streams, placeholders have priority information associated with them.</p>
+<p id="rfc.section.4.3.1.p.3">Client-controlled placeholders are identified by an ID between zero and one less than the number of placeholders the server has permitted.  The orphan placeholder cannot be prioritized or referenced by the client.</p>
+<p id="rfc.section.4.3.1.p.4">Like streams, client-controlled placeholders have priority information associated with them.</p>
 <h3 id="rfc.section.4.3.2">
 <a href="#rfc.section.4.3.2">4.3.2.</a> <a href="#priority-tree-maintenance" id="priority-tree-maintenance">Priority Tree Maintenance</a>
 </h3>
@@ -1882,6 +1885,11 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="reference"><b id="RFC7231">[RFC7231]</b></td>
 <td class="top">
 <a>Fielding, R.</a> and <a>J. Reschke</a>, "<a href="https://tools.ietf.org/html/rfc7231">Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content</a>", RFC 7231, DOI 10.17487/RFC7231, June 2014.</td>
+</tr>
+<tr>
+<td class="reference"><b id="RFC7540">[RFC7540]</b></td>
+<td class="top">
+<a>Belshe, M.</a>, <a>Peon, R.</a> and <a>M. Thomson</a>, "<a href="https://tools.ietf.org/html/rfc7540">Hypertext Transfer Protocol Version 2 (HTTP/2)</a>", RFC 7540, DOI 10.17487/RFC7540, May 2015.</td>
 </tr>
 <tr>
 <td class="reference"><b id="RFC7838">[RFC7838]</b></td>
