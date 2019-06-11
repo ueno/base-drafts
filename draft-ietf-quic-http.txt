@@ -146,22 +146,22 @@ Internet-Draft                   HTTP/3                        June 2019
    Appendix A.  Considerations for Transitioning from HTTP/2 . . . .  49
      A.1.  Streams . . . . . . . . . . . . . . . . . . . . . . . . .  49
      A.2.  HTTP Frame Types  . . . . . . . . . . . . . . . . . . . .  49
+       A.2.1.  Prioritization Differences  . . . . . . . . . . . . .  50
+       A.2.2.  Header Compression Differences  . . . . . . . . . . .  51
+       A.2.3.  Guidance for New Frame Type Definitions . . . . . . .  51
+       A.2.4.  Mapping Between HTTP/2 and HTTP/3 Frame Types . . . .  51
      A.3.  HTTP/2 SETTINGS Parameters  . . . . . . . . . . . . . . .  52
      A.4.  HTTP/2 Error Codes  . . . . . . . . . . . . . . . . . . .  53
    Appendix B.  Change Log . . . . . . . . . . . . . . . . . . . . .  54
      B.1.  Since draft-ietf-quic-http-19 . . . . . . . . . . . . . .  54
-     B.2.  Since draft-ietf-quic-http-18 . . . . . . . . . . . . . .  54
-     B.3.  Since draft-ietf-quic-http-17 . . . . . . . . . . . . . .  54
+     B.2.  Since draft-ietf-quic-http-18 . . . . . . . . . . . . . .  55
+     B.3.  Since draft-ietf-quic-http-17 . . . . . . . . . . . . . .  55
      B.4.  Since draft-ietf-quic-http-16 . . . . . . . . . . . . . .  55
-     B.5.  Since draft-ietf-quic-http-15 . . . . . . . . . . . . . .  55
-     B.6.  Since draft-ietf-quic-http-14 . . . . . . . . . . . . . .  55
+     B.5.  Since draft-ietf-quic-http-15 . . . . . . . . . . . . . .  56
+     B.6.  Since draft-ietf-quic-http-14 . . . . . . . . . . . . . .  56
      B.7.  Since draft-ietf-quic-http-13 . . . . . . . . . . . . . .  56
      B.8.  Since draft-ietf-quic-http-12 . . . . . . . . . . . . . .  56
-     B.9.  Since draft-ietf-quic-http-11 . . . . . . . . . . . . . .  56
-     B.10. Since draft-ietf-quic-http-10 . . . . . . . . . . . . . .  56
-     B.11. Since draft-ietf-quic-http-09 . . . . . . . . . . . . . .  56
-     B.12. Since draft-ietf-quic-http-08 . . . . . . . . . . . . . .  57
-     B.13. Since draft-ietf-quic-http-07 . . . . . . . . . . . . . .  57
+     B.9.  Since draft-ietf-quic-http-11 . . . . . . . . . . . . . .  57
 
 
 
@@ -170,13 +170,17 @@ Bishop                  Expires December 13, 2019               [Page 3]
 Internet-Draft                   HTTP/3                        June 2019
 
 
+     B.10. Since draft-ietf-quic-http-10 . . . . . . . . . . . . . .  57
+     B.11. Since draft-ietf-quic-http-09 . . . . . . . . . . . . . .  57
+     B.12. Since draft-ietf-quic-http-08 . . . . . . . . . . . . . .  57
+     B.13. Since draft-ietf-quic-http-07 . . . . . . . . . . . . . .  57
      B.14. Since draft-ietf-quic-http-06 . . . . . . . . . . . . . .  57
      B.15. Since draft-ietf-quic-http-05 . . . . . . . . . . . . . .  57
-     B.16. Since draft-ietf-quic-http-04 . . . . . . . . . . . . . .  57
+     B.16. Since draft-ietf-quic-http-04 . . . . . . . . . . . . . .  58
      B.17. Since draft-ietf-quic-http-03 . . . . . . . . . . . . . .  58
      B.18. Since draft-ietf-quic-http-02 . . . . . . . . . . . . . .  58
      B.19. Since draft-ietf-quic-http-01 . . . . . . . . . . . . . .  58
-     B.20. Since draft-ietf-quic-http-00 . . . . . . . . . . . . . .  58
+     B.20. Since draft-ietf-quic-http-00 . . . . . . . . . . . . . .  59
      B.21. Since draft-shade-quic-http2-mapping-00 . . . . . . . . .  59
    Acknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  59
    Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  59
@@ -214,10 +218,6 @@ Internet-Draft                   HTTP/3                        June 2019
    control across the entire connection, it has the capability to
    improve the performance of HTTP compared to a TCP mapping.  QUIC also
    incorporates TLS 1.3 at the transport layer, offering comparable
-   security to running TLS over TCP, with the improved connection setup
-   latency of TCP Fast Open [RFC7413]}.
-
-
 
 
 
@@ -225,6 +225,9 @@ Bishop                  Expires December 13, 2019               [Page 4]
 
 Internet-Draft                   HTTP/3                        June 2019
 
+
+   security to running TLS over TCP, with the improved connection setup
+   latency of TCP Fast Open [RFC7413]}.
 
    This document defines a mapping of HTTP semantics over the QUIC
    transport protocol, drawing heavily on the design of HTTP/2.  While
@@ -270,9 +273,6 @@ Internet-Draft                   HTTP/3                        June 2019
    transmission.  Because HPACK [HPACK] relies on in-order transmission
    of compressed header blocks (a guarantee not provided by QUIC),
    HTTP/3 replaces HPACK with QPACK [QPACK].  QPACK uses separate
-   unidirectional streams to modify and track header table state, while
-   header blocks refer to the state of the table without modifying it.
-
 
 
 
@@ -281,6 +281,9 @@ Bishop                  Expires December 13, 2019               [Page 5]
 
 Internet-Draft                   HTTP/3                        June 2019
 
+
+   unidirectional streams to modify and track header table state, while
+   header blocks refer to the state of the table without modifying it.
 
 2.1.  Document Organization
 
@@ -326,9 +329,6 @@ Internet-Draft                   HTTP/3                        June 2019
    14 [RFC2119] [RFC8174] when, and only when, they appear in all
    capitals, as shown here.
 
-   Field definitions are given in Augmented Backus-Naur Form (ABNF), as
-   defined in [RFC5234].
-
 
 
 
@@ -337,6 +337,9 @@ Bishop                  Expires December 13, 2019               [Page 6]
 
 Internet-Draft                   HTTP/3                        June 2019
 
+
+   Field definitions are given in Augmented Backus-Naur Form (ABNF), as
+   defined in [RFC5234].
 
    This document uses the variable-length integer encoding from
    [QUIC-TRANSPORT].
@@ -383,9 +386,6 @@ Internet-Draft                   HTTP/3                        June 2019
    stream error:  An error on the individual HTTP/3 stream.
 
    The term "payload body" is defined in Section 3.3 of [RFC7230].
-
-
-
 
 
 
@@ -2761,39 +2761,39 @@ Internet-Draft                   HTTP/3                        June 2019
    type makes assumptions that frames from different streams will still
    be received in the order sent, HTTP/3 will break them.
 
-   For example, implicit in the HTTP/2 prioritization scheme is the
-   notion of in-order delivery of priority changes (i.e., dependency
-   tree mutations): since operations on the dependency tree such as
-   reparenting a subtree are not commutative, both sender and receiver
-   must apply them in the same order to ensure that both sides have a
-   consistent view of the stream dependency tree.  HTTP/2 specifies
-   priority assignments in PRIORITY frames and (optionally) in HEADERS
-   frames.  To achieve in-order delivery of priority changes in HTTP/3,
-   PRIORITY frames are sent as the first frame on a request stream or on
-   the control stream and exclusive prioritization has been removed.
+   Some examples of feature adaptations are described below, as well as
+   general guidance to extension frame implementors converting an HTTP/2
+   extension to HTTP/3.
+
+A.2.1.  Prioritization Differences
+
+   HTTP/2 specifies priority assignments in PRIORITY frames and
+   (optionally) in HEADERS frames.  Implicit in the HTTP/2
+   prioritization scheme is the notion of in-order delivery of priority
+   changes (i.e., dependency tree mutations).  Since operations on the
+   dependency tree such as reparenting a subtree are not commutative,
+   both sender and receiver must apply them in the same order to ensure
+   that both sides have a consistent view of the stream dependency tree.
+
+   To achieve in-order delivery of priority changes in HTTP/3, PRIORITY
+   frames are sent as the first frame on a request stream or on the
+   control stream.  Because ordering between these streams is not
+   guaranteed, the assumption that the PRIORITY frame on the request
+   stream, if any, always comes first is explicitly stated.
+
+   Exclusive prioritization has been removed, since implicitly
+   reprioritizing other streams which might or might not exist yet is
+   prone to race conditions even with the assumptions used to permit
+   initial PRIORITY frames on request streams.
+
    HTTP/3 permits the prioritization of requests, pushes and
    placeholders that each exist in separate identifier spaces.  The
    HTTP/3 PRIORITY frame replaces the stream dependency field with
    fields that can identify the element of interest and its dependency.
 
-   Likewise, HPACK was designed with the assumption of in-order
-   delivery.  A sequence of encoded header blocks must arrive (and be
-   decoded) at an endpoint in the same order in which they were encoded.
-   This ensures that the dynamic state at the two endpoints remains in
-   sync.  As a result, HTTP/3 uses a modified version of HPACK,
-   described in [QPACK].
 
-   Frame type definitions in HTTP/3 often use the QUIC variable-length
-   integer encoding.  In particular, Stream IDs use this encoding, which
-   allow for a larger range of possible values than the encoding used in
-   HTTP/2.  Some frames in HTTP/3 use an identifier rather than a Stream
-   ID (e.g.  Push IDs in PRIORITY frames).  Redefinition of the encoding
-   of extension frame types might be necessary if the encoding includes
-   a Stream ID.
 
-   Because the Flags field is not present in generic HTTP/3 frames,
-   those frames which depend on the presence of flags need to allocate
-   space for flags as part of their frame payload.
+
 
 
 
@@ -2802,13 +2802,43 @@ Bishop                  Expires December 13, 2019              [Page 50]
 Internet-Draft                   HTTP/3                        June 2019
 
 
+A.2.2.  Header Compression Differences
+
+   HPACK was designed with the assumption of in-order delivery.  A
+   sequence of encoded header blocks must arrive (and be decoded) at an
+   endpoint in the same order in which they were encoded.  This ensures
+   that the dynamic state at the two endpoints remains in sync.
+
+   Because this total ordering is not provided by QUIC, HTTP/3 uses a
+   modified version of HPACK, called QPACK.  QPACK uses a single
+   unidirectional stream to make all modifications to the dynamic table,
+   ensuring a total order of updates.  All frames which contain encoded
+   headers merely reference the table state at a given time without
+   modifying it.
+
+   [QPACK] provides additional details.
+
+A.2.3.  Guidance for New Frame Type Definitions
+
+   Frame type definitions in HTTP/3 often use the QUIC variable-length
+   integer encoding.  In particular, Stream IDs use this encoding, which
+   allows for a larger range of possible values than the encoding used
+   in HTTP/2.  Some frames in HTTP/3 use an identifier rather than a
+   Stream ID (e.g.  Push IDs in PRIORITY frames).  Redefinition of the
+   encoding of extension frame types might be necessary if the encoding
+   includes a Stream ID.
+
+   Because the Flags field is not present in generic HTTP/3 frames,
+   those frames which depend on the presence of flags need to allocate
+   space for flags as part of their frame payload.
+
    Other than this issue, frame type HTTP/2 extensions are typically
    portable to QUIC simply by replacing Stream 0 in HTTP/2 with a
    control stream in HTTP/3.  HTTP/3 extensions will not assume
    ordering, but would not be harmed by ordering, and would be portable
    to HTTP/2 in the same manner.
 
-   Below is a listing of how each HTTP/2 frame type is mapped:
+A.2.4.  Mapping Between HTTP/2 and HTTP/3 Frame Types
 
    DATA (0x0):  Padding is not defined in HTTP/3 frames.  See
       Section 7.2.1.
@@ -2820,6 +2850,13 @@ Internet-Draft                   HTTP/3                        June 2019
    PRIORITY (0x2):  As described above, the PRIORITY frame references a
       variety of identifiers.  It is sent as the first frame on a
       request streams or on the control stream.  See Section 7.2.3.
+
+
+
+Bishop                  Expires December 13, 2019              [Page 51]
+
+Internet-Draft                   HTTP/3                        June 2019
+
 
    RST_STREAM (0x3):  RST_STREAM frames do not exist, since QUIC
       provides stream lifecycle management.  The same code point is used
@@ -2851,13 +2888,6 @@ Internet-Draft                   HTTP/3                        June 2019
    so many HTTP/3 frame types have no equivalent HTTP/2 code points.
    See Section 11.3.
 
-
-
-Bishop                  Expires December 13, 2019              [Page 51]
-
-Internet-Draft                   HTTP/3                        June 2019
-
-
 A.3.  HTTP/2 SETTINGS Parameters
 
    An important difference from HTTP/2 is that settings are sent once,
@@ -2875,6 +2905,14 @@ A.3.  HTTP/2 SETTINGS Parameters
 
    SETTINGS_ENABLE_PUSH:  This is removed in favor of the MAX_PUSH_ID
       which provides a more granular control over server push.
+
+
+
+
+Bishop                  Expires December 13, 2019              [Page 52]
+
+Internet-Draft                   HTTP/3                        June 2019
+
 
    SETTINGS_MAX_CONCURRENT_STREAMS:  QUIC controls the largest open
       Stream ID as part of its flow control logic.  Specifying
@@ -2903,17 +2941,6 @@ A.3.  HTTP/2 SETTINGS Parameters
    larger (62 bits versus 16 bits), so many HTTP/3 settings have no
    equivalent HTTP/2 code point.  See Section 11.4.
 
-
-
-
-
-
-
-Bishop                  Expires December 13, 2019              [Page 52]
-
-Internet-Draft                   HTTP/3                        June 2019
-
-
 A.4.  HTTP/2 Error Codes
 
    QUIC has the same concepts of "stream" and "connection" errors that
@@ -2933,6 +2960,15 @@ A.4.  HTTP/2 Error Codes
    FLOW_CONTROL_ERROR (0x3):  Not applicable, since QUIC handles flow
       control.  Would provoke a QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA
       from the QUIC layer.
+
+
+
+
+
+Bishop                  Expires December 13, 2019              [Page 53]
+
+Internet-Draft                   HTTP/3                        June 2019
+
 
    SETTINGS_TIMEOUT (0x4):  Not applicable, since no acknowledgement of
       SETTINGS is defined.
@@ -2962,14 +2998,6 @@ A.4.  HTTP/2 Error Codes
    INADEQUATE_SECURITY (0xc):  Not applicable, since QUIC is assumed to
       provide sufficient security on all connections.
 
-
-
-
-Bishop                  Expires December 13, 2019              [Page 53]
-
-Internet-Draft                   HTTP/3                        June 2019
-
-
    HTTP_1_1_REQUIRED (0xd):  HTTP_VERSION_FALLBACK in Section 8.1.
 
    Error codes need to be defined for HTTP/2 and HTTP/3 separately.  See
@@ -2986,6 +3014,17 @@ B.1.  Since draft-ietf-quic-http-19
 
    o  Non-zero bits in the Empty field of the PRIORITY frame MAY be
       treated as an error (#2501)
+
+
+
+
+
+
+
+Bishop                  Expires December 13, 2019              [Page 54]
+
+Internet-Draft                   HTTP/3                        June 2019
+
 
 B.2.  Since draft-ietf-quic-http-18
 
@@ -3015,17 +3054,6 @@ B.3.  Since draft-ietf-quic-http-17
 
    o  Changed error code for GOAWAY on the wrong stream (#2231, #2343)
 
-
-
-
-
-
-
-Bishop                  Expires December 13, 2019              [Page 54]
-
-Internet-Draft                   HTTP/3                        June 2019
-
-
 B.4.  Since draft-ietf-quic-http-16
 
    o  Rename "HTTP/QUIC" to "HTTP/3" (#1973)
@@ -3046,6 +3074,13 @@ B.4.  Since draft-ietf-quic-http-16
 
    o  Clarify message processing rules for streams that aren't closed
       (#1972, #2003)
+
+
+
+Bishop                  Expires December 13, 2019              [Page 55]
+
+Internet-Draft                   HTTP/3                        June 2019
+
 
    o  Removed reservation of error code 0 and moved HTTP_NO_ERROR to
       this value (#1922)
@@ -3070,18 +3105,6 @@ B.6.  Since draft-ietf-quic-http-14
 
    o  HTTP_VERSION_FALLBACK falls back to HTTP/1.1 (#1677,#1685)
 
-
-
-
-
-
-
-
-Bishop                  Expires December 13, 2019              [Page 55]
-
-Internet-Draft                   HTTP/3                        June 2019
-
-
 B.7.  Since draft-ietf-quic-http-13
 
    o  Reserved some frame types for grease (#1333, #1446)
@@ -3105,6 +3128,15 @@ B.8.  Since draft-ietf-quic-http-12
       extensibility (#1333, #1446)
 
    o  Added general error code (#1391, #1397)
+
+
+
+
+
+Bishop                  Expires December 13, 2019              [Page 56]
+
+Internet-Draft                   HTTP/3                        June 2019
+
 
    o  Unidirectional streams carry a type byte and are extensible
       (#910,#1359)
@@ -3131,13 +3163,6 @@ B.11.  Since draft-ietf-quic-http-09
    o  Specified handling of unsupported versions in Alt-Svc (#1093,
       #1097)
 
-
-
-Bishop                  Expires December 13, 2019              [Page 56]
-
-Internet-Draft                   HTTP/3                        June 2019
-
-
 B.12.  Since draft-ietf-quic-http-08
 
    o  Clarified connection coalescing rules (#940, #1024)
@@ -3161,6 +3186,14 @@ B.15.  Since draft-ietf-quic-http-05
    o  Made push ID sequential, add MAX_PUSH_ID, remove
       SETTINGS_ENABLE_PUSH (#709)
 
+
+
+
+Bishop                  Expires December 13, 2019              [Page 57]
+
+Internet-Draft                   HTTP/3                        June 2019
+
+
    o  Guidance about keep-alive and QUIC PINGs (#729)
 
    o  Expanded text on GOAWAY and cancellation (#757)
@@ -3181,18 +3214,6 @@ B.16.  Since draft-ietf-quic-http-04
       (#702,#281)
 
    o  DATA frames cannot be empty (#700)
-
-
-
-
-
-
-
-
-Bishop                  Expires December 13, 2019              [Page 57]
-
-Internet-Draft                   HTTP/3                        June 2019
-
 
 B.17.  Since draft-ietf-quic-http-03
 
@@ -3221,6 +3242,14 @@ B.19.  Since draft-ietf-quic-http-01
    o  Closing the connection control stream or any message control
       stream is a fatal error (#176)
 
+
+
+
+Bishop                  Expires December 13, 2019              [Page 58]
+
+Internet-Draft                   HTTP/3                        June 2019
+
+
    o  HPACK Sequence counter can wrap (#173)
 
    o  0-RTT guidance added
@@ -3242,13 +3271,6 @@ B.20.  Since draft-ietf-quic-http-00
       order (#75)
 
    o  Described CONNECT pseudo-method (#95)
-
-
-
-Bishop                  Expires December 13, 2019              [Page 58]
-
-Internet-Draft                   HTTP/3                        June 2019
-
 
    o  Updated ALPN token and Alt-Svc guidance (#13,#87)
 
@@ -3274,28 +3296,6 @@ Author's Address
    Akamai
 
    Email: mbishop@evequefou.be
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
