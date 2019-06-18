@@ -306,13 +306,13 @@ ul.toc li {
 <link href="#rfc.section.6.1.1" rel="Chapter" title="6.1.1 Packet Threshold">
 <link href="#rfc.section.6.1.2" rel="Chapter" title="6.1.2 Time Threshold">
 <link href="#rfc.section.6.2" rel="Chapter" title="6.2 Crypto Retransmission Timeout">
-<link href="#rfc.section.6.2.1" rel="Chapter" title="6.2.1 Retry and Version Negotiation">
 <link href="#rfc.section.6.3" rel="Chapter" title="6.3 Probe Timeout">
 <link href="#rfc.section.6.3.1" rel="Chapter" title="6.3.1 Computing PTO">
 <link href="#rfc.section.6.3.2" rel="Chapter" title="6.3.2 Sending Probe Packets">
 <link href="#rfc.section.6.3.3" rel="Chapter" title="6.3.3 Loss Detection">
-<link href="#rfc.section.6.4" rel="Chapter" title="6.4 Discarding Keys and Packet State">
-<link href="#rfc.section.6.5" rel="Chapter" title="6.5 Discussion">
+<link href="#rfc.section.6.4" rel="Chapter" title="6.4 Retry and Version Negotiation">
+<link href="#rfc.section.6.5" rel="Chapter" title="6.5 Discarding Keys and Packet State">
+<link href="#rfc.section.6.6" rel="Chapter" title="6.6 Discussion">
 <link href="#rfc.section.7" rel="Chapter" title="7 Congestion Control">
 <link href="#rfc.section.7.1" rel="Chapter" title="7.1 Explicit Congestion Notification">
 <link href="#rfc.section.7.2" rel="Chapter" title="7.2 Slow Start">
@@ -488,9 +488,7 @@ ul.toc li {
 </li>
 </ul><li>6.2.   <a href="#rfc.section.6.2">Crypto Retransmission Timeout</a>
 </li>
-<ul><li>6.2.1.   <a href="#rfc.section.6.2.1">Retry and Version Negotiation</a>
-</li>
-</ul><li>6.3.   <a href="#rfc.section.6.3">Probe Timeout</a>
+<li>6.3.   <a href="#rfc.section.6.3">Probe Timeout</a>
 </li>
 <ul><li>6.3.1.   <a href="#rfc.section.6.3.1">Computing PTO</a>
 </li>
@@ -498,9 +496,11 @@ ul.toc li {
 </li>
 <li>6.3.3.   <a href="#rfc.section.6.3.3">Loss Detection</a>
 </li>
-</ul><li>6.4.   <a href="#rfc.section.6.4">Discarding Keys and Packet State</a>
+</ul><li>6.4.   <a href="#rfc.section.6.4">Retry and Version Negotiation</a>
 </li>
-<li>6.5.   <a href="#rfc.section.6.5">Discussion</a>
+<li>6.5.   <a href="#rfc.section.6.5">Discarding Keys and Packet State</a>
+</li>
+<li>6.6.   <a href="#rfc.section.6.6">Discussion</a>
 </li>
 </ul><li>7.   <a href="#rfc.section.7">Congestion Control</a>
 </li>
@@ -837,11 +837,6 @@ kTimeThreshold * max(SRTT, latest_RTT, kGranularity)
 <p id="rfc.section.6.2.p.9">Because packets only containing PADDING do not elicit an acknowledgement, they may never be acknowledged, but they are removed from bytes in flight when the client gets Handshake keys and the Initial keys are discarded.</p>
 <p id="rfc.section.6.2.p.10">The crypto retransmission timer is not set if the time threshold <a href="#time-threshold" class="xref">Section 6.1.2</a> loss detection timer is set.  The time threshold loss detection timer is expected to both expire earlier than the crypto retransmission timeout and be less likely to spuriously retransmit data.  The Initial and Handshake packet number spaces will typically contain a small number of packets, so losses are less likely to be detected using packet-threshold loss detection.</p>
 <p id="rfc.section.6.2.p.11">When the crypto retransmission timer is active, the probe timer (<a href="#pto" class="xref">Section 6.3</a>) is not active.</p>
-<h3 id="rfc.section.6.2.1">
-<a href="#rfc.section.6.2.1">6.2.1.</a> <a href="#retry-and-version-negotiation" id="retry-and-version-negotiation">Retry and Version Negotiation</a>
-</h3>
-<p id="rfc.section.6.2.1.p.1">A Retry or Version Negotiation packet causes a client to send another Initial packet, effectively restarting the connection process and resetting congestion control and loss recovery state, including resetting any pending timers.  Either packet indicates that the Initial was received but not processed.  Neither packet can be treated as an acknowledgment for the Initial.</p>
-<p id="rfc.section.6.2.1.p.2">The client MAY however compute an RTT estimate to the server as the time period from when the first Initial was sent to when a Retry or a Version Negotiation packet is received.  The client MAY use this value to seed the RTT estimator for a subsequent connection attempt to the server.</p>
 <h2 id="rfc.section.6.3">
 <a href="#rfc.section.6.3">6.3.</a> <a href="#pto" id="pto">Probe Timeout</a>
 </h2>
@@ -874,18 +869,23 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <p id="rfc.section.6.3.3.p.1">Delivery or loss of packets in flight is established when an ACK frame is received that newly acknowledges one or more packets.</p>
 <p id="rfc.section.6.3.3.p.2">A PTO timer expiration event does not indicate packet loss and MUST NOT cause prior unacknowledged packets to be marked as lost. When an acknowledgement is received that newly acknowledges packets, loss detection proceeds as dictated by packet and time threshold mechanisms; see <a href="#ack-loss-detection" class="xref">Section 6.1</a>.</p>
 <h2 id="rfc.section.6.4">
-<a href="#rfc.section.6.4">6.4.</a> <a href="#discarding-packets" id="discarding-packets">Discarding Keys and Packet State</a>
+<a href="#rfc.section.6.4">6.4.</a> <a href="#retry-and-version-negotiation" id="retry-and-version-negotiation">Retry and Version Negotiation</a>
 </h2>
-<p id="rfc.section.6.4.p.1">When packet protection keys are discarded (see Section 4.9 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>), all packets that were sent with those keys can no longer be acknowledged because their acknowledgements cannot be processed anymore. The sender MUST discard all recovery state associated with those packets and MUST remove them from the count of bytes in flight.</p>
-<p id="rfc.section.6.4.p.2">Endpoints stop sending and receiving Initial packets once they start exchanging Handshake packets (see Section 17.2.2.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>). At this point, recovery state for all in-flight Initial packets is discarded.</p>
-<p id="rfc.section.6.4.p.3">When 0-RTT is rejected, recovery state for all in-flight 0-RTT packets is discarded.</p>
-<p id="rfc.section.6.4.p.4">If a server accepts 0-RTT, but does not buffer 0-RTT packets that arrive before Initial packets, early 0-RTT packets will be declared lost, but that is expected to be infrequent.</p>
-<p id="rfc.section.6.4.p.5">It is expected that keys are discarded after packets encrypted with them would be acknowledged or declared lost.  Initial secrets however might be destroyed sooner, as soon as handshake keys are available (see Section 4.10 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).</p>
+<p id="rfc.section.6.4.p.1">A Retry or Version Negotiation packet causes a client to send another Initial packet, effectively restarting the connection process and resetting congestion control and loss recovery state, including resetting any pending timers.  Either packet indicates that the Initial was received but not processed.  Neither packet can be treated as an acknowledgment for the Initial.</p>
+<p id="rfc.section.6.4.p.2">The client MAY however compute an RTT estimate to the server as the time period from when the first Initial was sent to when a Retry or a Version Negotiation packet is received.  The client MAY use this value to seed the RTT estimator for a subsequent connection attempt to the server.</p>
 <h2 id="rfc.section.6.5">
-<a href="#rfc.section.6.5">6.5.</a> <a href="#discussion" id="discussion">Discussion</a>
+<a href="#rfc.section.6.5">6.5.</a> <a href="#discarding-packets" id="discarding-packets">Discarding Keys and Packet State</a>
 </h2>
-<p id="rfc.section.6.5.p.1">The majority of constants were derived from best common practices among widely deployed TCP implementations on the internet.  Exceptions follow.</p>
-<p id="rfc.section.6.5.p.2">A shorter delayed ack time of 25ms was chosen because longer delayed acks can delay loss recovery and for the small number of connections where less than packet per 25ms is delivered, acking every packet is beneficial to congestion control and loss recovery.</p>
+<p id="rfc.section.6.5.p.1">When packet protection keys are discarded (see Section 4.9 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>), all packets that were sent with those keys can no longer be acknowledged because their acknowledgements cannot be processed anymore. The sender MUST discard all recovery state associated with those packets and MUST remove them from the count of bytes in flight.</p>
+<p id="rfc.section.6.5.p.2">Endpoints stop sending and receiving Initial packets once they start exchanging Handshake packets (see Section 17.2.2.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>). At this point, recovery state for all in-flight Initial packets is discarded.</p>
+<p id="rfc.section.6.5.p.3">When 0-RTT is rejected, recovery state for all in-flight 0-RTT packets is discarded.</p>
+<p id="rfc.section.6.5.p.4">If a server accepts 0-RTT, but does not buffer 0-RTT packets that arrive before Initial packets, early 0-RTT packets will be declared lost, but that is expected to be infrequent.</p>
+<p id="rfc.section.6.5.p.5">It is expected that keys are discarded after packets encrypted with them would be acknowledged or declared lost.  Initial secrets however might be destroyed sooner, as soon as handshake keys are available (see Section 4.10 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).</p>
+<h2 id="rfc.section.6.6">
+<a href="#rfc.section.6.6">6.6.</a> <a href="#discussion" id="discussion">Discussion</a>
+</h2>
+<p id="rfc.section.6.6.p.1">The majority of constants were derived from best common practices among widely deployed TCP implementations on the internet.  Exceptions follow.</p>
+<p id="rfc.section.6.6.p.2">A shorter delayed ack time of 25ms was chosen because longer delayed acks can delay loss recovery and for the small number of connections where less than packet per 25ms is delivered, acking every packet is beneficial to congestion control and loss recovery.</p>
 <h1 id="rfc.section.7">
 <a href="#rfc.section.7">7.</a> <a href="#congestion-control" id="congestion-control">Congestion Control</a>
 </h1>

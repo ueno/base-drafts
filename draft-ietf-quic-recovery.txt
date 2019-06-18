@@ -94,13 +94,13 @@ Table of Contents
        6.1.1.  Packet Threshold  . . . . . . . . . . . . . . . . . .  12
        6.1.2.  Time Threshold  . . . . . . . . . . . . . . . . . . .  12
      6.2.  Crypto Retransmission Timeout . . . . . . . . . . . . . .  13
-       6.2.1.  Retry and Version Negotiation . . . . . . . . . . . .  14
-     6.3.  Probe Timeout . . . . . . . . . . . . . . . . . . . . . .  15
-       6.3.1.  Computing PTO . . . . . . . . . . . . . . . . . . . .  15
+     6.3.  Probe Timeout . . . . . . . . . . . . . . . . . . . . . .  14
+       6.3.1.  Computing PTO . . . . . . . . . . . . . . . . . . . .  14
        6.3.2.  Sending Probe Packets . . . . . . . . . . . . . . . .  15
        6.3.3.  Loss Detection  . . . . . . . . . . . . . . . . . . .  16
-     6.4.  Discarding Keys and Packet State  . . . . . . . . . . . .  17
-     6.5.  Discussion  . . . . . . . . . . . . . . . . . . . . . . .  17
+     6.4.  Retry and Version Negotiation . . . . . . . . . . . . . .  16
+     6.5.  Discarding Keys and Packet State  . . . . . . . . . . . .  17
+     6.6.  Discussion  . . . . . . . . . . . . . . . . . . . . . . .  17
    7.  Congestion Control  . . . . . . . . . . . . . . . . . . . . .  17
      7.1.  Explicit Congestion Notification  . . . . . . . . . . . .  18
      7.2.  Slow Start  . . . . . . . . . . . . . . . . . . . . . . .  18
@@ -762,30 +762,6 @@ Internet-Draft             QUIC Loss Detection                 June 2019
    When the crypto retransmission timer is active, the probe timer
    (Section 6.3) is not active.
 
-6.2.1.  Retry and Version Negotiation
-
-   A Retry or Version Negotiation packet causes a client to send another
-   Initial packet, effectively restarting the connection process and
-   resetting congestion control and loss recovery state, including
-   resetting any pending timers.  Either packet indicates that the
-   Initial was received but not processed.  Neither packet can be
-   treated as an acknowledgment for the Initial.
-
-   The client MAY however compute an RTT estimate to the server as the
-   time period from when the first Initial was sent to when a Retry or a
-   Version Negotiation packet is received.  The client MAY use this
-   value to seed the RTT estimator for a subsequent connection attempt
-   to the server.
-
-
-
-
-
-Iyengar & Swett         Expires December 20, 2019              [Page 14]
-
-Internet-Draft             QUIC Loss Detection                 June 2019
-
-
 6.3.  Probe Timeout
 
    A Probe Timeout (PTO) triggers a probe packet when ack-eliciting data
@@ -801,6 +777,14 @@ Internet-Draft             QUIC Loss Detection                 June 2019
 
    When an ack-eliciting packet is transmitted, the sender schedules a
    timer for the PTO period as follows:
+
+
+
+
+Iyengar & Swett         Expires December 20, 2019              [Page 14]
+
+Internet-Draft             QUIC Loss Detection                 June 2019
+
 
    PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 
@@ -834,14 +818,6 @@ Internet-Draft             QUIC Loss Detection                 June 2019
    send.  An endpoint MAY send up to two ack-eliciting packets, to avoid
    an expensive consecutive PTO expiration due to a single packet loss.
 
-
-
-
-Iyengar & Swett         Expires December 20, 2019              [Page 15]
-
-Internet-Draft             QUIC Loss Detection                 June 2019
-
-
    It is possible that the sender has no new or previously-sent data to
    send.  As an example, consider the following sequence of events: new
    application data is sent in a STREAM frame, deemed lost, then
@@ -858,6 +834,13 @@ Internet-Draft             QUIC Loss Detection                 June 2019
    sending an additional packet, but increases the risk that loss is
    declared too aggressively, resulting in an unnecessary rate reduction
    by the congestion controller.
+
+
+
+Iyengar & Swett         Expires December 20, 2019              [Page 15]
+
+Internet-Draft             QUIC Loss Detection                 June 2019
+
 
    Consecutive PTO periods increase exponentially, and as a result,
    connection recovery latency increases exponentially as packets
@@ -889,6 +872,23 @@ Internet-Draft             QUIC Loss Detection                 June 2019
    A PTO timer expiration event does not indicate packet loss and MUST
    NOT cause prior unacknowledged packets to be marked as lost.  When an
    acknowledgement is received that newly acknowledges packets, loss
+   detection proceeds as dictated by packet and time threshold
+   mechanisms; see Section 6.1.
+
+6.4.  Retry and Version Negotiation
+
+   A Retry or Version Negotiation packet causes a client to send another
+   Initial packet, effectively restarting the connection process and
+   resetting congestion control and loss recovery state, including
+   resetting any pending timers.  Either packet indicates that the
+   Initial was received but not processed.  Neither packet can be
+   treated as an acknowledgment for the Initial.
+
+   The client MAY however compute an RTT estimate to the server as the
+   time period from when the first Initial was sent to when a Retry or a
+   Version Negotiation packet is received.  The client MAY use this
+   value to seed the RTT estimator for a subsequent connection attempt
+   to the server.
 
 
 
@@ -898,10 +898,7 @@ Iyengar & Swett         Expires December 20, 2019              [Page 16]
 Internet-Draft             QUIC Loss Detection                 June 2019
 
 
-   detection proceeds as dictated by packet and time threshold
-   mechanisms; see Section 6.1.
-
-6.4.  Discarding Keys and Packet State
+6.5.  Discarding Keys and Packet State
 
    When packet protection keys are discarded (see Section 4.9 of
    [QUIC-TLS]), all packets that were sent with those keys can no longer
@@ -926,7 +923,7 @@ Internet-Draft             QUIC Loss Detection                 June 2019
    might be destroyed sooner, as soon as handshake keys are available
    (see Section 4.10 of [QUIC-TLS]).
 
-6.5.  Discussion
+6.6.  Discussion
 
    The majority of constants were derived from best common practices
    among widely deployed TCP implementations on the internet.
@@ -946,6 +943,9 @@ Internet-Draft             QUIC Loss Detection                 June 2019
 
    QUIC hosts MUST NOT send packets if they would increase
    bytes_in_flight (defined in Appendix B.2) beyond the available
+   congestion window, unless the packet is a probe packet sent after a
+   PTO timer expires, as described in Section 6.3.
+
 
 
 
@@ -953,9 +953,6 @@ Iyengar & Swett         Expires December 20, 2019              [Page 17]
 
 Internet-Draft             QUIC Loss Detection                 June 2019
 
-
-   congestion window, unless the packet is a probe packet sent after a
-   PTO timer expires, as described in Section 6.3.
 
    Implementations MAY use other congestion control algorithms, such as
    Cubic [RFC8312], and endpoints MAY use different algorithms from one
@@ -1001,6 +998,9 @@ Internet-Draft             QUIC Loss Detection                 June 2019
    The recovery period limits congestion window reduction to once per
    round trip.  During recovery, the congestion window remains unchanged
    irrespective of new losses or increases in the ECN-CE counter.
+
+
+
 
 
 
