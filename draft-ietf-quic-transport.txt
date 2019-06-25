@@ -189,14 +189,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
        17.2.3.  0-RTT  . . . . . . . . . . . . . . . . . . . . . . .  88
        17.2.4.  Handshake Packet . . . . . . . . . . . . . . . . . .  89
        17.2.5.  Retry Packet . . . . . . . . . . . . . . . . . . . .  90
-     17.3.  Short Header Packets . . . . . . . . . . . . . . . . . .  93
+     17.3.  Short Header Packets . . . . . . . . . . . . . . . . . .  92
        17.3.1.  Latency Spin Bit . . . . . . . . . . . . . . . . . .  94
-   18. Transport Parameter Encoding  . . . . . . . . . . . . . . . .  96
-     18.1.  Transport Parameter Definitions  . . . . . . . . . . . .  97
-   19. Frame Types and Formats . . . . . . . . . . . . . . . . . . . 100
+   18. Transport Parameter Encoding  . . . . . . . . . . . . . . . .  95
+     18.1.  Transport Parameter Definitions  . . . . . . . . . . . .  96
+   19. Frame Types and Formats . . . . . . . . . . . . . . . . . . .  99
      19.1.  PADDING Frame  . . . . . . . . . . . . . . . . . . . . . 100
      19.2.  PING Frame . . . . . . . . . . . . . . . . . . . . . . . 100
-     19.3.  ACK Frames . . . . . . . . . . . . . . . . . . . . . . . 101
+     19.3.  ACK Frames . . . . . . . . . . . . . . . . . . . . . . . 100
        19.3.1.  ACK Ranges . . . . . . . . . . . . . . . . . . . . . 102
        19.3.2.  ECN Counts . . . . . . . . . . . . . . . . . . . . . 104
      19.4.  RESET_STREAM Frame . . . . . . . . . . . . . . . . . . . 105
@@ -4913,15 +4913,15 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    have been lost or discarded by the server.  A client MAY attempt to
    resend data in 0-RTT packets after it sends a new Initial packet.
 
-   A client MUST NOT reset the packet number it uses for 0-RTT packets.
-   The keys used to protect 0-RTT packets will not change as a result of
-   responding to a Retry packet unless the client also regenerates the
-   cryptographic handshake message.  Sending packets with the same
-   packet number in that case is likely to compromise the packet
+   A client MUST NOT reset the packet number it uses for 0-RTT packets,
+   since the keys used to protect 0-RTT packets will not change as a
+   result of responding to a Retry packet.  Sending packets with the
+   same packet number in that case is likely to compromise the packet
    protection for all 0-RTT packets because the same key and nonce could
    be used to protect different content.
 
-
+   Receiving a Retry packet, especially a Retry that changes the
+   connection ID used for subsequent packets, indicates a strong
 
 
 
@@ -4930,8 +4930,6 @@ Iyengar & Thomson       Expires December 27, 2019              [Page 88]
 Internet-Draft           QUIC Transport Protocol               June 2019
 
 
-   Receiving a Retry packet, especially a Retry that changes the
-   connection ID used for subsequent packets, indicates a strong
    possibility that 0-RTT packets could be lost.  A client only receives
    acknowledgments for its 0-RTT packets once the handshake is complete.
    Consequently, a server might expect 0-RTT packets to start with a
@@ -4940,12 +4938,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    all packets up to the current packet number are in flight, starting
    from a packet number of 0.  Thus, 0-RTT packets could need to use a
    longer packet number encoding.
-
-   A client SHOULD instead generate a fresh cryptographic handshake
-   message and start packet numbers from 0.  This ensures that new 0-RTT
-   packets will not use the same keys, avoiding any risk of key and
-   nonce reuse; this also prevents 0-RTT packets from previous handshake
-   attempts from being accepted as part of the connection.
 
    A client MUST NOT send 0-RTT packets once it starts processing 1-RTT
    packets from the server.  This means that 0-RTT packets cannot
@@ -4966,26 +4958,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    carry acknowledgments and cryptographic handshake messages from the
    server and client.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 89]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    +-+-+-+-+-+-+-+-+
    |1|1| 2 |R R|P P|
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -5005,6 +4977,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                    Figure 12: Handshake Protected Packet
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 89]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
    Once a client has received a Handshake packet from a server, it uses
    Handshake packets to send subsequent cryptographic handshake messages
@@ -5034,14 +5014,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    It carries an address validation token created by the server.  It is
    used by a server that wishes to perform a retry (see Section 8.1).
 
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 90]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+
@@ -5061,6 +5033,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                           Figure 13: Retry Packet
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 90]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
    A Retry packet (shown in Figure 13) does not contain any protected
    fields.  In addition to the long header, it contains these additional
@@ -5091,13 +5071,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    MUST use this connection ID in the Destination Connection ID of
    subsequent packets that it sends.
 
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 91]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    A server MAY send Retry packets in response to Initial and 0-RTT
    packets.  A server can either discard or buffer 0-RTT packets that it
    receives.  A server can send multiple Retry packets as it receives
@@ -5117,6 +5090,13 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    The client responds to a Retry packet with an Initial packet that
    includes the provided Retry Token to continue connection
    establishment.
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 91]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
    A client sets the Destination Connection ID field of this Initial
    packet to the value from the Source Connection ID in the Retry
@@ -5146,14 +5126,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
 
    A server acknowledges the use of a Retry packet for a connection
    using the original_connection_id transport parameter (see
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 92]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    Section 18.1).  If the server sends a Retry packet, it MUST include
    the value of the Original Destination Connection ID field of the
    Retry packet (that is, the Destination Connection ID field from the
@@ -5172,6 +5144,15 @@ Internet-Draft           QUIC Transport Protocol               June 2019
 
    This version of QUIC defines a single packet type which uses the
    short packet header.
+
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 92]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -5201,15 +5182,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    Spin Bit (S):  The third most significant bit (0x20) of byte 0 is the
       latency spin bit, set as described in Section 17.3.1.
 
-
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 93]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    Reserved Bits (R):  The next two bits (those with a mask of 0x18) of
       byte 0 are reserved.  These bits are protected using header
       protection (see Section 5.4 of [QUIC-TLS]).  The value included
@@ -5230,6 +5202,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
       a mask of 0x03) of byte 0 contain the length of the packet number,
       encoded as an unsigned, two-bit integer that is one less than the
       length of the packet number field in bytes.  That is, the length
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 93]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
       of the packet number field is the value of this field, plus one.
       These bits are protected using header protection (see Section 5.4
       of [QUIC-TLS]).
@@ -5258,14 +5238,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    observation points on the network path throughout the duration of a
    connection.  The spin bit is only present in the short packet header,
    since it is possible to measure the initial RTT of a connection by
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 94]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    observing the handshake.  Therefore, the spin bit is available after
    version negotiation and connection establishment are completed.  On-
    path measurement and use of the latency spin bit is further discussed
@@ -5285,6 +5257,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    disabled for at least one eighth of network paths.  The selection
    process performed at the beginning of the connection SHOULD be
    applied for all paths used by the connection.
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 94]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
    In case multiple connections share the same network path, as
    determined by having the same source and destination IP address and
@@ -5314,14 +5294,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
 
    An endpoint resets its spin value to zero when sending the first
    packet of a given connection with a new connection ID.  This reduces
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 95]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    the risk that transient spin bit state can be used to link flows
    across connection migration or ID change.
 
@@ -5335,6 +5307,20 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    The format of the transport parameters is the TransportParameters
    struct from Figure 15.  This is described using the presentation
    language from Section 3 of [TLS13].
+
+
+
+
+
+
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 95]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
       enum {
          original_connection_id(0),
@@ -5369,15 +5355,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    encoding rules are therefore used to describe the encoding of
    transport parameters.
 
-
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 96]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    QUIC encodes transport parameters into a sequence of bytes, which are
    then included in the cryptographic handshake.
 
@@ -5392,6 +5369,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    0 if the transport parameter is absent, unless otherwise stated.
 
    The following transport parameters are defined:
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 96]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
    original_connection_id (0x0000):  The value of the Destination
       Connection ID field from the first Initial packet sent by the
@@ -5425,15 +5410,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
       equivalent to sending a MAX_DATA (Section 19.9) for the connection
       immediately after completing the handshake.
 
-
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 97]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    initial_max_stream_data_bidi_local (0x0005):  This parameter is an
       integer value specifying the initial flow control limit for
       locally-initiated bidirectional streams.  This limit applies to
@@ -5450,6 +5426,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
       created bidirectional streams opened by the endpoint that receives
       the transport parameter.  In client transport parameters, this
       applies to streams with an identifier with the least significant
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 97]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
       two bits set to 0x1; in server transport parameters, this applies
       to streams with the least significant two bits set to 0x0.
 
@@ -5481,15 +5465,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    ack_delay_exponent (0x000a):  The ACK delay exponent is an integer
       value indicating an exponent used to decode the ACK Delay field in
       the ACK frame (Section 19.3).  If this value is absent, a default
-
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 98]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
       value of 3 is assumed (indicating a multiplier of 8).  Values
       above 20 are invalid.
 
@@ -5507,6 +5482,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
       migration (Section 9).  Peers of an endpoint that sets this
       transport parameter MUST NOT send any packets, including probing
       packets (Section 9.1), from a local address or port other than
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 98]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
       that used to perform the handshake.  This parameter is a zero-
       length value.
 
@@ -5538,14 +5521,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    the transport parameter is absent, streams of that type start with a
    flow control limit of 0.
 
-
-
-
-Iyengar & Thomson       Expires December 27, 2019              [Page 99]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    A client MUST NOT include an original connection ID, a stateless
    reset token, or a preferred address.  A server MUST treat receipt of
    any of these transport parameters as a connection error of type
@@ -5561,6 +5536,15 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    As described in Section 12.4, packets contain one or more frames.
    This section describes the format and semantics of the core QUIC
    frame types.
+
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019              [Page 99]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
 19.1.  PADDING Frame
 
@@ -5594,14 +5578,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    period longer than the time specified in the idle_timeout transport
    parameter (see Section 10).  However, state in middleboxes might time
    out earlier than that.  Though REQ-5 in [RFC4787] recommends a 2
-
-
-
-Iyengar & Thomson       Expires December 27, 2019             [Page 100]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    minute timeout interval, experience shows that sending packets every
    15 to 30 seconds is necessary to prevent the majority of middleboxes
    from losing state for UDP flows.
@@ -5616,6 +5592,15 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    this point.  QUIC implementations MUST properly handle both types
    and, if they have enabled ECN for packets they send, they SHOULD use
    the information in the ECN section to manage their congestion state.
+
+
+
+
+
+Iyengar & Thomson       Expires December 27, 2019             [Page 100]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
    QUIC acknowledgements are irrevocable.  Once acknowledged, a packet
    remains acknowledged, even if it does not appear in a future ACK
@@ -5651,13 +5636,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
 
                         Figure 17: ACK Frame Format
 
-
-
-Iyengar & Thomson       Expires December 27, 2019             [Page 101]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    ACK frames contain the following fields:
 
    Largest Acknowledged:  A variable-length integer representing the
@@ -5672,6 +5650,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
       field, was received by this peer.  The value of the ACK Delay
       field is scaled by multiplying the encoded value by 2 to the power
       of the value of the "ack_delay_exponent" transport parameter set
+
+
+
+Iyengar & Thomson       Expires December 27, 2019             [Page 101]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
       by the sender of the ACK frame (see Section 18.1).  Scaling in
       this fashion allows for a larger range of values with a shorter
       encoding at the cost of lower resolution.  Because the receiver
@@ -5703,6 +5689,20 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    is present for each value in the ACK Range Count field.
 
    ACK Ranges are structured as follows:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
