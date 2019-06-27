@@ -929,7 +929,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <a href="#rfc.section.6.1">6.1.</a> <a href="#bidirectional-streams" id="bidirectional-streams">Bidirectional Streams</a>
 </h2>
 <p id="rfc.section.6.1.p.1">All client-initiated bidirectional streams are used for HTTP requests and responses.  A bidirectional stream ensures that the response can be readily correlated with the request. This means that the client&#8217;s first request occurs on QUIC stream 0, with subsequent requests on stream 4, 8, and so on. In order to permit these streams to open, an HTTP/3 client SHOULD send non-zero values for the QUIC transport parameters <samp>initial_max_stream_data_bidi_local</samp>. An HTTP/3 server SHOULD send non-zero values for the QUIC transport parameters <samp>initial_max_stream_data_bidi_remote</samp> and <samp>initial_max_bidi_streams</samp>. It is RECOMMENDED that <samp>initial_max_bidi_streams</samp> be no smaller than 100, so as to not unnecessarily limit parallelism.</p>
-<p id="rfc.section.6.1.p.2">HTTP/3 does not use server-initiated bidirectional streams, though an extension could define a use for these streams.  Clients MUST treat receipt of a server-initiated bidirectional stream as a connection error of type HTTP_GENERAL_PROTOCOL_ERROR unless such an extension has been negotiated.</p>
+<p id="rfc.section.6.1.p.2">HTTP/3 does not use server-initiated bidirectional streams, though an extension could define a use for these streams.  Clients MUST treat receipt of a server-initiated bidirectional stream as a connection error of type HTTP_STREAM_CREATION_ERROR unless such an extension has been negotiated.</p>
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#unidirectional-streams" id="unidirectional-streams">Unidirectional Streams</a>
 </h2>
@@ -947,21 +947,21 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <p id="rfc.section.6.2.p.2">Some stream types are reserved (<a href="#stream-grease" class="xref">Section 6.2.3</a>).  Two stream types are defined in this document: control streams (<a href="#control-streams" class="xref">Section 6.2.1</a>) and push streams (<a href="#push-streams" class="xref">Section 6.2.2</a>).  Other stream types can be defined by extensions to HTTP/3; see <a href="#extensions" class="xref">Section 9</a> for more details.</p>
 <p id="rfc.section.6.2.p.3">The performance of HTTP/3 connections in the early phase of their lifetime is sensitive to the creation and exchange of data on unidirectional streams.  Endpoints that set low values for the QUIC transport parameters <samp>initial_max_uni_streams</samp> and <samp>initial_max_stream_data_uni</samp> will increase the chance that the remote peer reaches the limit early and becomes blocked. In particular, the value chosen for <samp>initial_max_uni_streams</samp> should consider that remote peers may wish to exercise reserved stream behavior (<a href="#stream-grease" class="xref">Section 6.2.3</a>).  To avoid blocking, both clients and servers MUST allow the peer to create at least one unidirectional stream for the HTTP control stream plus the number of unidirectional streams required by mandatory extensions (such as QPACK) by setting an appropriate value for the QUIC transport parameter <samp>initial_max_uni_streams</samp> (three being the minimum value required for the base HTTP/3 protocol and QPACK), and SHOULD use a value of 1,024 or greater for the QUIC transport parameter <samp>initial_max_stream_data_uni</samp>.</p>
 <p id="rfc.section.6.2.p.4">Note that an endpoint is not required to grant additional credits to create more unidirectional streams if its peer consumes all the initial credits before creating the critical unidirectional streams. Endpoints SHOULD create the HTTP control stream as well as the unidirectional streams required by mandatory extensions (such as the QPACK encoder and decoder streams) first, and then create additional streams as allowed by their peer.</p>
-<p id="rfc.section.6.2.p.5">If the stream header indicates a stream type which is not supported by the recipient, the remainder of the stream cannot be consumed as the semantics are unknown. Recipients of unknown stream types MAY trigger a QUIC STOP_SENDING frame with an error code of HTTP_UNKNOWN_STREAM_TYPE, but MUST NOT consider such streams to be a connection error of any kind.</p>
+<p id="rfc.section.6.2.p.5">If the stream header indicates a stream type which is not supported by the recipient, the remainder of the stream cannot be consumed as the semantics are unknown. Recipients of unknown stream types MAY trigger a QUIC STOP_SENDING frame with an error code of HTTP_STREAM_CREATION_ERROR, but MUST NOT consider such streams to be a connection error of any kind.</p>
 <p id="rfc.section.6.2.p.6">Implementations MAY send stream types before knowing whether the peer supports them.  However, stream types which could modify the state or semantics of existing protocol components, including QPACK or other extensions, MUST NOT be sent until the peer is known to support them.</p>
 <p id="rfc.section.6.2.p.7">A sender can close or reset a unidirectional stream unless otherwise specified.  A receiver MUST tolerate unidirectional streams being closed or reset prior to the reception of the unidirectional stream header.</p>
 <h3 id="rfc.section.6.2.1">
 <a href="#rfc.section.6.2.1">6.2.1.</a> <a href="#control-streams" id="control-streams">Control Streams</a>
 </h3>
 <p id="rfc.section.6.2.1.p.1">A control stream is indicated by a stream type of <samp>0x00</samp>.  Data on this stream consists of HTTP/3 frames, as defined in <a href="#frames" class="xref">Section 7.2</a>.</p>
-<p id="rfc.section.6.2.1.p.2">Each side MUST initiate a single control stream at the beginning of the connection and send its SETTINGS frame as the first frame on this stream.  If the first frame of the control stream is any other frame type, this MUST be treated as a connection error of type HTTP_MISSING_SETTINGS. Only one control stream per peer is permitted; receipt of a second stream which claims to be a control stream MUST be treated as a connection error of type HTTP_WRONG_STREAM_COUNT.  The sender MUST NOT close the control stream, and the receiver MUST NOT request that the sender close the control stream.  If either control stream is closed at any point, this MUST be treated as a connection error of type HTTP_CLOSED_CRITICAL_STREAM.</p>
+<p id="rfc.section.6.2.1.p.2">Each side MUST initiate a single control stream at the beginning of the connection and send its SETTINGS frame as the first frame on this stream.  If the first frame of the control stream is any other frame type, this MUST be treated as a connection error of type HTTP_MISSING_SETTINGS. Only one control stream per peer is permitted; receipt of a second stream which claims to be a control stream MUST be treated as a connection error of type HTTP_STREAM_CREATION_ERROR.  The sender MUST NOT close the control stream, and the receiver MUST NOT request that the sender close the control stream.  If either control stream is closed at any point, this MUST be treated as a connection error of type HTTP_CLOSED_CRITICAL_STREAM.</p>
 <p id="rfc.section.6.2.1.p.3">A pair of unidirectional streams is used rather than a single bidirectional stream.  This allows either peer to send data as soon as it is able.  Depending on whether 0-RTT is enabled on the connection, either client or server might be able to send stream data first after the cryptographic handshake completes.</p>
 <h3 id="rfc.section.6.2.2">
 <a href="#rfc.section.6.2.2">6.2.2.</a> <a href="#push-streams" id="push-streams">Push Streams</a>
 </h3>
 <p id="rfc.section.6.2.2.p.1">Server push is an optional feature introduced in HTTP/2 that allows a server to initiate a response before a request has been made.  See <a href="#server-push" class="xref">Section 4.4</a> for more details.</p>
 <p id="rfc.section.6.2.2.p.2">A push stream is indicated by a stream type of <samp>0x01</samp>, followed by the Push ID of the promise that it fulfills, encoded as a variable-length integer. The remaining data on this stream consists of HTTP/3 frames, as defined in <a href="#frames" class="xref">Section 7.2</a>, and fulfills a promised server push.  Server push and Push IDs are described in <a href="#server-push" class="xref">Section 4.4</a>.</p>
-<p id="rfc.section.6.2.2.p.3">Only servers can push; if a server receives a client-initiated push stream, this MUST be treated as a connection error of type HTTP_WRONG_STREAM_DIRECTION.</p>
+<p id="rfc.section.6.2.2.p.3">Only servers can push; if a server receives a client-initiated push stream, this MUST be treated as a connection error of type HTTP_STREAM_CREATION_ERROR.</p>
 <div id="rfc.figure.3"></div>
 <div id="fig-push-stream-header"></div>
 <pre>
@@ -1403,14 +1403,14 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dd style="margin-left: 8">A Stream ID, Push ID, or Placeholder ID was used incorrectly, such as exceeding a limit, reducing a limit, or being reused.</dd>
 <dt>Reserved (0x0C):</dt>
 <dd style="margin-left: 8">N/A</dd>
-<dt>HTTP_UNKNOWN_STREAM_TYPE (0x0D):</dt>
-<dd style="margin-left: 8">A unidirectional stream header contained an unknown stream type.</dd>
-<dt>HTTP_WRONG_STREAM_COUNT (0x0E):</dt>
-<dd style="margin-left: 8">A unidirectional stream type was used more times than is permitted by that type.</dd>
+<dt>HTTP_STREAM_CREATION_ERROR (0x0D):</dt>
+<dd style="margin-left: 8">The endpoint detected that its peer created a stream that it will not accept.</dd>
+<dt>Reserved (0x0E):</dt>
+<dd style="margin-left: 8">N/A</dd>
 <dt>HTTP_CLOSED_CRITICAL_STREAM (0x0F):</dt>
 <dd style="margin-left: 8">A stream required by the connection was closed or reset.</dd>
-<dt>HTTP_WRONG_STREAM_DIRECTION (0x0010):</dt>
-<dd style="margin-left: 8">A unidirectional stream type was used by a peer which is not permitted to do so.</dd>
+<dt>Reserved (0x0010):</dt>
+<dd style="margin-left: 8">N/A</dd>
 <dt>HTTP_EARLY_RESPONSE (0x0011):</dt>
 <dd style="margin-left: 8">The remainder of the client&#8217;s request is not needed to produce a response.  For use in STOP_SENDING only.</dd>
 <dt>HTTP_MISSING_SETTINGS (0x0012):</dt>
@@ -1722,16 +1722,16 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left">N/A</td>
 </tr>
 <tr>
-<td class="left">HTTP_UNKNOWN_STREAM_TYPE</td>
+<td class="left">HTTP_STREAM_CREATION_ERROR</td>
 <td class="left">0x000D</td>
-<td class="left">Unknown unidirectional stream type</td>
+<td class="left">Stream creation error</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_WRONG_STREAM_COUNT</td>
+<td class="left">Reserved</td>
 <td class="left">0x000E</td>
-<td class="left">Too many unidirectional streams</td>
-<td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
+<td class="left">N/A</td>
+<td class="left">N/A</td>
 </tr>
 <tr>
 <td class="left">HTTP_CLOSED_CRITICAL_STREAM</td>
@@ -1740,10 +1740,10 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_WRONG_STREAM_DIRECTION</td>
-<td class="left">0x0010</td>
-<td class="left">Unidirectional stream in wrong direction</td>
-<td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
+<td class="left">Reserved</td>
+<td class="left">0x000E</td>
+<td class="left">N/A</td>
+<td class="left">N/A</td>
 </tr>
 <tr>
 <td class="left">HTTP_EARLY_RESPONSE</td>
