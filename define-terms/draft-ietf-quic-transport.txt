@@ -84,13 +84,13 @@ Table of Contents
      3.3.  Permitted Frame Types . . . . . . . . . . . . . . . . . .  16
      3.4.  Bidirectional Stream States . . . . . . . . . . . . . . .  17
      3.5.  Solicited State Transitions . . . . . . . . . . . . . . .  18
-   4.  Flow Control  . . . . . . . . . . . . . . . . . . . . . . . .  19
+     3.6.  Required Operations on Streams  . . . . . . . . . . . . .  19
+   4.  Flow Control  . . . . . . . . . . . . . . . . . . . . . . . .  20
      4.1.  Data Flow Control . . . . . . . . . . . . . . . . . . . .  20
-     4.2.  Flow Credit Increments  . . . . . . . . . . . . . . . . .  21
+     4.2.  Flow Credit Increments  . . . . . . . . . . . . . . . . .  22
      4.3.  Handling Stream Cancellation  . . . . . . . . . . . . . .  22
-     4.4.  Stream Final Size . . . . . . . . . . . . . . . . . . . .  22
+     4.4.  Stream Final Size . . . . . . . . . . . . . . . . . . . .  23
      4.5.  Controlling Concurrency . . . . . . . . . . . . . . . . .  23
-     4.6.  Required Operations on Streams  . . . . . . . . . . . . .  24
    5.  Connections . . . . . . . . . . . . . . . . . . . . . . . . .  24
      5.1.  Connection ID . . . . . . . . . . . . . . . . . . . . . .  24
        5.1.1.  Issuing Connection IDs  . . . . . . . . . . . . . . .  26
@@ -1046,6 +1046,36 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    RESET_STREAM, and it can encourage prompt termination in the opposite
    direction by sending a STOP_SENDING frame.
 
+3.6.  Required Operations on Streams
+
+   There are certain operations which an application MUST be able to
+   perform when interacting with QUIC streams.  This document does not
+   specify an API, but any implementation of this version of QUIC MUST
+   expose the ability to perform the operations described in this
+   section on a QUIC stream.
+
+   On the sending part of a stream: - Attempt to write data,
+   understanding when stream flow control credit (Section 4.1) has
+   successfully been reserved to send the written data or possibly
+   discovering that the stream has been closed because the peer sent a
+
+
+
+Iyengar & Thomson       Expires December 29, 2019              [Page 19]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
+   STOP_SENDING frame (Section 19.5) - Cleanly terminate the stream,
+   resulting in a STREAM frame (Section 19.8) with the FIN bit set -
+   Abruptly terminate the stream, resulting in a RESET_STREAM frame
+   (Section 19.4), even if the stream was cleanly terminated previously
+
+   On the receiving part of a stream: - Attempt to read data, possibly
+   discovering that the peer has terminated the stream either cleanly or
+   abruptly - Abort reading of the stream and request closure, resulting
+   in a STOP_SENDING frame (Section 19.5)
+
 4.  Flow Control
 
    It is necessary to limit the amount of data that a receiver could
@@ -1056,15 +1086,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    streams are flow controlled both individually and as an aggregate.  A
    QUIC receiver controls the maximum amount of data the sender can send
    on a stream at any time, as described in Section 4.1 and Section 4.2
-
-
-
-
-
-Iyengar & Thomson       Expires December 29, 2019              [Page 19]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
 
    Similarly, to limit concurrency within a connection, a QUIC endpoint
    controls the maximum cumulative number of streams that its peer can
@@ -1092,6 +1113,15 @@ Internet-Draft           QUIC Transport Protocol               June 2019
       receiver's buffer capacity for the connection, by limiting the
       total bytes of stream data sent in STREAM frames on all streams.
 
+
+
+
+
+Iyengar & Thomson       Expires December 29, 2019              [Page 20]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
    A receiver sets initial credits for all streams by sending transport
    parameters during the handshake (Section 7.3).  A receiver sends
    MAX_STREAM_DATA (Section 19.10) or MAX_DATA (Section 19.9) frames to
@@ -1112,15 +1142,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    bytes received on all streams, which is used to check for flow
    control violations.  A receiver might use a sum of bytes consumed on
    all streams to determine the maximum data limit to be advertised.
-
-
-
-
-
-Iyengar & Thomson       Expires December 29, 2019              [Page 20]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
 
    A receiver can advertise a larger offset by sending MAX_STREAM_DATA
    or MAX_DATA frames.  Once a receiver advertises an offset, it MAY
@@ -1144,6 +1165,18 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    frames for the same data limit, unless the original frame is
    determined to be lost.  Another STREAM_DATA_BLOCKED or DATA_BLOCKED
    frame can be sent after the data limit is increased.
+
+
+
+
+
+
+
+
+Iyengar & Thomson       Expires December 29, 2019              [Page 21]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
 
 4.2.  Flow Credit Increments
 
@@ -1169,15 +1202,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    send new data and is considered blocked.  It is generally considered
    best to not let the sender become blocked.  To avoid blocking a
    sender, and to reasonably account for the possibility of loss, a
-
-
-
-
-Iyengar & Thomson       Expires December 29, 2019              [Page 21]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    receiver should send a MAX_DATA or MAX_STREAM_DATA frame at least two
    round trips before it expects the sender to get blocked.
 
@@ -1202,6 +1226,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    To remedy this issue, a RESET_STREAM frame (Section 19.4) includes
    the final size of data sent on the stream.  On receiving a
    RESET_STREAM frame, a receiver definitively knows how many bytes were
+
+
+
+Iyengar & Thomson       Expires December 29, 2019              [Page 22]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
    sent on that stream before the RESET_STREAM frame, and the receiver
    MUST use the final size of the stream to account for all bytes sent
    on the stream in its connection level flow controller.
@@ -1225,14 +1257,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    RESET_STREAM frame.  Otherwise, the final size is the offset plus the
    length of a STREAM frame marked with a FIN flag, or 0 in the case of
    incoming unidirectional streams.
-
-
-
-
-Iyengar & Thomson       Expires December 29, 2019              [Page 22]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
 
    An endpoint will know the final size for a stream when the receiving
    part of the stream enters the "Size Known" or "Reset Recvd" state
@@ -1258,6 +1282,14 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    can open.  Only streams with a stream ID less than (max_stream * 4 +
    initial_stream_id_for_type) can be opened (see Table 5).  Initial
    limits are set in the transport parameters (see Section 18.1) and
+
+
+
+Iyengar & Thomson       Expires December 29, 2019              [Page 23]
+
+Internet-Draft           QUIC Transport Protocol               June 2019
+
+
    subsequently limits are advertised using MAX_STREAMS frames
    (Section 19.11).  Separate limits apply to unidirectional and
    bidirectional streams.
@@ -1281,15 +1313,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    As with stream and connection flow control, this document leaves when
    and how many streams to advertise to a peer via MAX_STREAMS to
    implementations.  Implementations might choose to increase limits as
-
-
-
-
-Iyengar & Thomson       Expires December 29, 2019              [Page 23]
-
-Internet-Draft           QUIC Transport Protocol               June 2019
-
-
    streams close to keep the number of streams available to peers
    roughly consistent.
 
@@ -1300,28 +1323,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    doing so will mean that the peer will be blocked for at least an
    entire round trip, and potentially for longer if the peer chooses to
    not send STREAMS_BLOCKED frames.
-
-4.6.  Required Operations on Streams
-
-   There are certain operations which an application MUST be able to
-   perform when interacting with QUIC streams.  This document does not
-   specify an API, but any implementation of this version of QUIC MUST
-   expose the ability to perform the operations described in this
-   section on a QUIC stream.
-
-   On the sending part of a stream: - Attempt to write data,
-   understanding when stream flow control credit (Section 4.1) has
-   successfully been reserved to send the written data or possibly
-   discovering that the stream has been closed because the peer sent a
-   STOP_SENDING frame (Section 19.5) - Cleanly terminate the stream,
-   resulting in a STREAM frame (Section 19.8) with the FIN bit set -
-   Abruptly terminate the stream, resulting in a RESET_STREAM frame
-   (Section 19.4), even if the stream was cleanly terminated previously
-
-   On the receiving part of a stream: - Attempt to read data, possibly
-   discovering that the peer has terminated the stream either cleanly or
-   abruptly - Abort reading of the stream and request closure, resulting
-   in a STOP_SENDING frame (Section 19.5)
 
 5.  Connections
 
@@ -1336,8 +1337,7 @@ Internet-Draft           QUIC Transport Protocol               June 2019
 
    Each connection possesses a set of connection identifiers, or
    connection IDs, each of which can identify the connection.
-   Connection IDs are independently selected by endpoints; each endpoint
-   selects the connection IDs that its peer uses.
+
 
 
 
@@ -1345,6 +1345,9 @@ Iyengar & Thomson       Expires December 29, 2019              [Page 24]
 
 Internet-Draft           QUIC Transport Protocol               June 2019
 
+
+   Connection IDs are independently selected by endpoints; each endpoint
+   selects the connection IDs that its peer uses.
 
    The primary function of a connection ID is to ensure that changes in
    addressing at lower protocol layers (UDP, IP) don't cause packets for
@@ -1390,9 +1393,6 @@ Internet-Draft           QUIC Transport Protocol               June 2019
    which to choose for packets sent to the endpoint.  These connection
    IDs are supplied by the endpoint using the NEW_CONNECTION_ID frame
    (Section 19.15).
-
-
-
 
 
 

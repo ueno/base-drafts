@@ -296,13 +296,13 @@ ul.toc li {
 <link href="#rfc.section.3.3" rel="Chapter" title="3.3 Permitted Frame Types">
 <link href="#rfc.section.3.4" rel="Chapter" title="3.4 Bidirectional Stream States">
 <link href="#rfc.section.3.5" rel="Chapter" title="3.5 Solicited State Transitions">
+<link href="#rfc.section.3.6" rel="Chapter" title="3.6 Required Operations on Streams">
 <link href="#rfc.section.4" rel="Chapter" title="4 Flow Control">
 <link href="#rfc.section.4.1" rel="Chapter" title="4.1 Data Flow Control">
 <link href="#rfc.section.4.2" rel="Chapter" title="4.2 Flow Credit Increments">
 <link href="#rfc.section.4.3" rel="Chapter" title="4.3 Handling Stream Cancellation">
 <link href="#rfc.section.4.4" rel="Chapter" title="4.4 Stream Final Size">
 <link href="#rfc.section.4.5" rel="Chapter" title="4.5 Controlling Concurrency">
-<link href="#rfc.section.4.6" rel="Chapter" title="4.6 Required Operations on Streams">
 <link href="#rfc.section.5" rel="Chapter" title="5 Connections">
 <link href="#rfc.section.5.1" rel="Chapter" title="5.1 Connection ID">
 <link href="#rfc.section.5.1.1" rel="Chapter" title="5.1.1 Issuing Connection IDs">
@@ -553,6 +553,8 @@ ul.toc li {
 </li>
 <li>3.5.   <a href="#rfc.section.3.5">Solicited State Transitions</a>
 </li>
+<li>3.6.   <a href="#rfc.section.3.6">Required Operations on Streams</a>
+</li>
 </ul><li>4.   <a href="#rfc.section.4">Flow Control</a>
 </li>
 <ul><li>4.1.   <a href="#rfc.section.4.1">Data Flow Control</a>
@@ -564,8 +566,6 @@ ul.toc li {
 <li>4.4.   <a href="#rfc.section.4.4">Stream Final Size</a>
 </li>
 <li>4.5.   <a href="#rfc.section.4.5">Controlling Concurrency</a>
-</li>
-<li>4.6.   <a href="#rfc.section.4.6">Required Operations on Streams</a>
 </li>
 </ul><li>5.   <a href="#rfc.section.5">Connections</a>
 </li>
@@ -1268,6 +1268,12 @@ ul.toc li {
 <p id="rfc.section.3.5.p.6">STOP_SENDING SHOULD only be sent for a stream that has not been reset by the peer. STOP_SENDING is most useful for streams in the &#8220;Recv&#8221; or &#8220;Size Known&#8221; states.</p>
 <p id="rfc.section.3.5.p.7">An endpoint is expected to send another STOP_SENDING frame if a packet containing a previous STOP_SENDING is lost.  However, once either all stream data or a RESET_STREAM frame has been received for the stream - that is, the stream is in any state other than &#8220;Recv&#8221; or &#8220;Size Known&#8221; - sending a STOP_SENDING frame is unnecessary.</p>
 <p id="rfc.section.3.5.p.8">An endpoint that wishes to terminate both directions of a bidirectional stream can terminate one direction by sending a RESET_STREAM, and it can encourage prompt termination in the opposite direction by sending a STOP_SENDING frame.</p>
+<h2 id="rfc.section.3.6">
+<a href="#rfc.section.3.6">3.6.</a> <a href="#required-operations-on-streams" id="required-operations-on-streams">Required Operations on Streams</a>
+</h2>
+<p id="rfc.section.3.6.p.1">There are certain operations which an application MUST be able to perform when interacting with QUIC streams.  This document does not specify an API, but any implementation of this version of QUIC MUST expose the ability to perform the operations described in this section on a QUIC stream.</p>
+<p id="rfc.section.3.6.p.2">On the sending part of a stream: - Attempt to write data, understanding when stream flow control credit (<a href="#data-flow-control" class="xref">Section 4.1</a>) has successfully been reserved to send the written data or possibly discovering that the stream has been closed because the peer sent a STOP_SENDING frame (<a href="#frame-stop-sending" class="xref">Section 19.5</a>) - Cleanly terminate the stream, resulting in a STREAM frame (<a href="#frame-stream" class="xref">Section 19.8</a>) with the FIN bit set - Abruptly terminate the stream, resulting in a RESET_STREAM frame (<a href="#frame-reset-stream" class="xref">Section 19.4</a>), even if the stream was cleanly terminated previously</p>
+<p id="rfc.section.3.6.p.3">On the receiving part of a stream: - Attempt to read data, possibly discovering that the peer has terminated the stream either cleanly or abruptly - Abort reading of the stream and request closure, resulting in a STOP_SENDING frame (<a href="#frame-stop-sending" class="xref">Section 19.5</a>)</p>
 <h1 id="rfc.section.4">
 <a href="#rfc.section.4">4.</a> <a href="#flow-control" id="flow-control">Flow Control</a>
 </h1>
@@ -1323,12 +1329,6 @@ ul.toc li {
 <p id="rfc.section.4.5.p.4">Once a receiver advertises a stream limit using the MAX_STREAMS frame, advertising a smaller limit has no effect.  A receiver MUST ignore any MAX_STREAMS frame that does not increase the stream limit.</p>
 <p id="rfc.section.4.5.p.5">As with stream and connection flow control, this document leaves when and how many streams to advertise to a peer via MAX_STREAMS to implementations.  Implementations might choose to increase limits as streams close to keep the number of streams available to peers roughly consistent.</p>
 <p id="rfc.section.4.5.p.6">An endpoint that is unable to open a new stream due to the peer&#8217;s limits SHOULD send a STREAMS_BLOCKED frame (<a href="#frame-streams-blocked" class="xref">Section 19.14</a>).  This signal is considered useful for debugging. An endpoint MUST NOT wait to receive this signal before advertising additional credit, since doing so will mean that the peer will be blocked for at least an entire round trip, and potentially for longer if the peer chooses to not send STREAMS_BLOCKED frames.</p>
-<h2 id="rfc.section.4.6">
-<a href="#rfc.section.4.6">4.6.</a> <a href="#required-operations-on-streams" id="required-operations-on-streams">Required Operations on Streams</a>
-</h2>
-<p id="rfc.section.4.6.p.1">There are certain operations which an application MUST be able to perform when interacting with QUIC streams.  This document does not specify an API, but any implementation of this version of QUIC MUST expose the ability to perform the operations described in this section on a QUIC stream.</p>
-<p id="rfc.section.4.6.p.2">On the sending part of a stream: - Attempt to write data, understanding when stream flow control credit (<a href="#data-flow-control" class="xref">Section 4.1</a>) has successfully been reserved to send the written data or possibly discovering that the stream has been closed because the peer sent a STOP_SENDING frame (<a href="#frame-stop-sending" class="xref">Section 19.5</a>) - Cleanly terminate the stream, resulting in a STREAM frame (<a href="#frame-stream" class="xref">Section 19.8</a>) with the FIN bit set - Abruptly terminate the stream, resulting in a RESET_STREAM frame (<a href="#frame-reset-stream" class="xref">Section 19.4</a>), even if the stream was cleanly terminated previously</p>
-<p id="rfc.section.4.6.p.3">On the receiving part of a stream: - Attempt to read data, possibly discovering that the peer has terminated the stream either cleanly or abruptly - Abort reading of the stream and request closure, resulting in a STOP_SENDING frame (<a href="#frame-stop-sending" class="xref">Section 19.5</a>)</p>
 <h1 id="rfc.section.5">
 <a href="#rfc.section.5">5.</a> <a href="#connections" id="connections">Connections</a>
 </h1>
