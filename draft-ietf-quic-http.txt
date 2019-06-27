@@ -1014,7 +1014,7 @@ Internet-Draft                   HTTP/3                        June 2019
    server can promise.  A server SHOULD use Push IDs sequentially,
    starting at 0.  A client MUST treat receipt of a push stream with a
    Push ID that is greater than the maximum Push ID as a connection
-   error of type HTTP_LIMIT_EXCEEDED.
+   error of type HTTP_ID_ERROR.
 
    The header of the request message is carried by a PUSH_PROMISE frame
    (see Section 7.2.6) on the request stream which generated the push.
@@ -1387,7 +1387,7 @@ Internet-Draft                   HTTP/3                        June 2019
    Each Push ID MUST only be used once in a push stream header.  If a
    push stream header includes a Push ID that was used in another push
    stream header, the client MUST treat this as a connection error of
-   type HTTP_DUPLICATE_PUSH.
+   type HTTP_ID_ERROR.
 
 6.2.3.  Reserved Stream Types
 
@@ -1718,7 +1718,7 @@ Internet-Draft                   HTTP/3                        June 2019
    A PRIORITY frame that references a non-existent Push ID, a
    Placeholder ID greater than the server's limit, or a Stream ID the
    client is not yet permitted to open MUST be treated as a connection
-   error of type HTTP_LIMIT_EXCEEDED.
+   error of type HTTP_ID_ERROR.
 
    A PRIORITY frame received on any stream other than the control stream
    MUST be treated as a connection error of type HTTP_WRONG_STREAM.
@@ -1939,11 +1939,13 @@ Internet-Draft                   HTTP/3                        June 2019
       promised response.  See [QPACK] for more details.
 
    A server MUST NOT use a Push ID that is larger than the client has
-   provided in a MAX_PUSH_ID frame (Section 7.2.8) and MUST NOT use the
-   same Push ID in multiple PUSH_PROMISE frames.  A client MUST treat
-   receipt of a PUSH_PROMISE that contains a larger Push ID than the
-   client has advertised or a Push ID which has already been promised as
-   a connection error of type HTTP_MALFORMED_FRAME.
+   provided in a MAX_PUSH_ID frame (Section 7.2.8).  A client MUST treat
+   receipt of a PUSH_PROMISE frame that contains a larger Push ID than
+   the client has advertised as a connection error of HTTP_ID_ERROR.
+
+   A server MUST NOT use the same Push ID in multiple PUSH_PROMISE
+   frames.  A client MUST treat receipt of a Push ID which has already
+   been promised as a connection error of type HTTP_ID_ERROR.
 
    If a PUSH_PROMISE frame is received on the control stream, the client
    MUST respond with a connection error (Section 8) of type
@@ -1952,8 +1954,6 @@ Internet-Draft                   HTTP/3                        June 2019
    A client MUST NOT send a PUSH_PROMISE frame.  A server MUST treat the
    receipt of a PUSH_PROMISE frame as a connection error of type
    HTTP_UNEXPECTED_FRAME.
-
-
 
 
 
@@ -2041,7 +2041,7 @@ Internet-Draft                   HTTP/3                        June 2019
    (see Section 7.2.6).  A MAX_PUSH_ID frame cannot reduce the maximum
    Push ID; receipt of a MAX_PUSH_ID that contains a smaller value than
    previously received MUST be treated as a connection error of type
-   HTTP_MALFORMED_FRAME.
+   HTTP_ID_ERROR.
 
 7.2.9.  DUPLICATE_PUSH
 
@@ -2081,7 +2081,7 @@ Internet-Draft                   HTTP/3                        June 2019
    that is larger than the client has provided in a MAX_PUSH_ID frame
    (Section 7.2.8).  A client MUST treat receipt of a DUPLICATE_PUSH
    that contains a larger Push ID than the client has advertised as a
-   connection error of type HTTP_MALFORMED_FRAME.
+   connection error of type HTTP_ID_ERROR.
 
    This frame allows the server to use the same server push in response
    to multiple concurrent requests.  Referencing the same server push
@@ -2168,15 +2168,15 @@ Internet-Draft                   HTTP/3                        June 2019
    HTTP_WRONG_STREAM (0x0A):  A frame was received on a stream where it
       is not permitted.
 
-   HTTP_LIMIT_EXCEEDED (0x0B):  A Stream ID, Push ID, or Placeholder ID
-      greater than the current maximum for that identifier was
-      referenced.
+   HTTP_ID_ERROR (0x0B):  A Stream ID, Push ID, or Placeholder ID was
+      used incorrectly, such as exceeding a limit, reducing a limit, or
+      being reused.
 
-   HTTP_DUPLICATE_PUSH (0x0C):  A Push ID was referenced in two
-      different stream headers.
+   Reserved (0x0C):  N/A
 
    HTTP_UNKNOWN_STREAM_TYPE (0x0D):  A unidirectional stream header
       contained an unknown stream type.
+
 
 
 
@@ -2548,14 +2548,12 @@ Internet-Draft                   HTTP/3                        June 2019
    |                           | A     | sent on the   |               |
    |                           |       | wrong stream  |               |
    |                           |       |               |               |
-   | HTTP_LIMIT_EXCEEDED       | 0x000 | An identifier | Section 8.1   |
-   |                           | B     | limit was     |               |
-   |                           |       | exceeded      |               |
+   | HTTP_ID_ERROR             | 0x000 | An identifier | Section 8.1   |
+   |                           | B     | was used      |               |
+   |                           |       | incorrectly   |               |
    |                           |       |               |               |
-   | HTTP_DUPLICATE_PUSH       | 0x000 | Push ID was   | Section 8.1   |
-   |                           | C     | fulfilled     |               |
-   |                           |       | multiple      |               |
-   |                           |       | times         |               |
+   | Reserved                  | 0x000 | N/A           | N/A           |
+   |                           | C     |               |               |
    |                           |       |               |               |
    | HTTP_UNKNOWN_STREAM_TYPE  | 0x000 | Unknown unidi | Section 8.1   |
    |                           | D     | rectional     |               |
@@ -2570,6 +2568,8 @@ Internet-Draft                   HTTP/3                        June 2019
    |                           |       | closed        |               |
    |                           |       |               |               |
    | HTTP_WRONG_STREAM_DIRECTI | 0x001 | Unidirectiona | Section 8.1   |
+   | ON                        | 0     | l stream in   |               |
+   |                           |       | wrong         |               |
 
 
 
@@ -2578,8 +2578,6 @@ Bishop                  Expires December 29, 2019              [Page 46]
 Internet-Draft                   HTTP/3                        June 2019
 
 
-   | ON                        | 0     | l stream in   |               |
-   |                           |       | wrong         |               |
    |                           |       | direction     |               |
    |                           |       |               |               |
    | HTTP_EARLY_RESPONSE       | 0x001 | Remainder of  | Section 8.1   |
@@ -2625,6 +2623,8 @@ Internet-Draft                   HTTP/3                        June 2019
    Stream Type:  A name or label for the stream type.
 
    Code:  The 62-bit code assigned to the stream type.
+
+
 
 
 

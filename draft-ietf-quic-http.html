@@ -881,7 +881,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 </h2>
 <p id="rfc.section.4.4.p.1">Server push is an interaction mode introduced in HTTP/2 <a href="#HTTP2" class="xref">[HTTP2]</a> which permits a server to push a request-response exchange to a client in anticipation of the client making the indicated request.  This trades off network usage against a potential latency gain.  HTTP/3 server push is similar to what is described in HTTP/2 <a href="#HTTP2" class="xref">[HTTP2]</a>, but uses different mechanisms.</p>
 <p id="rfc.section.4.4.p.2">Each server push is identified by a unique Push ID. This Push ID is used in a single PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 7.2.6</a>) which carries the request headers, possibly included in one or more DUPLICATE_PUSH frames (see <a href="#frame-duplicate-push" class="xref">Section 7.2.9</a>), then included with the push stream which ultimately fulfills those promises.</p>
-<p id="rfc.section.4.4.p.3">Server push is only enabled on a connection when a client sends a MAX_PUSH_ID frame (see <a href="#frame-max-push-id" class="xref">Section 7.2.8</a>). A server cannot use server push until it receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to control the number of pushes that a server can promise. A server SHOULD use Push IDs sequentially, starting at 0. A client MUST treat receipt of a push stream with a Push ID that is greater than the maximum Push ID as a connection error of type HTTP_LIMIT_EXCEEDED.</p>
+<p id="rfc.section.4.4.p.3">Server push is only enabled on a connection when a client sends a MAX_PUSH_ID frame (see <a href="#frame-max-push-id" class="xref">Section 7.2.8</a>). A server cannot use server push until it receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to control the number of pushes that a server can promise. A server SHOULD use Push IDs sequentially, starting at 0. A client MUST treat receipt of a push stream with a Push ID that is greater than the maximum Push ID as a connection error of type HTTP_ID_ERROR.</p>
 <p id="rfc.section.4.4.p.4">The header of the request message is carried by a PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 7.2.6</a>) on the request stream which generated the push. This allows the server push to be associated with a client request.  Promised requests MUST conform to the requirements in Section 8.2 of <a href="#HTTP2" class="xref">[HTTP2]</a>.</p>
 <p id="rfc.section.4.4.p.5">The same server push can be associated with additional client requests using a DUPLICATE_PUSH frame (see <a href="#frame-duplicate-push" class="xref">Section 7.2.9</a>).</p>
 <p id="rfc.section.4.4.p.6">Ordering of a PUSH_PROMISE or DUPLICATE_PUSH in relation to certain parts of the response is important. The server SHOULD send PUSH_PROMISE or DUPLICATE_PUSH frames prior to sending HEADERS or DATA frames that reference the promised responses.  This reduces the chance that a client requests a resource that will be pushed by the server.</p>
@@ -974,7 +974,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 3: Push Stream Header</p>
-<p id="rfc.section.6.2.2.p.4">Each Push ID MUST only be used once in a push stream header. If a push stream header includes a Push ID that was used in another push stream header, the client MUST treat this as a connection error of type HTTP_DUPLICATE_PUSH.</p>
+<p id="rfc.section.6.2.2.p.4">Each Push ID MUST only be used once in a push stream header. If a push stream header includes a Push ID that was used in another push stream header, the client MUST treat this as a connection error of type HTTP_ID_ERROR.</p>
 <h3 id="rfc.section.6.2.3">
 <a href="#rfc.section.6.2.3">6.2.3.</a> <a href="#stream-grease" id="stream-grease">Reserved Stream Types</a>
 </h3>
@@ -1208,7 +1208,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <li>A PRIORITY frame which claims to reference a request, but the associated ID does not identify a client-initiated bidirectional stream</li>
 </ul>
 <p id="rfc.section.7.2.3.p.10">A PRIORITY frame with Empty bits not set to zero MAY be treated as a connection error of type HTTP_MALFORMED_FRAME.</p>
-<p id="rfc.section.7.2.3.p.11">A PRIORITY frame that references a non-existent Push ID, a Placeholder ID greater than the server&#8217;s limit, or a Stream ID the client is not yet permitted to open MUST be treated as a connection error of type HTTP_LIMIT_EXCEEDED.</p>
+<p id="rfc.section.7.2.3.p.11">A PRIORITY frame that references a non-existent Push ID, a Placeholder ID greater than the server&#8217;s limit, or a Stream ID the client is not yet permitted to open MUST be treated as a connection error of type HTTP_ID_ERROR.</p>
 <p id="rfc.section.7.2.3.p.12">A PRIORITY frame received on any stream other than the control stream MUST be treated as a connection error of type HTTP_WRONG_STREAM.</p>
 <p id="rfc.section.7.2.3.p.13">PRIORITY frames received by a client MUST be treated as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
 <h3 id="rfc.section.7.2.4">
@@ -1300,10 +1300,11 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dt>Header Block:</dt>
 <dd style="margin-left: 8">QPACK-compressed request header fields for the promised response.  See <a href="#QPACK" class="xref">[QPACK]</a> for more details.</dd>
 </dl>
-<p id="rfc.section.7.2.6.p.4">A server MUST NOT use a Push ID that is larger than the client has provided in a MAX_PUSH_ID frame (<a href="#frame-max-push-id" class="xref">Section 7.2.8</a>) and MUST NOT use the same Push ID in multiple PUSH_PROMISE frames.  A client MUST treat receipt of a PUSH_PROMISE that contains a larger Push ID than the client has advertised or a Push ID which has already been promised as a connection error of type HTTP_MALFORMED_FRAME.</p>
-<p id="rfc.section.7.2.6.p.5">If a PUSH_PROMISE frame is received on the control stream, the client MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_WRONG_STREAM.</p>
-<p id="rfc.section.7.2.6.p.6">A client MUST NOT send a PUSH_PROMISE frame.  A server MUST treat the receipt of a PUSH_PROMISE frame as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
-<p id="rfc.section.7.2.6.p.7">See <a href="#server-push" class="xref">Section 4.4</a> for a description of the overall server push mechanism.</p>
+<p id="rfc.section.7.2.6.p.4">A server MUST NOT use a Push ID that is larger than the client has provided in a MAX_PUSH_ID frame (<a href="#frame-max-push-id" class="xref">Section 7.2.8</a>). A client MUST treat receipt of a PUSH_PROMISE frame that contains a larger Push ID than the client has advertised as a connection error of HTTP_ID_ERROR.</p>
+<p id="rfc.section.7.2.6.p.5">A server MUST NOT use the same Push ID in multiple PUSH_PROMISE frames. A client MUST treat receipt of a Push ID which has already been promised as a connection error of type HTTP_ID_ERROR.</p>
+<p id="rfc.section.7.2.6.p.6">If a PUSH_PROMISE frame is received on the control stream, the client MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_WRONG_STREAM.</p>
+<p id="rfc.section.7.2.6.p.7">A client MUST NOT send a PUSH_PROMISE frame.  A server MUST treat the receipt of a PUSH_PROMISE frame as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
+<p id="rfc.section.7.2.6.p.8">See <a href="#server-push" class="xref">Section 4.4</a> for a description of the overall server push mechanism.</p>
 <h3 id="rfc.section.7.2.7">
 <a href="#rfc.section.7.2.7">7.2.7.</a> <a href="#frame-goaway" id="frame-goaway">GOAWAY</a>
 </h3>
@@ -1339,7 +1340,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 12: MAX_PUSH_ID frame payload</p>
-<p id="rfc.section.7.2.8.p.5">The MAX_PUSH_ID frame carries a single variable-length integer that identifies the maximum value for a Push ID that the server can use (see <a href="#frame-push-promise" class="xref">Section 7.2.6</a>).  A MAX_PUSH_ID frame cannot reduce the maximum Push ID; receipt of a MAX_PUSH_ID that contains a smaller value than previously received MUST be treated as a connection error of type HTTP_MALFORMED_FRAME.</p>
+<p id="rfc.section.7.2.8.p.5">The MAX_PUSH_ID frame carries a single variable-length integer that identifies the maximum value for a Push ID that the server can use (see <a href="#frame-push-promise" class="xref">Section 7.2.6</a>).  A MAX_PUSH_ID frame cannot reduce the maximum Push ID; receipt of a MAX_PUSH_ID that contains a smaller value than previously received MUST be treated as a connection error of type HTTP_ID_ERROR.</p>
 <h3 id="rfc.section.7.2.9">
 <a href="#rfc.section.7.2.9">7.2.9.</a> <a href="#frame-duplicate-push" id="frame-duplicate-push">DUPLICATE_PUSH</a>
 </h3>
@@ -1356,7 +1357,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 13: DUPLICATE_PUSH frame payload</p>
-<p id="rfc.section.7.2.9.p.4">The DUPLICATE_PUSH frame carries a single variable-length integer that identifies the Push ID of a resource that the server has previously promised (see <a href="#frame-push-promise" class="xref">Section 7.2.6</a>), though that promise might not be received before this frame.  A server MUST NOT use a Push ID that is larger than the client has provided in a MAX_PUSH_ID frame (<a href="#frame-max-push-id" class="xref">Section 7.2.8</a>).  A client MUST treat receipt of a DUPLICATE_PUSH that contains a larger Push ID than the client has advertised as a connection error of type HTTP_MALFORMED_FRAME.</p>
+<p id="rfc.section.7.2.9.p.4">The DUPLICATE_PUSH frame carries a single variable-length integer that identifies the Push ID of a resource that the server has previously promised (see <a href="#frame-push-promise" class="xref">Section 7.2.6</a>), though that promise might not be received before this frame.  A server MUST NOT use a Push ID that is larger than the client has provided in a MAX_PUSH_ID frame (<a href="#frame-max-push-id" class="xref">Section 7.2.8</a>).  A client MUST treat receipt of a DUPLICATE_PUSH that contains a larger Push ID than the client has advertised as a connection error of type HTTP_ID_ERROR.</p>
 <p id="rfc.section.7.2.9.p.5">This frame allows the server to use the same server push in response to multiple concurrent requests.  Referencing the same server push ensures that a promise can be made in relation to every response in which server push might be needed without duplicating request headers or pushed responses.</p>
 <p id="rfc.section.7.2.9.p.6">Allowing duplicate references to the same Push ID is primarily to reduce duplication caused by concurrent requests.  A server SHOULD avoid reusing a Push ID over a long period.  Clients are likely to consume server push responses and not retain them for reuse over time.  Clients that see a DUPLICATE_PUSH that uses a Push ID that they have since consumed and discarded are forced to ignore the DUPLICATE_PUSH.</p>
 <h3 id="rfc.section.7.2.10">
@@ -1398,10 +1399,10 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dd style="margin-left: 8">The requested operation cannot be served over HTTP/3.  The peer should retry over HTTP/1.1.</dd>
 <dt>HTTP_WRONG_STREAM (0x0A):</dt>
 <dd style="margin-left: 8">A frame was received on a stream where it is not permitted.</dd>
-<dt>HTTP_LIMIT_EXCEEDED (0x0B):</dt>
-<dd style="margin-left: 8">A Stream ID, Push ID, or Placeholder ID greater than the current maximum for that identifier was referenced.</dd>
-<dt>HTTP_DUPLICATE_PUSH (0x0C):</dt>
-<dd style="margin-left: 8">A Push ID was referenced in two different stream headers.</dd>
+<dt>HTTP_ID_ERROR (0x0B):</dt>
+<dd style="margin-left: 8">A Stream ID, Push ID, or Placeholder ID was used incorrectly, such as exceeding a limit, reducing a limit, or being reused.</dd>
+<dt>Reserved (0x0C):</dt>
+<dd style="margin-left: 8">N/A</dd>
 <dt>HTTP_UNKNOWN_STREAM_TYPE (0x0D):</dt>
 <dd style="margin-left: 8">A unidirectional stream header contained an unknown stream type.</dd>
 <dt>HTTP_WRONG_STREAM_COUNT (0x0E):</dt>
@@ -1709,16 +1710,16 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_LIMIT_EXCEEDED</td>
+<td class="left">HTTP_ID_ERROR</td>
 <td class="left">0x000B</td>
-<td class="left">An identifier limit was exceeded</td>
+<td class="left">An identifier was used incorrectly</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_DUPLICATE_PUSH</td>
+<td class="left">Reserved</td>
 <td class="left">0x000C</td>
-<td class="left">Push ID was fulfilled multiple times</td>
-<td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
+<td class="left">N/A</td>
+<td class="left">N/A</td>
 </tr>
 <tr>
 <td class="left">HTTP_UNKNOWN_STREAM_TYPE</td>
