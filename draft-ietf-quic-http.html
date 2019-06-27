@@ -846,7 +846,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <a href="#rfc.section.4.3.1">4.3.1.</a> <a href="#placeholders" id="placeholders">Placeholders</a>
 </h3>
 <p id="rfc.section.4.3.1.p.1">In HTTP/2, certain implementations used closed or unused streams as placeholders in describing the relative priority of requests.  This created confusion as servers could not reliably identify which elements of the priority tree could be discarded safely. Clients could potentially reference closed streams long after the server had discarded state, leading to disparate views of the prioritization the client had attempted to express.</p>
-<p id="rfc.section.4.3.1.p.2">In HTTP/3, a number of placeholders are explicitly permitted by the server using the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting. Because the server commits to maintaining these placeholders in the prioritization tree, clients can use them with confidence that the server will not have discarded the state. Clients MUST NOT send the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting; receipt of this setting by a server MUST be treated as a connection error of type <samp>HTTP_WRONG_SETTING_DIRECTION</samp>.</p>
+<p id="rfc.section.4.3.1.p.2">In HTTP/3, a number of placeholders are explicitly permitted by the server using the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting. Because the server commits to maintaining these placeholders in the prioritization tree, clients can use them with confidence that the server will not have discarded the state. Clients MUST NOT send the <samp>SETTINGS_NUM_PLACEHOLDERS</samp> setting; receipt of this setting by a server MUST be treated as a connection error of type <samp>HTTP_SETTINGS_ERROR</samp>.</p>
 <p id="rfc.section.4.3.1.p.3">Client-controlled placeholders are identified by an ID between zero and one less than the number of placeholders the server has permitted.  The orphan placeholder cannot be prioritized or referenced by the client.</p>
 <p id="rfc.section.4.3.1.p.4">Like streams, client-controlled placeholders have priority information associated with them.</p>
 <h3 id="rfc.section.4.3.2">
@@ -1238,7 +1238,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <p id="rfc.section.7.2.5.p.3">SETTINGS frames MUST NOT be sent on any stream other than the control stream.  If an endpoint receives a SETTINGS frame on a different stream, the endpoint MUST respond with a connection error of type HTTP_WRONG_STREAM.</p>
 <p id="rfc.section.7.2.5.p.4">SETTINGS parameters are not negotiated; they describe characteristics of the sending peer, which can be used by the receiving peer. However, a negotiation can be implied by the use of SETTINGS - each peer uses SETTINGS to advertise a set of supported values. The definition of the setting would describe how each peer combines the two sets to conclude which choice will be used.  SETTINGS does not provide a mechanism to identify when the choice takes effect.</p>
 <p id="rfc.section.7.2.5.p.5">Different values for the same parameter can be advertised by each peer. For example, a client might be willing to consume a very large response header, while servers are more cautious about request size.</p>
-<p id="rfc.section.7.2.5.p.6">Parameters MUST NOT occur more than once in the SETTINGS frame.  A receiver MAY treat the presence of the same parameter more than once as a connection error of type HTTP_MALFORMED_FRAME.</p>
+<p id="rfc.section.7.2.5.p.6">Parameters MUST NOT occur more than once in the SETTINGS frame.  A receiver MAY treat the presence of the same parameter more than once as a connection error of type HTTP_SETTINGS_ERROR.</p>
 <p id="rfc.section.7.2.5.p.7">The payload of a SETTINGS frame consists of zero or more parameters.  Each parameter consists of a setting identifier and a value, both encoded as QUIC variable-length integers.</p>
 <div id="rfc.figure.9"></div>
 <div id="fig-ext-settings"></div>
@@ -1378,8 +1378,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dl>
 <dt>HTTP_NO_ERROR (0x00):</dt>
 <dd style="margin-left: 8">No error.  This is used when the connection or stream needs to be closed, but there is no error to signal.</dd>
-<dt>HTTP_WRONG_SETTING_DIRECTION (0x01):</dt>
-<dd style="margin-left: 8">A client-only setting was sent by a server, or a server-only setting by a client.</dd>
+<dt>HTTP_GENERAL_PROTOCOL_ERROR (0x01):</dt>
+<dd style="margin-left: 8">Peer violated protocol requirements in a way which doesn&#8217;t match a more specific error code, or endpoint declines to use the more specific error code.</dd>
 <dt>Reserved (0x02):</dt>
 <dd style="margin-left: 8">This code is reserved and has no meaning.</dd>
 <dt>HTTP_INTERNAL_ERROR (0x03):</dt>
@@ -1418,8 +1418,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dd style="margin-left: 8">A frame was received which was not permitted in the current state.</dd>
 <dt>HTTP_REQUEST_REJECTED (0x0014):</dt>
 <dd style="margin-left: 8">A server rejected a request without performing any application processing.</dd>
-<dt>HTTP_GENERAL_PROTOCOL_ERROR (0x00FF):</dt>
-<dd style="margin-left: 8">Peer violated protocol requirements in a way which doesn&#8217;t match a more specific error code, or endpoint declines to use the more specific error code.</dd>
+<dt>HTTP_SETTINGS_ERROR (0x00FF):</dt>
+<dd style="margin-left: 8">An endpoint detected an error in the payload of a SETTINGS frame: a duplicate setting was detected, a client-only setting was sent by a server, or a server-only setting by a client.</dd>
 <dt>HTTP_MALFORMED_FRAME (0x01XX):</dt>
 <dd style="margin-left: 8">An error in a specific frame type.  If the frame type is <samp>0xfe</samp> or less, the type is included as the last byte of the error code.  For example, an error in a MAX_PUSH_ID frame would be indicated with the code (0x10D).  The last byte <samp>0xff</samp> is used to indicate any frame type greater than <samp>0xfe</samp>.</dd>
 </dl>
@@ -1649,9 +1649,9 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_WRONG_SETTING_DIRECTION</td>
+<td class="left">HTTP_GENERAL_PROTOCOL_ERROR</td>
 <td class="left">0x0001</td>
-<td class="left">Setting sent in wrong direction</td>
+<td class="left">General protocol error</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
@@ -1772,6 +1772,12 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left">HTTP_MALFORMED_FRAME</td>
 <td class="left">0x01XX</td>
 <td class="left">Error in frame formatting</td>
+<td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
+</tr>
+<tr>
+<td class="left">HTTP_SETTINGS_ERROR</td>
+<td class="left">0x00FF</td>
+<td class="left">SETTINGS frame contained invalid values</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 </tbody>
