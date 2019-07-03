@@ -134,11 +134,11 @@ Internet-Draft             QUIC Loss Detection                 July 2019
      A.2.  Constants of interest . . . . . . . . . . . . . . . . . .  25
      A.3.  Variables of interest . . . . . . . . . . . . . . . . . .  25
      A.4.  Initialization  . . . . . . . . . . . . . . . . . . . . .  26
-     A.5.  On Sending a Packet . . . . . . . . . . . . . . . . . . .  27
+     A.5.  On Sending a Packet . . . . . . . . . . . . . . . . . . .  26
      A.6.  On Receiving an Acknowledgment  . . . . . . . . . . . . .  27
-     A.7.  On Packet Acknowledgment  . . . . . . . . . . . . . . . .  29
+     A.7.  On Packet Acknowledgment  . . . . . . . . . . . . . . . .  28
      A.8.  Setting the Loss Detection Timer  . . . . . . . . . . . .  29
-     A.9.  On Timeout  . . . . . . . . . . . . . . . . . . . . . . .  31
+     A.9.  On Timeout  . . . . . . . . . . . . . . . . . . . . . . .  30
      A.10. Detecting Lost Packets  . . . . . . . . . . . . . . . . .  31
    Appendix B.  Congestion Control Pseudocode  . . . . . . . . . . .  32
      B.1.  Constants of interest . . . . . . . . . . . . . . . . . .  32
@@ -692,14 +692,14 @@ Internet-Draft             QUIC Loss Detection                 July 2019
 
 6.2.  Probe Timeout
 
-   A Probe Timeout (PTO) triggers a probe packet when ack-eliciting data
-   is in flight but an acknowledgement is not received within the
-   expected period of time.  A PTO enables a connection to recover from
-   loss of tail packets or acks.  The PTO algorithm used in QUIC
-   implements the reliability functions of Tail Loss Probe [TLP] [RACK],
-   RTO [RFC5681] and F-RTO algorithms for TCP [RFC5682], and the timeout
-   computation is based on TCP's retransmission timeout period
-   [RFC6298].
+   A Probe Timeout (PTO) triggers sending one or two probe packets when
+   ack-eliciting packets are not acknowledged within the expected period
+   of time or the handshake has not been completed.  A PTO enables a
+   connection to recover from loss of tail packets or acks.  The PTO
+   algorithm used in QUIC implements the reliability functions of Tail
+   Loss Probe [TLP] [RACK], RTO [RFC5681] and F-RTO algorithms for TCP
+   [RFC5682], and the timeout computation is based on TCP's
+   retransmission timeout period [RFC6298].
 
 6.2.1.  Computing PTO
 
@@ -769,15 +769,15 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    armed until data has been received from the client.
 
    Because the server could be blocked until more packets are received,
-   the client MUST ensure that the retransmission timer is set if there
-   is unacknowledged crypto data or if the client does not yet have
-   1-RTT keys.  If the probe timer expires before the client has 1-RTT
-   keys, it is possible that the client may not have any crypto data to
-   retransmit.  However, the client MUST send a new packet, containing
-   only PADDING frames if necessary, to allow the server to continue
-   sending data.  If Handshake keys are available to the client, it MUST
-   send a Handshake packet, and otherwise it MUST send an Initial packet
-   in a UDP datagram of at least 1200 bytes.
+   the client MUST ensure that the retransmission timer is set if the
+   client does not yet have 1-RTT keys.  If the probe timer expires
+   before the client has 1-RTT keys, it is possible that the client may
+   not have any crypto data to retransmit.  However, the client MUST
+   send a new packet, containing only PADDING frames if necessary, to
+   allow the server to continue sending data.  If Handshake keys are
+   available to the client, it MUST send a Handshake packet, and
+   otherwise it MUST send an Initial packet in a UDP datagram of at
+   least 1200 bytes.
 
 
 
@@ -1336,8 +1336,8 @@ A.1.1.  Sent Packet Fields
    in_flight:  A boolean that indicates whether the packet counts
       towards bytes in flight.
 
-   is_crypto_packet:  A boolean that indicates whether the packet
-      contains cryptographic handshake messages critical to the
+   sent_bytes:  The number of bytes sent in the packet, not including
+      UDP or IP overhead, but including QUIC framing overhead.
 
 
 
@@ -1345,13 +1345,6 @@ Iyengar & Swett          Expires January 4, 2020               [Page 24]
 
 Internet-Draft             QUIC Loss Detection                 July 2019
 
-
-      completion of the QUIC handshake.  In this version of QUIC, this
-      includes any packet with the long header that includes a CRYPTO
-      frame.
-
-   sent_bytes:  The number of bytes sent in the packet, not including
-      UDP or IP overhead, but including QUIC framing overhead.
 
    time_sent:  The time the packet was sent.
 
@@ -1391,8 +1384,15 @@ A.3.  Variables of interest
 
    loss_detection_timer:  Multi-modal timer used for loss detection.
 
-   crypto_count:  The number of times all unacknowledged CRYPTO data has
-      been retransmitted without receiving an ack.
+   pto_count:  The number of times a PTO has been sent without receiving
+      an ack.
+
+   time_of_last_sent_ack_eliciting_packet:  The time the most recent
+      ack-eliciting packet was sent.
+
+   largest_acked_packet[kPacketNumberSpace]:  The largest packet number
+      acknowledged in the packet number space so far.
+
 
 
 
@@ -1401,18 +1401,6 @@ Iyengar & Swett          Expires January 4, 2020               [Page 25]
 
 Internet-Draft             QUIC Loss Detection                 July 2019
 
-
-   pto_count:  The number of times a PTO has been sent without receiving
-      an ack.
-
-   time_of_last_sent_ack_eliciting_packet:  The time the most recent
-      ack-eliciting packet was sent.
-
-   time_of_last_sent_crypto_packet:  The time the most recent crypto
-      packet was sent.
-
-   largest_acked_packet[kPacketNumberSpace]:  The largest packet number
-      acknowledged in the packet number space so far.
 
    latest_rtt:  The most recent RTT measurement made when receiving an
       ack for a previously unacked packet.
@@ -1443,23 +1431,7 @@ A.4.  Initialization
    At the beginning of the connection, initialize the loss detection
    variables as follows:
 
-
-
-
-
-
-
-
-
-
-
-Iyengar & Swett          Expires January 4, 2020               [Page 26]
-
-Internet-Draft             QUIC Loss Detection                 July 2019
-
-
       loss_detection_timer.reset()
-      crypto_count = 0
       pto_count = 0
       latest_rtt = 0
       smoothed_rtt = 0
@@ -1467,7 +1439,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
       min_rtt = 0
       max_ack_delay = 0
       time_of_last_sent_ack_eliciting_packet = 0
-      time_of_last_sent_crypto_packet = 0
       for pn_space in [ Initial, Handshake, ApplicationData ]:
         largest_acked_packet[pn_space] = infinite
         loss_time[pn_space] = 0
@@ -1480,8 +1451,15 @@ A.5.  On Sending a Packet
 
    Pseudocode for OnPacketSent follows:
 
+
+
+Iyengar & Swett          Expires January 4, 2020               [Page 26]
+
+Internet-Draft             QUIC Loss Detection                 July 2019
+
+
     OnPacketSent(packet_number, pn_space, ack_eliciting,
-                 in_flight, is_crypto_packet, sent_bytes):
+                 in_flight, sent_bytes):
       sent_packets[pn_space][packet_number].packet_number =
                                                packet_number
       sent_packets[pn_space][packet_number].time_sent = now
@@ -1489,8 +1467,6 @@ A.5.  On Sending a Packet
                                                ack_eliciting
       sent_packets[pn_space][packet_number].in_flight = in_flight
       if (in_flight):
-        if (is_crypto_packet):
-          time_of_last_sent_crypto_packet = now
         if (ack_eliciting):
           time_of_last_sent_ack_eliciting_packet = now
         OnPacketSentCC(sent_bytes)
@@ -1506,14 +1482,6 @@ A.6.  On Receiving an Acknowledgment
 
    OnAckReceived(ack, pn_space):
      if (largest_acked_packet[pn_space] == infinite):
-
-
-
-Iyengar & Swett          Expires January 4, 2020               [Page 27]
-
-Internet-Draft             QUIC Loss Detection                 July 2019
-
-
        largest_acked_packet[pn_space] = ack.largest_acked
      else:
        largest_acked_packet[pn_space] =
@@ -1539,12 +1507,18 @@ Internet-Draft             QUIC Loss Detection                 July 2019
      if (ACK frame contains ECN information):
          ProcessECN(ack)
 
+
+
+Iyengar & Swett          Expires January 4, 2020               [Page 27]
+
+Internet-Draft             QUIC Loss Detection                 July 2019
+
+
      for acked_packet in newly_acked_packets:
        OnPacketAcked(acked_packet.packet_number, pn_space)
 
      DetectLostPackets(pn_space)
 
-     crypto_count = 0
      pto_count = 0
 
      SetLossDetectionTimer()
@@ -1562,14 +1536,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
      min_rtt = min(min_rtt, latest_rtt)
      // Limit ack_delay by max_ack_delay
      ack_delay = min(ack_delay, max_ack_delay)
-
-
-
-Iyengar & Swett          Expires January 4, 2020               [Page 28]
-
-Internet-Draft             QUIC Loss Detection                 July 2019
-
-
      // Adjust for ack delay if plausible.
      adjusted_rtt = latest_rtt
      if (latest_rtt > min_rtt + ack_delay):
@@ -1596,6 +1562,14 @@ A.7.  On Packet Acknowledgment
           OnPacketAckedCC(acked_packet)
         sent_packets[pn_space].remove(acked_packet.packet_number)
 
+
+
+
+Iyengar & Swett          Expires January 4, 2020               [Page 28]
+
+Internet-Draft             QUIC Loss Detection                 July 2019
+
+
 A.8.  Setting the Loss Detection Timer
 
    QUIC loss detection uses a single timer for all timeout loss
@@ -1609,6 +1583,32 @@ A.8.  Setting the Loss Detection Timer
    fire immediately.
 
    Pseudocode for SetLossDetectionTimer follows:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1645,23 +1645,16 @@ Internet-Draft             QUIC Loss Detection                 July 2019
        loss_detection_timer.update(loss_time)
        return
 
-     if (has unacknowledged crypto data
-         || endpoint is client without 1-RTT keys):
-       // Crypto retransmission timer.
-       if (smoothed_rtt == 0):
-         timeout = 2 * kInitialRtt
-       else:
-         timeout = 2 * smoothed_rtt
-       timeout = max(timeout, kGranularity)
-       timeout = timeout * (2 ^ crypto_count)
-       loss_detection_timer.update(
-         time_of_last_sent_crypto_packet + timeout)
+     // Don't arm timer if there are no ack-eliciting packets
+     // in flight and the handshake is complete.
+     if (endpoint is client with 1-RTT keys ||
+         no ack-eliciting packets in flight):
+       loss_detection_timer.cancel()
        return
 
-     // Don't arm timer if there are no ack-eliciting packets
-     // in flight.
-     if (no ack-eliciting packets in flight):
-       loss_detection_timer.cancel()
+     // Use a default timeout if ther are no RTT measurements
+     if (smoothed_rtt == 0):
+       timeout = 2 * kInitialRtt
        return
 
      // Calculate PTO duration
@@ -1671,6 +1664,13 @@ Internet-Draft             QUIC Loss Detection                 July 2019
 
      loss_detection_timer.update(
        time_of_last_sent_ack_eliciting_packet + timeout)
+
+A.9.  On Timeout
+
+   When the loss detection timer expires, the timer's mode determines
+   the action to be performed.
+
+   Pseudocode for OnLossDetectionTimeout follows:
 
 
 
@@ -1682,13 +1682,6 @@ Iyengar & Swett          Expires January 4, 2020               [Page 30]
 Internet-Draft             QUIC Loss Detection                 July 2019
 
 
-A.9.  On Timeout
-
-   When the loss detection timer expires, the timer's mode determines
-   the action to be performed.
-
-   Pseudocode for OnLossDetectionTimeout follows:
-
    OnLossDetectionTimeout():
      loss_time, pn_space = GetEarliestLossTime()
      if (loss_time != 0):
@@ -1699,7 +1692,7 @@ A.9.  On Timeout
      else if (has unacknowledged crypto data):
        // Crypto retransmission timeout.
        RetransmitUnackedCryptoData()
-       crypto_count++
+       pto_count++
      else if (endpoint is client without 1-RTT keys):
        // Client sends an anti-deadlock packet: Initial is padded
        // to earn more anti-amplification credit,
@@ -1708,7 +1701,7 @@ A.9.  On Timeout
           SendOneHandshakePacket()
         else:
           SendOnePaddedInitialPacket()
-       crypto_count++
+       pto_count++
      else:
        // PTO. Send new data if available, else retransmit old data.
        // If neither is available, send a single PING frame.
@@ -1723,6 +1716,13 @@ A.10.  Detecting Lost Packets
    operates on the sent_packets for that packet number space.
 
    Pseudocode for DetectLostPackets follows:
+
+
+
+
+
+
+
 
 
 
