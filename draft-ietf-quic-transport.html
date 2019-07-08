@@ -465,7 +465,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and M. Thomson, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-transport-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-07-05" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-07-08" />
   <meta name="dct.abstract" content="This document defines the core of the QUIC transport protocol.  Accompanying documents describe QUIC&#8217;s loss detection and congestion control and the use of TLS for key negotiation." />
   <meta name="description" content="This document defines the core of the QUIC transport protocol.  Accompanying documents describe QUIC&#8217;s loss detection and congestion control and the use of TLS for key negotiation." />
 
@@ -489,12 +489,12 @@ ul.toc li {
 <td class="right">M. Thomson, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: January 6, 2020</td>
+<td class="left">Expires: January 9, 2020</td>
 <td class="right">Mozilla</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">July 05, 2019</td>
+<td class="right">July 08, 2019</td>
 </tr>
 
     	
@@ -513,7 +513,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on January 6, 2020.</p>
+<p>This Internet-Draft will expire on January 9, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -1347,6 +1347,8 @@ ul.toc li {
 <p id="rfc.section.5.1.2.p.1">An endpoint can change the connection ID it uses for a peer to another available one at any time during the connection.  An endpoint consumes connection IDs in response to a migrating peer; see <a href="#migration-linkability" class="xref">Section 9.5</a> for more.</p>
 <p id="rfc.section.5.1.2.p.2">An endpoint maintains a set of connection IDs received from its peer, any of which it can use when sending packets.  When the endpoint wishes to remove a connection ID from use, it sends a RETIRE_CONNECTION_ID frame to its peer.  Sending a RETIRE_CONNECTION_ID frame indicates that the connection ID won&#8217;t be used again and requests that the peer replace it with a new connection ID using a NEW_CONNECTION_ID frame.</p>
 <p id="rfc.section.5.1.2.p.3">As discussed in <a href="#migration-linkability" class="xref">Section 9.5</a>, each connection ID MUST be used on packets sent from only one local address.  An endpoint that migrates away from a local address SHOULD retire all connection IDs used on that address once it no longer plans to use that address.</p>
+<p id="rfc.section.5.1.2.p.4">An endpoint can request that its peer retire connection IDs by sending a NEW_CONNECTION_ID frame with an increased Retire Prior To field.  Upon receipt, the peer SHOULD retire the corresponding connection IDs and send the corresponding RETIRE_CONNECTION_ID frames in a timely manner.  Failing to do so can cause packets to be delayed, lost, or cause the original endpoint to send a stateless reset in response to a connection ID it can no longer route correctly.</p>
+<p id="rfc.section.5.1.2.p.5">An endpoint MAY discard a connection ID for which retirement has been requested once an interval of no less than 3 PTO has elapsed since an acknowledgement is received for the NEW_CONNECTION_ID frame requesting that retirement.  Subsequent incoming packets using that connection ID could elicit a response with the corresponding stateless reset token.</p>
 <h2 id="rfc.section.5.2">
 <a href="#rfc.section.5.2">5.2.</a> <a href="#packet-handling" id="packet-handling">Matching Packets to Connections</a>
 </h2>
@@ -3138,6 +3140,8 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                      Sequence Number (i)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Retire Prior To (i)                    ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |   Length (8)  |                                               |
 +-+-+-+-+-+-+-+-+       Connection ID (32..144)                 +
 |                                                             ...
@@ -3157,6 +3161,8 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <dl>
 <dt>Sequence Number:</dt>
 <dd style="margin-left: 8">The sequence number assigned to the connection ID by the sender.  See <a href="#issue-cid" class="xref">Section 5.1.1</a>.</dd>
+<dt>Retire Prior To:</dt>
+<dd style="margin-left: 8">A variable-length integer indicating which connection IDs should be retired.  See <a href="#retiring-cids" class="xref">Section 5.1.2</a>.</dd>
 <dt>Length:</dt>
 <dd style="margin-left: 8">An 8-bit unsigned integer containing the length of the connection ID.  Values less than 4 and greater than 18 are invalid and MUST be treated as a connection error of type PROTOCOL_VIOLATION.</dd>
 <dt>Connection ID:</dt>
@@ -3167,6 +3173,9 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <p id="rfc.section.19.15.p.5">An endpoint MUST NOT send this frame if it currently requires that its peer send packets with a zero-length Destination Connection ID.  Changing the length of a connection ID to or from zero-length makes it difficult to identify when the value of the connection ID changed.  An endpoint that is sending packets with a zero-length Destination Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a connection error of type PROTOCOL_VIOLATION.</p>
 <p id="rfc.section.19.15.p.6">Transmission errors, timeouts and retransmissions might cause the same NEW_CONNECTION_ID frame to be received multiple times.  Receipt of the same frame multiple times MUST NOT be treated as a connection error.  A receiver can use the sequence number supplied in the NEW_CONNECTION_ID frame to identify new connection IDs from old ones.</p>
 <p id="rfc.section.19.15.p.7">If an endpoint receives a NEW_CONNECTION_ID frame that repeats a previously issued connection ID with a different Stateless Reset Token or a different sequence number, or if a sequence number is used for different connection IDs, the endpoint MAY treat that receipt as a connection error of type PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.19.15.p.8">The Retire Prior To field is a request for the peer to retire all connection IDs with a sequence number less than the specified value.  This includes the initial and preferred_address transport parameter connection IDs.  The peer SHOULD retire the corresponding connection IDs and send the corresponding RETIRE_CONNECTION_ID frames in a timely manner.</p>
+<p id="rfc.section.19.15.p.9">The Retire Prior To field MUST be less than or equal to the Sequence Number field.  Receiving a value greater than the Sequence Number MUST be treated as a connection error of type PROTOCOL_VIOLATION.</p>
+<p id="rfc.section.19.15.p.10">Once a sender indicates a Retire Prior To value, smaller values sent in subsequent NEW_CONNECTION_ID frames have no effect. A receiver MUST ignore any Retire Prior To fields that do not increase the largest received Retire Prior To value.</p>
 <h2 id="rfc.section.19.16">
 <a href="#rfc.section.19.16">19.16.</a> <a href="#frame-retire-connection-id" id="frame-retire-connection-id">RETIRE_CONNECTION_ID Frame</a>
 </h2>
