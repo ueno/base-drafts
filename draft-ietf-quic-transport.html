@@ -1490,10 +1490,11 @@ Handshake[0]: CRYPTO[FIN], ACK[0]
 <p id="rfc.section.7.2.p.1">A connection ID is used to ensure consistent routing of packets, as described in <a href="#connection-id" class="xref">Section 5.1</a>.  The long header contains two connection IDs: the Destination Connection ID is chosen by the recipient of the packet and is used to provide consistent routing; the Source Connection ID is used to set the Destination Connection ID used by the peer.</p>
 <p id="rfc.section.7.2.p.2">During the handshake, packets with the long header (<a href="#long-header" class="xref">Section 17.2</a>) are used to establish the connection ID that each endpoint uses.  Each endpoint uses the Source Connection ID field to specify the connection ID that is used in the Destination Connection ID field of packets being sent to them.  Upon receiving a packet, each endpoint sets the Destination Connection ID it sends to match the value of the Source Connection ID that they receive.</p>
 <p id="rfc.section.7.2.p.3">When an Initial packet is sent by a client that has not previously received an Initial or Retry packet from the server, it populates the Destination Connection ID field with an unpredictable value.  This MUST be at least 8 bytes in length.  Until a packet is received from the server, the client MUST use the same value unless it abandons the connection attempt and starts a new one. The initial Destination Connection ID is used to determine packet protection keys for Initial packets.</p>
-<p id="rfc.section.7.2.p.4">The client populates the Source Connection ID field with a value of its choosing and sets the SCIL field to indicate the length.  The first flight of 0-RTT packets use the same Destination and Source Connection ID values as the client&#8217;s first Initial.</p>
-<p id="rfc.section.7.2.p.5">Upon first receiving an Initial or Retry packet from the server, the client uses the Source Connection ID supplied by the server as the Destination Connection ID for subsequent packets, including any subsequent 0-RTT packets.  That means that a client might change the Destination Connection ID twice during connection establishment, once in response to a Retry and once in response to the first Initial packet from the server. Once a client has received an Initial packet from the server, it MUST discard any packet it receives with a different Source Connection ID.</p>
-<p id="rfc.section.7.2.p.6">A client MUST only change the value it sends in the Destination Connection ID in response to the first packet of each type it receives from the server (Retry or Initial); a server MUST set its value based on the Initial packet.  Any additional changes are not permitted; if subsequent packets of those types include a different Source Connection ID, they MUST be discarded.  This avoids problems that might arise from stateless processing of multiple Initial packets producing different connection IDs.</p>
-<p id="rfc.section.7.2.p.7">The connection ID can change over the lifetime of a connection, especially in response to connection migration (<a href="#migration" class="xref">Section 9</a>); see <a href="#issue-cid" class="xref">Section 5.1.1</a> for details.</p>
+<p id="rfc.section.7.2.p.4">The client populates the Source Connection ID field with a value of its choosing and sets the SCID Len field to indicate the length.</p>
+<p id="rfc.section.7.2.p.5">The first flight of 0-RTT packets use the same Destination and Source Connection ID values as the client&#8217;s first Initial.</p>
+<p id="rfc.section.7.2.p.6">Upon first receiving an Initial or Retry packet from the server, the client uses the Source Connection ID supplied by the server as the Destination Connection ID for subsequent packets, including any subsequent 0-RTT packets.  That means that a client might change the Destination Connection ID twice during connection establishment, once in response to a Retry and once in response to the first Initial packet from the server. Once a client has received an Initial packet from the server, it MUST discard any packet it receives with a different Source Connection ID.</p>
+<p id="rfc.section.7.2.p.7">A client MUST only change the value it sends in the Destination Connection ID in response to the first packet of each type it receives from the server (Retry or Initial); a server MUST set its value based on the Initial packet.  Any additional changes are not permitted; if subsequent packets of those types include a different Source Connection ID, they MUST be discarded.  This avoids problems that might arise from stateless processing of multiple Initial packets producing different connection IDs.</p>
+<p id="rfc.section.7.2.p.8">The connection ID can change over the lifetime of a connection, especially in response to connection migration (<a href="#migration" class="xref">Section 9</a>); see <a href="#issue-cid" class="xref">Section 5.1.1</a> for details.</p>
 <h2 id="rfc.section.7.3">
 <a href="#rfc.section.7.3">7.3.</a> <a href="#transport-parameters" id="transport-parameters">Transport Parameters</a>
 </h2>
@@ -1805,7 +1806,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|0|1|               Unpredictable Bits (182..)                ...
+|0|1|               Unpredictable Bits (198..)                ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
 +                                                               +
@@ -1819,7 +1820,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <p class="figure">Figure 6: Stateless Reset Packet</p>
 <p id="rfc.section.10.4.p.5">This design ensures that a stateless reset packet is - to the extent possible - indistinguishable from a regular packet with a short header.</p>
 <p id="rfc.section.10.4.p.6">A stateless reset uses an entire UDP datagram, starting with the first two bits of the packet header.  The remainder of the first byte and an arbitrary number of bytes following it that are set to unpredictable values.  The last 16 bytes of the datagram contain a Stateless Reset Token.</p>
-<p id="rfc.section.10.4.p.7">To entities other than its intended recipient, a stateless reset will appear to be a packet with a short header.  For the packet to appear as valid, the Unpredictable Bits field needs to include at least 182 bits of data (or 23 bytes, less the two fixed bits).  This is intended to allow for a Destination Connection ID of the maximum length permitted, with a minimal packet number, and payload.  The Stateless Reset Token corresponds to the minimum expansion of the packet protection AEAD.  More unpredictable bytes might be necessary if the endpoint could have negotiated a packet protection scheme with a larger minimum AEAD expansion.</p>
+<p id="rfc.section.10.4.p.7">To entities other than its intended recipient, a stateless reset will appear to be a packet with a short header.  For the packet to appear as valid, the Unpredictable Bits field needs to include at least 198 bits of data (or 25 bytes, less the two fixed bits).  This is intended to allow for a Destination Connection ID of the maximum length permitted, with a minimal packet number, and payload.  The Stateless Reset Token corresponds to the minimum expansion of the packet protection AEAD.  More unpredictable bytes might be necessary if the endpoint could have negotiated a packet protection scheme with a larger minimum AEAD expansion.</p>
 <p id="rfc.section.10.4.p.8">An endpoint SHOULD NOT send a stateless reset that is significantly larger than the packet it receives.  Endpoints MUST discard packets that are too small to be valid QUIC packets.  With the set of AEAD functions defined in <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>, packets that are smaller than 21 bytes are never valid.</p>
 <p id="rfc.section.10.4.p.9">Endpoints MUST send stateless reset packets formatted as a packet with a short header.  However, endpoints MUST treat any packet ending in a valid stateless reset token as a stateless reset, as other QUIC versions might allow the use of a long header.</p>
 <p id="rfc.section.10.4.p.10">An endpoint MAY send a stateless reset in response to a packet with a long header.  Sending a stateless reset is not effective prior to the stateless reset token being available to a peer.  In this QUIC version, packets with a long header are only used during connection establishment.   Because the stateless reset token is not available until connection establishment is complete or near completion, ignoring an unknown packet with a long header might be as effective as sending a stateless reset.</p>
@@ -1854,8 +1855,8 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <p id="rfc.section.10.4.3.p.1">The design of a Stateless Reset is such that without knowing the stateless reset token it is indistinguishable from a valid packet.  For instance, if a server sends a Stateless Reset to another server it might receive another Stateless Reset in response, which could lead to an infinite exchange.</p>
 <p id="rfc.section.10.4.3.p.2">An endpoint MUST ensure that every Stateless Reset that it sends is smaller than the packet which triggered it, unless it maintains state sufficient to prevent looping.  In the event of a loop, this results in packets eventually being too small to trigger a response.</p>
 <p id="rfc.section.10.4.3.p.3">An endpoint can remember the number of Stateless Reset packets that it has sent and stop generating new Stateless Reset packets once a limit is reached.  Using separate limits for different remote addresses will ensure that Stateless Reset packets can be used to close connections when other peers or connections have exhausted limits.</p>
-<p id="rfc.section.10.4.3.p.4">Reducing the size of a Stateless Reset below the recommended minimum size of 39 bytes could mean that the packet could reveal to an observer that it is a Stateless Reset.  Conversely, refusing to send a Stateless Reset in response to a small packet might result in Stateless Reset not being useful in detecting cases of broken connections where only very small packets are sent; such failures might only be detected by other means, such as timers.</p>
-<p id="rfc.section.10.4.3.p.5">An endpoint can increase the odds that a packet will trigger a Stateless Reset if it cannot be processed by padding it to at least 40 bytes.</p>
+<p id="rfc.section.10.4.3.p.4">Reducing the size of a Stateless Reset below the recommended minimum size of 41 bytes could mean that the packet could reveal to an observer that it is a Stateless Reset.  Conversely, refusing to send a Stateless Reset in response to a small packet might result in Stateless Reset not being useful in detecting cases of broken connections where only very small packets are sent; such failures might only be detected by other means, such as timers.</p>
+<p id="rfc.section.10.4.3.p.5">An endpoint can increase the odds that a packet will trigger a Stateless Reset if it cannot be processed by padding it to at least 42 bytes.</p>
 <h1 id="rfc.section.11">
 <a href="#rfc.section.11">11.</a> <a href="#error-handling" id="error-handling">Error Handling</a>
 </h1>
@@ -2287,11 +2288,13 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|DCIL(4)|SCIL(4)|
+| DCID Len (8)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               Destination Connection ID (0..160)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+| SCID Len (8)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Source Connection ID (0..160)               ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 9: Long Header Packet Format</p>
@@ -2309,12 +2312,14 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <dd style="margin-left: 8">The lower four bits (those with a mask of 0x0f) of byte 0 are type-specific.</dd>
 <dt>Version:</dt>
 <dd style="margin-left: 8">The QUIC Version is a 32-bit field that follows the first byte.  This field indicates which version of QUIC is in use and determines how the rest of the protocol fields are interpreted.</dd>
-<dt>DCIL and SCIL:</dt>
+<dt>DCID Len:</dt>
 <dd style="margin-left: 8">The byte following the version contains the lengths of the two connection ID fields that follow it.  These lengths are encoded as two 4-bit unsigned integers. The Destination Connection ID Length (DCIL) field occupies the 4 high bits of the byte and the Source Connection ID Length (SCIL) field occupies the 4 low bits of the byte.  An encoded length of 0 indicates that the connection ID is also 0 bytes in length.  Non-zero encoded lengths are increased by 3 to get the full length of the connection ID, producing a length between 4 and 18 bytes inclusive.  For example, a byte with the value 0x50 describes an 8-byte Destination Connection ID and a zero-length Source Connection ID.</dd>
 <dt>Destination Connection ID:</dt>
-<dd style="margin-left: 8">The Destination Connection ID field follows the connection ID lengths and is either 0 bytes in length or between 4 and 18 bytes.  <a href="#negotiating-connection-ids" class="xref">Section 7.2</a> describes the use of this field in more detail.</dd>
+<dd style="margin-left: 8">The Destination Connection ID field follows the DCID Len and is between 0 and 20 bytes in length. <a href="#negotiating-connection-ids" class="xref">Section 7.2</a> describes the use of this field in more detail.</dd>
+<dt>SCID Len:</dt>
+<dd style="margin-left: 8">The byte following the Destination Connection ID contains the length in bytes of the Source Connection ID field that follows it.  This length is encoded as a 8-bit unsigned integer.  In QUIC version 1, this value MUST NOT exceed 20 bytes. Endpoints that receive a version 1 long header with a value larger than 20 MUST drop the packet. Servers SHOULD be able to read longer connection IDs from other QUIC versions in order to properly form a version negotiation packet.</dd>
 <dt>Source Connection ID:</dt>
-<dd style="margin-left: 8">The Source Connection ID field follows the Destination Connection ID and is either 0 bytes in length or between 4 and 18 bytes.  <a href="#negotiating-connection-ids" class="xref">Section 7.2</a> describes the use of this field in more detail.</dd>
+<dd style="margin-left: 8">The Source Connection ID field follows the SCID Len and is between 0 and 20 bytes in length. <a href="#negotiating-connection-ids" class="xref">Section 7.2</a> describes the use of this field in more detail.</dd>
 </dl>
 <p id="rfc.section.17.2.p.3">In this version of QUIC, the following packet types with the long header are defined:</p>
 <div id="rfc.table.5"></div>
@@ -2379,11 +2384,13 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          Version (32)                         |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|DCIL(4)|SCIL(4)|
+| DCID Len (8)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               Destination Connection ID (0..2040)           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+| SCID Len (8)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Source Connection ID (0..2040)              ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                    Supported Version 1 (32)                 ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2398,11 +2405,12 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <p id="rfc.section.17.2.1.p.4">The value in the Unused field is selected randomly by the server.  Clients MUST ignore the value of this field.  Servers SHOULD set the most significant bit of this field (0x40) to 1 so that Version Negotiation packets appear to have the Fixed Bit field.</p>
 <p id="rfc.section.17.2.1.p.5">The Version field of a Version Negotiation packet MUST be set to 0x00000000.</p>
 <p id="rfc.section.17.2.1.p.6">The server MUST include the value from the Source Connection ID field of the packet it receives in the Destination Connection ID field.  The value for Source Connection ID MUST be copied from the Destination Connection ID of the received packet, which is initially randomly selected by a client.  Echoing both connection IDs gives clients some assurance that the server received the packet and that the Version Negotiation packet was not generated by an off-path attacker.</p>
-<p id="rfc.section.17.2.1.p.7">The remainder of the Version Negotiation packet is a list of 32-bit versions which the server supports.</p>
-<p id="rfc.section.17.2.1.p.8">A Version Negotiation packet cannot be explicitly acknowledged in an ACK frame by a client.  Receiving another Initial packet implicitly acknowledges a Version Negotiation packet.</p>
-<p id="rfc.section.17.2.1.p.9">The Version Negotiation packet does not include the Packet Number and Length fields present in other packets that use the long header form.  Consequently, a Version Negotiation packet consumes an entire UDP datagram.</p>
-<p id="rfc.section.17.2.1.p.10">A server MUST NOT send more than one Version Negotiation packet in response to a single UDP datagram.</p>
-<p id="rfc.section.17.2.1.p.11">See <a href="#version-negotiation" class="xref">Section 6</a> for a description of the version negotiation process.</p>
+<p id="rfc.section.17.2.1.p.7">As future versions of QUIC may support Connection IDs larger than the version 1 limit, Version Negotiation packets could carry Connection IDs that are longer than 20 bytes.</p>
+<p id="rfc.section.17.2.1.p.8">The remainder of the Version Negotiation packet is a list of 32-bit versions which the server supports.</p>
+<p id="rfc.section.17.2.1.p.9">A Version Negotiation packet cannot be explicitly acknowledged in an ACK frame by a client.  Receiving another Initial packet implicitly acknowledges a Version Negotiation packet.</p>
+<p id="rfc.section.17.2.1.p.10">The Version Negotiation packet does not include the Packet Number and Length fields present in other packets that use the long header form.  Consequently, a Version Negotiation packet consumes an entire UDP datagram.</p>
+<p id="rfc.section.17.2.1.p.11">A server MUST NOT send more than one Version Negotiation packet in response to a single UDP datagram.</p>
+<p id="rfc.section.17.2.1.p.12">See <a href="#version-negotiation" class="xref">Section 6</a> for a description of the version negotiation process.</p>
 <h3 id="rfc.section.17.2.2">
 <a href="#rfc.section.17.2.2">17.2.2.</a> <a href="#packet-initial" id="packet-initial">Initial Packet</a>
 </h3>
@@ -2415,11 +2423,13 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|DCIL(4)|SCIL(4)|
+| DCID Len (8)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               Destination Connection ID (0..160)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+| SCID Len (8)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Source Connection ID (0..160)               ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Token Length (i)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2466,11 +2476,13 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|DCIL(4)|SCIL(4)|
+| DCID Len (8)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               Destination Connection ID (0..160)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+| SCID Len (8)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Source Connection ID (0..160)               ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                           Length (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2498,11 +2510,13 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|DCIL(4)|SCIL(4)|
+| DCID Len (8)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               Destination Connection ID (0..160)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+| SCID Len (8)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Source Connection ID (0..160)               ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                           Length (i)                        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -2527,30 +2541,34 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+
-|1|1| 3 | ODCIL |
+|1|1| 3 | Unused|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Version (32)                          |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|DCIL(4)|SCIL(4)|
+| DCID Len (8)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|               Destination Connection ID (0/32..144)         ...
+|               Destination Connection ID (0..160)            ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                 Source Connection ID (0/32..144)            ...
+| SCID Len (8)  |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|          Original Destination Connection ID (0/32..144)     ...
+|                 Source Connection ID (0..160)               ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| ODCID Len (8) |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          Original Destination Connection ID (0..160)        ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                        Retry Token (*)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 13: Retry Packet</p>
-<p id="rfc.section.17.2.5.p.2">A Retry packet (shown in <a href="#retry-format" class="xref">Figure 13</a>) does not contain any protected fields.  In addition to the long header, it contains these additional fields:</p>
+<p id="rfc.section.17.2.5.p.2">A Retry packet (shown in <a href="#retry-format" class="xref">Figure 13</a>) does not contain any protected fields. The value in the Unused field is selected randomly by the server. In addition to the long header, it contains these additional fields:</p>
 <p></p>
 
 <dl>
-<dt>ODCIL:</dt>
-<dd style="margin-left: 8">The four least-significant bits of the first byte of a Retry packet are not protected as they are for other packets with the long header, because Retry packets don&#8217;t contain a protected payload.  These bits instead encode the length of the Original Destination Connection ID field.  The length uses the same encoding as the DCIL and SCIL fields.</dd>
+<dt>ODCID Len:</dt>
+<dd style="margin-left: 8">The ODCID Len contains the length in bytes of the Original Destination Connection ID field that follows it.  This length is encoded as a 8-bit unsigned integer. In QUIC version 1, this value MUST NOT exceed 20 bytes.  Clients that receive a version 1 Retry Packet with a value larger than 20 MUST drop the packet.</dd>
 <dt>Original Destination Connection ID:</dt>
-<dd style="margin-left: 8">The Original Destination Connection ID contains the value of the Destination Connection ID from the Initial packet that this Retry is in response to. The length of this field is given in ODCIL.</dd>
+<dd style="margin-left: 8">The Original Destination Connection ID contains the value of the Destination Connection ID from the Initial packet that this Retry is in response to. The length of this field is given in ODCID Len.</dd>
 <dt>Retry Token:</dt>
 <dd style="margin-left: 8">An opaque token that the server can use to validate the client&#8217;s address.</dd>
 </dl>
@@ -2579,7 +2597,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 +-+-+-+-+-+-+-+-+
 |0|1|S|R|R|K|P P|
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                Destination Connection ID (0..144)           ...
+|                Destination Connection ID (0..160)           ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                     Packet Number (8/16/24/32)              ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -3154,7 +3172,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 |                      Retire Prior To (i)                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |   Length (8)  |                                               |
-+-+-+-+-+-+-+-+-+       Connection ID (32..144)                 +
++-+-+-+-+-+-+-+-+       Connection ID (8..160)                  +
 |                                                             ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                                                               |
@@ -3175,7 +3193,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <dt>Retire Prior To:</dt>
 <dd style="margin-left: 8">A variable-length integer indicating which connection IDs should be retired.  See <a href="#retiring-cids" class="xref">Section 5.1.2</a>.</dd>
 <dt>Length:</dt>
-<dd style="margin-left: 8">An 8-bit unsigned integer containing the length of the connection ID.  Values less than 4 and greater than 18 are invalid and MUST be treated as a connection error of type PROTOCOL_VIOLATION.</dd>
+<dd style="margin-left: 8">An 8-bit unsigned integer containing the length of the connection ID.  Values less than 1 and greater than 20 are invalid and MUST be treated as a connection error of type PROTOCOL_VIOLATION.</dd>
 <dt>Connection ID:</dt>
 <dd style="margin-left: 8">A connection ID of the specified length.</dd>
 <dt>Stateless Reset Token:</dt>
