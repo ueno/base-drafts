@@ -115,7 +115,7 @@ Internet-Draft             QUIC Loss Detection                 July 2019
 
 
      7.5.  Ignoring Loss of Undecryptable Packets  . . . . . . . . .  18
-     7.6.  Probe Timeout . . . . . . . . . . . . . . . . . . . . . .  18
+     7.6.  Probe Timeout . . . . . . . . . . . . . . . . . . . . . .  19
      7.7.  Persistent Congestion . . . . . . . . . . . . . . . . . .  19
      7.8.  Pacing  . . . . . . . . . . . . . . . . . . . . . . . . .  20
      7.9.  Under-utilizing the Congestion Window . . . . . . . . . .  20
@@ -699,14 +699,14 @@ Internet-Draft             QUIC Loss Detection                 July 2019
 
 6.2.  Probe Timeout
 
-   A Probe Timeout (PTO) triggers sending one or two probe packets when
-   ack-eliciting packets are not acknowledged within the expected period
-   of time or the handshake has not been completed.  A PTO enables a
-   connection to recover from loss of tail packets or acks.  The PTO
-   algorithm used in QUIC implements the reliability functions of Tail
-   Loss Probe [TLP] [RACK], RTO [RFC5681] and F-RTO algorithms for TCP
-   [RFC5682], and the timeout computation is based on TCP's
-   retransmission timeout period [RFC6298].
+   A Probe Timeout (PTO) triggers sending one or two probe datagrams
+   when ack-eliciting packets are not acknowledged within the expected
+   period of time or the handshake has not been completed.  A PTO
+   enables a connection to recover from loss of tail packets or
+   acknowledgements.  The PTO algorithm used in QUIC implements the
+   reliability functions of Tail Loss Probe [TLP] [RACK], RTO [RFC5681]
+   and F-RTO algorithms for TCP [RFC5682], and the timeout computation
+   is based on TCP's retransmission timeout period [RFC6298].
 
 6.2.1.  Computing PTO
 
@@ -802,8 +802,9 @@ Internet-Draft             QUIC Loss Detection                 July 2019
 
    When a PTO timer expires, a sender MUST send at least one ack-
    eliciting packet as a probe, unless there is no data available to
-   send.  An endpoint MAY send up to two ack-eliciting packets, to avoid
-   an expensive consecutive PTO expiration due to a single packet loss.
+   send.  An endpoint MAY send up to two full-sized datagrams containing
+   ack-eliciting packets, to avoid an expensive consecutive PTO
+   expiration due to a single lost datagram.
 
    It is possible that the sender has no new or previously-sent data to
    send.  As an example, consider the following sequence of events: new
@@ -833,7 +834,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    retransmitted unacknowledged data when new data is unavailable, when
    flow control does not permit new data to be sent, or to
    opportunistically reduce loss recovery delay.  Implementations MAY
-   use alternate strategies for determining the content of probe
 
 
 
@@ -842,6 +842,7 @@ Iyengar & Swett         Expires January 22, 2020               [Page 15]
 Internet-Draft             QUIC Loss Detection                 July 2019
 
 
+   use alternate strategies for determining the content of probe
    packets, including sending new or retransmitted data based on the
    application's priorities.
 
@@ -888,8 +889,7 @@ Internet-Draft             QUIC Loss Detection                 July 2019
 
    Endpoints stop sending and receiving Initial packets once they start
    exchanging Handshake packets (see Section 17.2.2.1 of
-   [QUIC-TRANSPORT]).  At this point, recovery state for all in-flight
-   Initial packets is discarded.
+
 
 
 
@@ -897,6 +897,9 @@ Iyengar & Swett         Expires January 22, 2020               [Page 16]
 
 Internet-Draft             QUIC Loss Detection                 July 2019
 
+
+   [QUIC-TRANSPORT]).  At this point, recovery state for all in-flight
+   Initial packets is discarded.
 
    When 0-RTT is rejected, recovery state for all in-flight 0-RTT
    packets is discarded.
@@ -943,9 +946,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    If a path has been verified to support ECN, QUIC treats a Congestion
    Experienced codepoint in the IP header as a signal of congestion.
    This document specifies an endpoint's response when its peer receives
-   packets with the Congestion Experienced codepoint.  As discussed in
-   [RFC8311], endpoints are permitted to experiment with other response
-   functions.
 
 
 
@@ -953,6 +953,10 @@ Iyengar & Swett         Expires January 22, 2020               [Page 17]
 
 Internet-Draft             QUIC Loss Detection                 July 2019
 
+
+   packets with the Congestion Experienced codepoint.  As discussed in
+   [RFC8311], endpoints are permitted to experiment with other response
+   functions.
 
 7.2.  Slow Start
 
@@ -995,13 +999,9 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    that might arrive before the peer has packet protection keys to
    process those packets.
 
-7.6.  Probe Timeout
 
-   Probe packets MUST NOT be blocked by the congestion controller.  A
-   sender MUST however count these packets as being additionally in
-   flight, since these packets add network load without establishing
-   packet loss.  Note that sending probe packets might cause the
-   sender's bytes in flight to exceed the congestion window until an
+
+
 
 
 
@@ -1010,6 +1010,13 @@ Iyengar & Swett         Expires January 22, 2020               [Page 18]
 Internet-Draft             QUIC Loss Detection                 July 2019
 
 
+7.6.  Probe Timeout
+
+   Probe packets MUST NOT be blocked by the congestion controller.  A
+   sender MUST however count these packets as being additionally in
+   flight, since these packets add network load without establishing
+   packet loss.  Note that sending probe packets might cause the
+   sender's bytes in flight to exceed the congestion window until an
    acknowledgement is received that establishes loss or delivery of
    packets.
 
@@ -1051,13 +1058,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    the time between the oldest and newest lost packets: (3 - 0) = 3.
    The duration for persistent congestion is equal to: (1 *
    kPersistentCongestionThreshold) = 3.  Because the threshold was
-   reached and because none of the packets between the oldest and the
-   newest packets are acknowledged, the network is considered to have
-   experienced persistent congestion.
-
-   When persistent congestion is established, the sender's congestion
-   window MUST be reduced to the minimum congestion window
-   (kMinimumWindow).  This response of collapsing the congestion window
 
 
 
@@ -1066,6 +1066,13 @@ Iyengar & Swett         Expires January 22, 2020               [Page 19]
 Internet-Draft             QUIC Loss Detection                 July 2019
 
 
+   reached and because none of the packets between the oldest and the
+   newest packets are acknowledged, the network is considered to have
+   experienced persistent congestion.
+
+   When persistent congestion is established, the sender's congestion
+   window MUST be reduced to the minimum congestion window
+   (kMinimumWindow).  This response of collapsing the congestion window
    on persistent congestion is functionally similar to a sender's
    response on a Retransmission Timeout (RTO) in TCP [RFC5681] after
    Tail Loss Probes (TLP) [TLP].
@@ -1107,13 +1114,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    delay.  A sender should not consider itself application limited if it
    would have fully utilized the congestion window without pacing delay.
 
-   Bursting more than an intial window's worth of data into the network
-   might cause short-term congestion and losses.  Implemementations
-   SHOULD either use pacing or reduce their congestion window to limit
-   such bursts.
-
-
-
 
 
 
@@ -1121,6 +1121,11 @@ Iyengar & Swett         Expires January 22, 2020               [Page 20]
 
 Internet-Draft             QUIC Loss Detection                 July 2019
 
+
+   Bursting more than an intial window's worth of data into the network
+   might cause short-term congestion and losses.  Implemementations
+   SHOULD either use pacing or reduce their congestion window to limit
+   such bursts.
 
    A sender MAY implement alternate mechanisms to update its congestion
    window after periods of under-utilization, such as those proposed for
@@ -1164,11 +1169,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    Endpoints choose the congestion controller that they use.  Though
    congestion controllers generally treat reports of ECN-CE markings as
    equivalent to loss [RFC8311], the exact response for each controller
-   could be different.  Failure to correctly respond to information
-   about ECN markings is therefore difficult to detect.
-
-
-
 
 
 
@@ -1177,6 +1177,9 @@ Iyengar & Swett         Expires January 22, 2020               [Page 21]
 
 Internet-Draft             QUIC Loss Detection                 July 2019
 
+
+   could be different.  Failure to correctly respond to information
+   about ECN markings is therefore difficult to detect.
 
 9.  IANA Considerations
 
@@ -1222,9 +1225,6 @@ Internet-Draft             QUIC Loss Detection                 July 2019
    [RFC3465]  Allman, M., "TCP Congestion Control with Appropriate Byte
               Counting (ABC)", RFC 3465, DOI 10.17487/RFC3465, February
               2003, <https://www.rfc-editor.org/info/rfc3465>.
-
-
-
 
 
 
