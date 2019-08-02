@@ -115,7 +115,7 @@ Internet-Draft                   HTTP/3                      August 2019
 
 
        6.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .  25
-       6.2.3.  Reserved Stream Types . . . . . . . . . . . . . . . .  25
+       6.2.3.  Reserved Stream Types . . . . . . . . . . . . . . . .  26
    7.  HTTP Framing Layer  . . . . . . . . . . . . . . . . . . . . .  26
      7.1.  Frame Layout  . . . . . . . . . . . . . . . . . . . . . .  27
      7.2.  Frame Definitions . . . . . . . . . . . . . . . . . . . .  28
@@ -570,16 +570,21 @@ Internet-Draft                   HTTP/3                      August 2019
    1.  the message header (see [RFC7230], Section 3.2), sent as a single
        HEADERS frame (see Section 7.2.2),
 
-   2.  the payload body (see [RFC7230], Section 3.3), sent as a series
-       of DATA frames (see Section 7.2.1),
+   2.  optionally, the payload body, if present (see [RFC7230],
+       Section 3.3), sent as a series of DATA frames (see
+       Section 7.2.1),
 
-   3.  optionally, one HEADERS frame containing the trailer-part, if
-       present (see [RFC7230], Section 4.1.2).
+   3.  optionally, trailing headers, if present (see [RFC7230],
+       Section 4.1.2), sent as a single HEADERS frame.
 
    A server MAY send one or more PUSH_PROMISE frames (see Section 7.2.6)
    before, after, or interleaved with the frames of a response message.
    These PUSH_PROMISE frames are not part of the response; see
    Section 4.4 for more details.
+
+   Frames of unknown types (Section 9), including reserved frames
+   (Section 7.2.10) MAY be sent on a request or push stream before,
+   after, or interleaved with other frames described in this section.
 
    The HEADERS and PUSH_PROMISE frames might reference updates to the
    QPACK dynamic table.  While these updates are not directly part of
@@ -589,27 +594,22 @@ Internet-Draft                   HTTP/3                      August 2019
    The "chunked" transfer encoding defined in Section 4.1 of [RFC7230]
    MUST NOT be used.
 
-   If a DATA frame is received before a HEADERS frame on a either a
-   request or push stream, the recipient MUST respond with a connection
-   error of type HTTP_UNEXPECTED_FRAME (Section 8).
-
-   Trailing header fields are carried in an additional HEADERS frame
-   following the body.  Senders MUST send only one HEADERS frame in the
-   trailers section; receivers MUST discard any subsequent HEADERS
-   frames.
-
    A response MAY consist of multiple messages when and only when one or
    more informational responses (1xx; see [RFC7231], Section 6.2)
    precede a final response to the same request.  Non-final responses do
    not contain a payload body or trailers.
+
+   If an endpoint receives an invalid sequence of frames on either a
+   request or a push stream, it MUST respond with a connection error of
+   type HTTP_UNEXPECTED_FRAME (Section 8).  In particular, a DATA frame
+   before any HEADERS frame, or a HEADERS or DATA frame after the
+   trailing HEADERS frame is considered invalid.
 
    An HTTP request/response exchange fully consumes a bidirectional QUIC
    stream.  After sending a request, a client MUST close the stream for
    sending.  Unless using the CONNECT method (see Section 4.2), clients
    MUST NOT make stream closure dependent on receiving a response to
    their request.  After sending a final response, the server MUST close
-   the stream for sending.  At this point, the QUIC stream is fully
-   closed.
 
 
 
@@ -617,6 +617,9 @@ Bishop                  Expires February 3, 2020               [Page 11]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   the stream for sending.  At this point, the QUIC stream is fully
+   closed.
 
    When a stream is closed, this indicates the end of an HTTP message.
    Because some messages are large or unbounded, endpoints SHOULD begin
@@ -663,9 +666,6 @@ Internet-Draft                   HTTP/3                      August 2019
 
    HTTP/3 uses QPACK header compression as described in [QPACK], a
    variation of HPACK which allows the flexibility to avoid header-
-   compression-induced head-of-line blocking.  See that document for
-   additional details.
-
 
 
 
@@ -673,6 +673,9 @@ Bishop                  Expires February 3, 2020               [Page 12]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   compression-induced head-of-line blocking.  See that document for
+   additional details.
 
    An HTTP/3 implementation MAY impose a limit on the maximum size of
    the message header it will accept on an individual HTTP message.  A
@@ -720,9 +723,6 @@ Internet-Draft                   HTTP/3                      August 2019
    except in response to a QUIC STOP_SENDING frame that contains the
    same code.
 
-   If a stream is cancelled after receiving a complete response, the
-   client MAY ignore the cancellation and use the response.  However, if
-
 
 
 Bishop                  Expires February 3, 2020               [Page 13]
@@ -730,6 +730,8 @@ Bishop                  Expires February 3, 2020               [Page 13]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   If a stream is cancelled after receiving a complete response, the
+   client MAY ignore the cancellation and use the response.  However, if
    a stream is cancelled after receiving a partial response, the
    response SHOULD NOT be used.  Automatically retrying such requests is
    not possible, unless this is otherwise permitted (e.g., idempotent
@@ -776,8 +778,6 @@ Internet-Draft                   HTTP/3                      August 2019
    A CONNECT request in HTTP/3 functions in the same manner as in
    HTTP/2.  The request MUST be formatted as described in [HTTP2],
    Section 8.3.  A CONNECT request that does not conform to these
-   restrictions is malformed (see Section 4.1.3).  The request stream
-   MUST NOT be closed at the end of the request.
 
 
 
@@ -785,6 +785,9 @@ Bishop                  Expires February 3, 2020               [Page 14]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   restrictions is malformed (see Section 4.1.3).  The request stream
+   MUST NOT be closed at the end of the request.
 
    A proxy that supports CONNECT establishes a TCP connection
    ([RFC0793]) to the server identified in the ":authority" pseudo-
@@ -831,9 +834,6 @@ Internet-Draft                   HTTP/3                      August 2019
    streams for transmitting frames when there is limited capacity for
    sending.
 
-   HTTP/3 uses a priority scheme similar to that described in [RFC7540],
-   Section 5.3.  In this priority scheme, a given element can be
-   designated as dependent upon another element.  Each dependency is
 
 
 
@@ -842,6 +842,9 @@ Bishop                  Expires February 3, 2020               [Page 15]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   HTTP/3 uses a priority scheme similar to that described in [RFC7540],
+   Section 5.3.  In this priority scheme, a given element can be
+   designated as dependent upon another element.  Each dependency is
    assigned a relative weight, a number that is used to determine the
    relative proportion of available resources that are assigned to
    streams dependent on the same stream.  This information is expressed
@@ -887,9 +890,6 @@ Internet-Draft                   HTTP/3                      August 2019
    is not yet in the tree, the requested parent is first added to the
    tree with the default priority.
 
-   When a prioritized element is first created, it has a default initial
-   weight of 16 and a default dependency.  Requests and placeholders are
-
 
 
 
@@ -898,6 +898,8 @@ Bishop                  Expires February 3, 2020               [Page 16]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   When a prioritized element is first created, it has a default initial
+   weight of 16 and a default dependency.  Requests and placeholders are
    dependent on the orphan placeholder; pushes are dependent on the
    client request on which the PUSH_PROMISE frame was sent.
 
@@ -944,8 +946,6 @@ Internet-Draft                   HTTP/3                      August 2019
    Dependency.
 
    Specifically, the server MAY at any time:
-
-
 
 
 
@@ -1368,7 +1368,9 @@ Internet-Draft                   HTTP/3                      August 2019
    the Push ID of the promise that it fulfills, encoded as a variable-
    length integer.  The remaining data on this stream consists of HTTP/3
    frames, as defined in Section 7.2, and fulfills a promised server
-   push.  Server push and Push IDs are described in Section 4.4.
+   push by zero or more non-final HTTP responses followed by a single
+   final HTTP response, as defined in Section 4.1.  Server push and Push
+   IDs are described in Section 4.4.
 
    Only servers can push; if a server receives a client-initiated push
    stream, this MUST be treated as a connection error of type
@@ -1389,11 +1391,9 @@ Internet-Draft                   HTTP/3                      August 2019
    stream header, the client MUST treat this as a connection error of
    type HTTP_ID_ERROR.
 
-6.2.3.  Reserved Stream Types
 
-   Stream types of the format "0x1f * N + 0x21" for integer values of N
-   are reserved to exercise the requirement that unknown types be
-   ignored.  These streams have no semantics, and can be sent when
+
+
 
 
 
@@ -1402,6 +1402,11 @@ Bishop                  Expires February 3, 2020               [Page 25]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+6.2.3.  Reserved Stream Types
+
+   Stream types of the format "0x1f * N + 0x21" for integer values of N
+   are reserved to exercise the requirement that unknown types be
+   ignored.  These streams have no semantics, and can be sent when
    application-layer padding is desired.  They MAY also be sent on
    connections where no data is currently being transferred.  Endpoints
    MUST NOT consider these streams to have any meaning upon receipt.
@@ -1417,11 +1422,6 @@ Internet-Draft                   HTTP/3                      August 2019
    streams types on which they are permitted; see Table 1 for an
    overview.  A comparison between HTTP/2 and HTTP/3 frames is provided
    in Appendix A.2.
-
-
-
-
-
 
 
 
