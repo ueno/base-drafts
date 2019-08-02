@@ -601,7 +601,9 @@ removed from bytes in flight when the Initial and Handshake keys are discarded.
 When a PTO timer expires, a sender MUST send at least one ack-eliciting packet
 as a probe, unless there is no data available to send.  An endpoint MAY send up
 to two full-sized datagrams containing ack-eliciting packets, to avoid an
-expensive consecutive PTO expiration due to a single lost datagram.
+expensive consecutive PTO expiration due to a single lost datagram.  When only
+sending a single packet on PTO, senders can skip a packet number to elicit a
+faster acknowledgement.
 
 It is possible that the sender has no new or previously-sent data to send.  As
 an example, consider the following sequence of events: new application data is
