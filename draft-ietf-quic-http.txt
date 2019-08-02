@@ -93,7 +93,7 @@ Table of Contents
        4.1.2.  Request Cancellation and Rejection  . . . . . . . . .  13
        4.1.3.  Malformed Requests and Responses  . . . . . . . . . .  14
      4.2.  The CONNECT Method  . . . . . . . . . . . . . . . . . . .  14
-     4.3.  Prioritization  . . . . . . . . . . . . . . . . . . . . .  15
+     4.3.  Prioritization  . . . . . . . . . . . . . . . . . . . . .  16
        4.3.1.  Placeholders  . . . . . . . . . . . . . . . . . . . .  17
        4.3.2.  Priority Tree Maintenance . . . . . . . . . . . . . .  17
      4.4.  Server Push . . . . . . . . . . . . . . . . . . . . . . .  18
@@ -105,7 +105,7 @@ Table of Contents
    6.  Stream Mapping and Usage  . . . . . . . . . . . . . . . . . .  22
      6.1.  Bidirectional Streams . . . . . . . . . . . . . . . . . .  23
      6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  23
-       6.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .  24
+       6.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .  25
 
 
 
@@ -149,7 +149,7 @@ Internet-Draft                   HTTP/3                      August 2019
      A.2.  HTTP Frame Types  . . . . . . . . . . . . . . . . . . . .  50
        A.2.1.  Prioritization Differences  . . . . . . . . . . . . .  51
        A.2.2.  Header Compression Differences  . . . . . . . . . . .  51
-       A.2.3.  Guidance for New Frame Type Definitions . . . . . . .  51
+       A.2.3.  Guidance for New Frame Type Definitions . . . . . . .  52
        A.2.4.  Mapping Between HTTP/2 and HTTP/3 Frame Types . . . .  52
      A.3.  HTTP/2 SETTINGS Parameters  . . . . . . . . . . . . . . .  53
      A.4.  HTTP/2 Error Codes  . . . . . . . . . . . . . . . . . . .  54
@@ -158,7 +158,7 @@ Internet-Draft                   HTTP/3                      August 2019
      B.2.  Since draft-ietf-quic-http-20 . . . . . . . . . . . . . .  55
      B.3.  Since draft-ietf-quic-http-19 . . . . . . . . . . . . . .  56
      B.4.  Since draft-ietf-quic-http-18 . . . . . . . . . . . . . .  56
-     B.5.  Since draft-ietf-quic-http-17 . . . . . . . . . . . . . .  56
+     B.5.  Since draft-ietf-quic-http-17 . . . . . . . . . . . . . .  57
      B.6.  Since draft-ietf-quic-http-16 . . . . . . . . . . . . . .  57
      B.7.  Since draft-ietf-quic-http-15 . . . . . . . . . . . . . .  57
      B.8.  Since draft-ietf-quic-http-14 . . . . . . . . . . . . . .  57
@@ -677,6 +677,13 @@ Internet-Draft                   HTTP/3                      August 2019
    compression-induced head-of-line blocking.  See that document for
    additional details.
 
+   To allow for better compression efficiency, the cookie header field
+   [RFC6265] MAY be split into separate header fields, each with one or
+   more cookie-pairs, before compression.  If a decompressed header list
+   contains multiple cookie header fields, these MUST be concatenated
+   before being passed into a non-HTTP/2, non-HTTP/3 context, as
+   described in [HTTP2], Section 8.1.2.5.
+
    An HTTP/3 implementation MAY impose a limit on the maximum size of
    the message header it will accept on an individual HTTP message.  A
    server that receives a larger header field list than it is willing to
@@ -716,19 +723,19 @@ Internet-Draft                   HTTP/3                      August 2019
    abandons a response after partial processing, it SHOULD abort its
    response stream with the error code HTTP_REQUEST_CANCELLED.
 
-   When a client sends a STOP_SENDING with HTTP_REQUEST_CANCELLED, a
-   server MAY send the error code HTTP_REQUEST_REJECTED in the
-   corresponding RESET_STREAM if no processing was performed.  Clients
-   MUST NOT reset streams with the HTTP_REQUEST_REJECTED error code
-   except in response to a QUIC STOP_SENDING frame that contains the
-   same code.
-
 
 
 Bishop                  Expires February 3, 2020               [Page 13]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   When a client sends a STOP_SENDING with HTTP_REQUEST_CANCELLED, a
+   server MAY send the error code HTTP_REQUEST_REJECTED in the
+   corresponding RESET_STREAM if no processing was performed.  Clients
+   MUST NOT reset streams with the HTTP_REQUEST_REJECTED error code
+   except in response to a QUIC STOP_SENDING frame that contains the
+   same code.
 
    If a stream is cancelled after receiving a complete response, the
    client MAY ignore the cancellation and use the response.  However, if
@@ -771,13 +778,6 @@ Internet-Draft                   HTTP/3                      August 2019
    used with HTTP proxies to establish a TLS session with an origin
    server for the purposes of interacting with "https" resources.  In
    HTTP/1.x, CONNECT is used to convert an entire HTTP connection into a
-   tunnel to a remote host.  In HTTP/2, the CONNECT method is used to
-   establish a tunnel over a single HTTP/2 stream to a remote host for
-   similar purposes.
-
-   A CONNECT request in HTTP/3 functions in the same manner as in
-   HTTP/2.  The request MUST be formatted as described in [HTTP2],
-   Section 8.3.  A CONNECT request that does not conform to these
 
 
 
@@ -786,6 +786,13 @@ Bishop                  Expires February 3, 2020               [Page 14]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   tunnel to a remote host.  In HTTP/2, the CONNECT method is used to
+   establish a tunnel over a single HTTP/2 stream to a remote host for
+   similar purposes.
+
+   A CONNECT request in HTTP/3 functions in the same manner as in
+   HTTP/2.  The request MUST be formatted as described in [HTTP2],
+   Section 8.3.  A CONNECT request that does not conform to these
    restrictions is malformed (see Section 4.1.3).  The request stream
    MUST NOT be closed at the end of the request.
 
@@ -826,13 +833,6 @@ Internet-Draft                   HTTP/3                      August 2019
    close the TCP connection.  If the underlying TCP implementation
    permits it, the proxy SHOULD send a TCP segment with the RST bit set.
 
-4.3.  Prioritization
-
-   The purpose of prioritization is to allow a client to express how it
-   would prefer the server to allocate resources when managing
-   concurrent streams.  Most importantly, priority can be used to select
-   streams for transmitting frames when there is limited capacity for
-   sending.
 
 
 
@@ -841,6 +841,14 @@ Bishop                  Expires February 3, 2020               [Page 15]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+4.3.  Prioritization
+
+   The purpose of prioritization is to allow a client to express how it
+   would prefer the server to allocate resources when managing
+   concurrent streams.  Most importantly, priority can be used to select
+   streams for transmitting frames when there is limited capacity for
+   sending.
 
    HTTP/3 uses a priority scheme similar to that described in [RFC7540],
    Section 5.3.  In this priority scheme, a given element can be
@@ -882,14 +890,6 @@ Internet-Draft                   HTTP/3                      August 2019
    and no progress can be made on stream A, stream B ideally receives
    one-third of the resources allocated to stream C.
 
-   A reference to an element which is no longer in the tree is treated
-   as a reference to the orphan placeholder.  Due to reordering between
-   streams, an element can also be prioritized which is not yet in the
-   tree.  Such elements are added to the tree with the requested
-   priority.  If a prioritized element depends on another element which
-   is not yet in the tree, the requested parent is first added to the
-   tree with the default priority.
-
 
 
 
@@ -897,6 +897,14 @@ Bishop                  Expires February 3, 2020               [Page 16]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   A reference to an element which is no longer in the tree is treated
+   as a reference to the orphan placeholder.  Due to reordering between
+   streams, an element can also be prioritized which is not yet in the
+   tree.  Such elements are added to the tree with the requested
+   priority.  If a prioritized element depends on another element which
+   is not yet in the tree, the requested parent is first added to the
+   tree with the default priority.
 
    When a prioritized element is first created, it has a default initial
    weight of 16 and a default dependency.  Requests and placeholders are
@@ -938,6 +946,14 @@ Internet-Draft                   HTTP/3                      August 2019
    Because placeholders will be used to "root" any persistent structure
    of the tree which the client cares about retaining, servers can
    aggressively prune inactive regions from the priority tree.  For
+
+
+
+Bishop                  Expires February 3, 2020               [Page 17]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    prioritization purposes, a node in the tree is considered "inactive"
    when the corresponding stream has been closed for at least two round-
    trip times (using any reasonable estimate available on the server).
@@ -946,13 +962,6 @@ Internet-Draft                   HTTP/3                      August 2019
    Dependency.
 
    Specifically, the server MAY at any time:
-
-
-
-Bishop                  Expires February 3, 2020               [Page 17]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
    o  Identify and discard branches of the tree containing only inactive
       nodes (i.e. a node with only other inactive nodes as descendants,
@@ -993,6 +1002,14 @@ Internet-Draft                   HTTP/3                      August 2019
    push is similar to what is described in HTTP/2 [HTTP2], but uses
    different mechanisms.
 
+
+
+
+Bishop                  Expires February 3, 2020               [Page 18]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    Each server push is identified by a unique Push ID.  This Push ID is
    used in a single PUSH_PROMISE frame (see Section 7.2.6) which carries
    the request headers, possibly included in one or more DUPLICATE_PUSH
@@ -1002,14 +1019,6 @@ Internet-Draft                   HTTP/3                      August 2019
    Server push is only enabled on a connection when a client sends a
    MAX_PUSH_ID frame (see Section 7.2.8).  A server cannot use server
    push until it receives a MAX_PUSH_ID frame.  A client sends
-
-
-
-Bishop                  Expires February 3, 2020               [Page 18]
-
-Internet-Draft                   HTTP/3                      August 2019
-
-
    additional MAX_PUSH_ID frames to control the number of pushes that a
    server can promise.  A server SHOULD use Push IDs sequentially,
    starting at 0.  A client MUST treat receipt of a push stream with a
@@ -1049,15 +1058,6 @@ Internet-Draft                   HTTP/3                      August 2019
    already being pushed.  When a client receives a new push stream with
    an as-yet-unknown Push ID, both the associated client request and the
    pushed request headers are unknown.  The client can buffer the stream
-   data in expectation of the matching PUSH_PROMISE.  The client can use
-   stream flow control (see section 4.1 of [QUIC-TRANSPORT]) to limit
-   the amount of data a server may commit to the pushed stream.
-
-   If a promised server push is not needed by the client, the client
-   SHOULD send a CANCEL_PUSH frame.  If the push stream is already open
-   or opens after sending the CANCEL_PUSH frame, a QUIC STOP_SENDING
-   frame with an error code of HTTP_REQUEST_CANCELLED can be used.  This
-
 
 
 
@@ -1066,6 +1066,14 @@ Bishop                  Expires February 3, 2020               [Page 19]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   data in expectation of the matching PUSH_PROMISE.  The client can use
+   stream flow control (see section 4.1 of [QUIC-TRANSPORT]) to limit
+   the amount of data a server may commit to the pushed stream.
+
+   If a promised server push is not needed by the client, the client
+   SHOULD send a CANCEL_PUSH frame.  If the push stream is already open
+   or opens after sending the CANCEL_PUSH frame, a QUIC STOP_SENDING
+   frame with an error code of HTTP_REQUEST_CANCELLED can be used.  This
    asks the server not to transfer additional data and indicates that it
    will be discarded upon receipt.
 
@@ -1105,14 +1113,6 @@ Internet-Draft                   HTTP/3                      August 2019
    continue to completion.  Servers perform the same function by
    communicating with clients.
 
-   Servers initiate the shutdown of a connection by sending a GOAWAY
-   frame (Section 7.2.7).  The GOAWAY frame indicates that client-
-   initiated requests on lower stream IDs were or might be processed in
-   this connection, while requests on the indicated stream ID and
-   greater were rejected.  This enables client and server to agree on
-   which requests were accepted prior to the connection shutdown.  This
-   identifier MAY be zero if no requests were processed.  Servers SHOULD
-   NOT increase the QUIC MAX_STREAMS limit after sending a GOAWAY frame.
 
 
 
@@ -1121,6 +1121,15 @@ Bishop                  Expires February 3, 2020               [Page 20]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   Servers initiate the shutdown of a connection by sending a GOAWAY
+   frame (Section 7.2.7).  The GOAWAY frame indicates that client-
+   initiated requests on lower stream IDs were or might be processed in
+   this connection, while requests on the indicated stream ID and
+   greater were rejected.  This enables client and server to agree on
+   which requests were accepted prior to the connection shutdown.  This
+   identifier MAY be zero if no requests were processed.  Servers SHOULD
+   NOT increase the QUIC MAX_STREAMS limit after sending a GOAWAY frame.
 
    Clients MUST NOT send new requests on the connection after receiving
    GOAWAY; a new connection MAY be established to send additional
@@ -1160,15 +1169,6 @@ Internet-Draft                   HTTP/3                      August 2019
    client that a shutdown is imminent and that initiating further
    requests is prohibited.  After allowing time for any in-flight
    requests (at least one round-trip time), the server MAY send another
-   GOAWAY frame with an updated last Stream ID.  This ensures that a
-   connection can be cleanly shut down without losing requests.
-
-   Once all accepted requests have been processed, the server can permit
-   the connection to become idle, or MAY initiate an immediate closure
-   of the connection.  An endpoint that completes a graceful shutdown
-   SHOULD use the HTTP_NO_ERROR code when closing the connection.
-
-
 
 
 
@@ -1177,6 +1177,14 @@ Bishop                  Expires February 3, 2020               [Page 21]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   GOAWAY frame with an updated last Stream ID.  This ensures that a
+   connection can be cleanly shut down without losing requests.
+
+   Once all accepted requests have been processed, the server can permit
+   the connection to become idle, or MAY initiate an immediate closure
+   of the connection.  An endpoint that completes a graceful shutdown
+   SHOULD use the HTTP_NO_ERROR code when closing the connection.
 
    If a client has consumed all available bidirectional stream IDs with
    requests, the server need not send a GOAWAY frame, since the client
@@ -1217,6 +1225,15 @@ Internet-Draft                   HTTP/3                      August 2019
    Although QUIC permits out-of-order delivery within a stream, HTTP/3
    does not make use of this feature.
 
+
+
+
+
+Bishop                  Expires February 3, 2020               [Page 22]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    QUIC streams can be either unidirectional, carrying data only from
    initiator to receiver, or bidirectional.  Streams can be initiated by
    either the client or the server.  For more detail on QUIC streams,
@@ -1226,13 +1243,6 @@ Internet-Draft                   HTTP/3                      August 2019
    most of the stream management.  HTTP does not need to do any separate
    multiplexing when using QUIC - data sent over a QUIC stream always
    maps to a particular HTTP transaction or connection context.
-
-
-
-Bishop                  Expires February 3, 2020               [Page 22]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
 6.1.  Bidirectional Streams
 
@@ -1272,6 +1282,14 @@ Internet-Draft                   HTTP/3                      August 2019
 
    Some stream types are reserved (Section 6.2.3).  Two stream types are
    defined in this document: control streams (Section 6.2.1) and push
+
+
+
+Bishop                  Expires February 3, 2020               [Page 23]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    streams (Section 6.2.2).  Other stream types can be defined by
    extensions to HTTP/3; see Section 9 for more details.
 
@@ -1282,14 +1300,6 @@ Internet-Draft                   HTTP/3                      August 2019
    "initial_max_stream_data_uni" will increase the chance that the
    remote peer reaches the limit early and becomes blocked.  In
    particular, the value chosen for "initial_max_uni_streams" should
-
-
-
-Bishop                  Expires February 3, 2020               [Page 23]
-
-Internet-Draft                   HTTP/3                      August 2019
-
-
    consider that remote peers may wish to exercise reserved stream
    behavior (Section 6.2.3).  To avoid blocking, both clients and
    servers MUST allow the peer to create at least one unidirectional
@@ -1326,6 +1336,16 @@ Internet-Draft                   HTTP/3                      August 2019
    closed or reset prior to the reception of the unidirectional stream
    header.
 
+
+
+
+
+
+Bishop                  Expires February 3, 2020               [Page 24]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
 6.2.1.  Control Streams
 
    A control stream is indicated by a stream type of "0x00".  Data on
@@ -1338,14 +1358,6 @@ Internet-Draft                   HTTP/3                      August 2019
    HTTP_MISSING_SETTINGS.  Only one control stream per peer is
    permitted; receipt of a second stream which claims to be a control
    stream MUST be treated as a connection error of type
-
-
-
-Bishop                  Expires February 3, 2020               [Page 24]
-
-Internet-Draft                   HTTP/3                      August 2019
-
-
    HTTP_STREAM_CREATION_ERROR.  The sender MUST NOT close the control
    stream, and the receiver MUST NOT request that the sender close the
    control stream.  If either control stream is closed at any point,
@@ -1376,6 +1388,20 @@ Internet-Draft                   HTTP/3                      August 2019
    stream, this MUST be treated as a connection error of type
    HTTP_STREAM_CREATION_ERROR.
 
+
+
+
+
+
+
+
+
+
+Bishop                  Expires February 3, 2020               [Page 25]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -1390,17 +1416,6 @@ Internet-Draft                   HTTP/3                      August 2019
    push stream header includes a Push ID that was used in another push
    stream header, the client MUST treat this as a connection error of
    type HTTP_ID_ERROR.
-
-
-
-
-
-
-
-Bishop                  Expires February 3, 2020               [Page 25]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
 6.2.3.  Reserved Stream Types
 
@@ -1422,21 +1437,6 @@ Internet-Draft                   HTTP/3                      August 2019
    streams types on which they are permitted; see Table 1 for an
    overview.  A comparison between HTTP/2 and HTTP/3 frames is provided
    in Appendix A.2.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -2672,15 +2672,15 @@ Internet-Draft                   HTTP/3                      August 2019
               DOI 10.17487/RFC6066, January 2011,
               <https://www.rfc-editor.org/info/rfc6066>.
 
+   [RFC6265]  Barth, A., "HTTP State Management Mechanism", RFC 6265,
+              DOI 10.17487/RFC6265, April 2011,
+              <https://www.rfc-editor.org/info/rfc6265>.
+
    [RFC7230]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
               Protocol (HTTP/1.1): Message Syntax and Routing",
               RFC 7230, DOI 10.17487/RFC7230, June 2014,
               <https://www.rfc-editor.org/info/rfc7230>.
 
-   [RFC7231]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
-              Protocol (HTTP/1.1): Semantics and Content", RFC 7231,
-              DOI 10.17487/RFC7231, June 2014,
-              <https://www.rfc-editor.org/info/rfc7231>.
 
 
 
@@ -2689,6 +2689,11 @@ Bishop                  Expires February 3, 2020               [Page 48]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   [RFC7231]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
+              Protocol (HTTP/1.1): Semantics and Content", RFC 7231,
+              DOI 10.17487/RFC7231, June 2014,
+              <https://www.rfc-editor.org/info/rfc7231>.
 
    [RFC7540]  Belshe, M., Peon, R., and M. Thomson, Ed., "Hypertext
               Transfer Protocol Version 2 (HTTP/2)", RFC 7540,
@@ -2733,11 +2738,6 @@ Internet-Draft                   HTTP/3                      August 2019
 
    [2] https://github.com/quicwg
 
-   [3] https://github.com/quicwg/base-drafts/labels/-http
-
-   [4] https://www.iana.org/assignments/message-headers
-
-
 
 
 
@@ -2745,6 +2745,10 @@ Bishop                  Expires February 3, 2020               [Page 49]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   [3] https://github.com/quicwg/base-drafts/labels/-http
+
+   [4] https://www.iana.org/assignments/message-headers
 
 Appendix A.  Considerations for Transitioning from HTTP/2
 
@@ -2789,11 +2793,7 @@ A.2.  HTTP Frame Types
    As a result, several HTTP/2 frame types are not required in HTTP/3.
    Where an HTTP/2-defined frame is no longer used, the frame ID has
    been reserved in order to maximize portability between HTTP/2 and
-   HTTP/3 implementations.  However, even equivalent frames between the
-   two mappings are not identical.
 
-   Many of the differences arise from the fact that HTTP/2 provides an
-   absolute ordering between frames across all streams, while QUIC
 
 
 
@@ -2802,6 +2802,11 @@ Bishop                  Expires February 3, 2020               [Page 50]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   HTTP/3 implementations.  However, even equivalent frames between the
+   two mappings are not identical.
+
+   Many of the differences arise from the fact that HTTP/2 provides an
+   absolute ordering between frames across all streams, while QUIC
    provides this guarantee on each stream only.  As a result, if a frame
    type makes assumptions that frames from different streams will still
    be received in the order sent, HTTP/3 will break them.
@@ -2843,13 +2848,8 @@ A.2.2.  Header Compression Differences
 
    [QPACK] provides additional details.
 
-A.2.3.  Guidance for New Frame Type Definitions
 
-   Frame type definitions in HTTP/3 often use the QUIC variable-length
-   integer encoding.  In particular, Stream IDs use this encoding, which
-   allows for a larger range of possible values than the encoding used
-   in HTTP/2.  Some frames in HTTP/3 use an identifier rather than a
-   Stream ID (e.g.  Push IDs in PRIORITY frames).  Redefinition of the
+
 
 
 
@@ -2858,6 +2858,13 @@ Bishop                  Expires February 3, 2020               [Page 51]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+A.2.3.  Guidance for New Frame Type Definitions
+
+   Frame type definitions in HTTP/3 often use the QUIC variable-length
+   integer encoding.  In particular, Stream IDs use this encoding, which
+   allows for a larger range of possible values than the encoding used
+   in HTTP/2.  Some frames in HTTP/3 use an identifier rather than a
+   Stream ID (e.g.  Push IDs in PRIORITY frames).  Redefinition of the
    encoding of extension frame types might be necessary if the encoding
    includes a Stream ID.
 
@@ -2898,6 +2905,15 @@ A.2.4.  Mapping Between HTTP/2 and HTTP/3 Frame Types
    PING (0x6):  PING frames do not exist, since QUIC provides equivalent
       functionality.
 
+
+
+
+
+Bishop                  Expires February 3, 2020               [Page 52]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    GOAWAY (0x7):  GOAWAY is sent only from server to client and does not
       contain an error code.  See Section 7.2.7.
 
@@ -2906,13 +2922,6 @@ A.2.4.  Mapping Between HTTP/2 and HTTP/3 Frame Types
 
    CONTINUATION (0x9):  CONTINUATION frames do not exist; instead,
       larger HEADERS/PUSH_PROMISE frames than HTTP/2 are permitted.
-
-
-
-Bishop                  Expires February 3, 2020               [Page 52]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
    Frame types defined by extensions to HTTP/2 need to be separately
    registered for HTTP/3 if still applicable.  The IDs of frames defined
@@ -2953,6 +2962,14 @@ A.3.  HTTP/2 SETTINGS Parameters
 
    SETTINGS_MAX_HEADER_LIST_SIZE:  See Section 7.2.5.1.
 
+
+
+
+Bishop                  Expires February 3, 2020               [Page 53]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    In HTTP/3, setting values are variable-length integers (6, 14, 30, or
    62 bits long) rather than fixed-length 32-bit fields as in HTTP/2.
    This will often produce a shorter encoding, but can produce a longer
@@ -2962,14 +2979,6 @@ A.3.  HTTP/2 SETTINGS Parameters
 
    Settings need to be defined separately for HTTP/2 and HTTP/3.  The
    IDs of settings defined in [HTTP2] have been reserved for simplicity.
-
-
-
-Bishop                  Expires February 3, 2020               [Page 53]
-
-Internet-Draft                   HTTP/3                      August 2019
-
-
    Note that the settings identifier space in HTTP/3 is substantially
    larger (62 bits versus 16 bits), so many HTTP/3 settings have no
    equivalent HTTP/2 code point.  See Section 11.4.
@@ -3009,6 +3018,14 @@ A.4.  HTTP/2 Error Codes
       to indicate that a request was not processed.  Otherwise, not
       applicable because QUIC handles stream management.
 
+
+
+
+Bishop                  Expires February 3, 2020               [Page 54]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    CANCEL (0x8):  HTTP_REQUEST_CANCELLED in Section 8.1.
 
    COMPRESSION_ERROR (0x9):  Multiple error codes are defined in
@@ -3017,14 +3034,6 @@ A.4.  HTTP/2 Error Codes
    CONNECT_ERROR (0xa):  HTTP_CONNECT_ERROR in Section 8.1.
 
    ENHANCE_YOUR_CALM (0xb):  HTTP_EXCESSIVE_LOAD in Section 8.1.
-
-
-
-
-Bishop                  Expires February 3, 2020               [Page 54]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
    INADEQUATE_SECURITY (0xc):  Not applicable, since QUIC is assumed to
       provide sufficient security on all connections.
@@ -3066,6 +3075,13 @@ B.2.  Since draft-ietf-quic-http-20
 
    o  Extensive changes to error codes and conditions of their sending
 
+
+
+Bishop                  Expires February 3, 2020               [Page 55]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
       *  Require connection errors for more error conditions (#2511,
          #2510)
 
@@ -3073,14 +3089,6 @@ B.2.  Since draft-ietf-quic-http-20
          #2707)
 
       *  Specified error code for HEADERS on control stream (#2708)
-
-
-
-
-Bishop                  Expires February 3, 2020               [Page 55]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
       *  Specified error code for servers receiving PUSH_PROMISE (#2709)
 
@@ -3122,14 +3130,6 @@ B.4.  Since draft-ietf-quic-http-18
 
    o  Use connection error for invalid PRIORITY (#2507, #2508)
 
-B.5.  Since draft-ietf-quic-http-17
-
-   o  HTTP_REQUEST_REJECTED is used to indicate a request can be retried
-      (#2106, #2325)
-
-   o  Changed error code for GOAWAY on the wrong stream (#2231, #2343)
-
-
 
 
 
@@ -3137,6 +3137,13 @@ Bishop                  Expires February 3, 2020               [Page 56]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+B.5.  Since draft-ietf-quic-http-17
+
+   o  HTTP_REQUEST_REJECTED is used to indicate a request can be retried
+      (#2106, #2325)
+
+   o  Changed error code for GOAWAY on the wrong stream (#2231, #2343)
 
 B.6.  Since draft-ietf-quic-http-16
 
@@ -3180,19 +3187,14 @@ B.8.  Since draft-ietf-quic-http-14
 
    o  Expanded discussion of connection closure (#1599,#1717,#1712)
 
-   o  HTTP_VERSION_FALLBACK falls back to HTTP/1.1 (#1677,#1685)
-
-
-
-
-
-
 
 
 Bishop                  Expires February 3, 2020               [Page 57]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   o  HTTP_VERSION_FALLBACK falls back to HTTP/1.1 (#1677,#1685)
 
 B.9.  Since draft-ietf-quic-http-13
 
@@ -3240,8 +3242,6 @@ B.13.  Since draft-ietf-quic-http-09
 
    o  The server_name TLS extension is now mandatory (#296, #495)
 
-   o  Specified handling of unsupported versions in Alt-Svc (#1093,
-      #1097)
 
 
 
@@ -3249,6 +3249,9 @@ Bishop                  Expires February 3, 2020               [Page 58]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   o  Specified handling of unsupported versions in Alt-Svc (#1093,
+      #1097)
 
 B.14.  Since draft-ietf-quic-http-08
 
@@ -3293,9 +3296,6 @@ B.18.  Since draft-ietf-quic-http-04
       (#702,#281)
 
    o  DATA frames cannot be empty (#700)
-
-
-
 
 
 
