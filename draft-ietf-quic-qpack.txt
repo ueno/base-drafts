@@ -367,12 +367,16 @@ Internet-Draft                    QPACK                      August 2019
    greater than its own Insert Count, the stream cannot be processed
    immediately, and is considered "blocked" (see {blocked-decoding}).
 
-   The SETTINGS_QPACK_BLOCKED_STREAMS setting (see Section 5) specifies
-   an upper bound on the number of streams which can be blocked.  An
-   encoder MUST limit the number of streams which could become blocked
-   to the value of SETTINGS_QPACK_BLOCKED_STREAMS at all times.  Note
-   that the decoder might not become blocked on every stream which risks
-   becoming blocked.
+   The decoder specifies an upper bound on the number of streams which
+   can be blocked using the SETTINGS_QPACK_BLOCKED_STREAMS setting (see
+   Section 5).  An encoder MUST limit the number of streams which could
+   become blocked to the value of SETTINGS_QPACK_BLOCKED_STREAMS at all
+   times.  If an decoder encounters more blocked streams than it
+   promised to support, it MUST treat this as a connection error of type
+   HTTP_QPACK_DECOMPRESSION_FAILED.
+
+   Note that the decoder might not become blocked on every stream which
+   risks becoming blocked.
 
    An encoder can decide whether to risk having a stream become blocked.
    If permitted by the value of SETTINGS_QPACK_BLOCKED_STREAMS,
@@ -381,10 +385,6 @@ Internet-Draft                    QPACK                      August 2019
    reordering the stream can become blocked at the decoder.  An encoder
    avoids the risk of blocking by only referencing dynamic table entries
    which have been acknowledged, but this could mean using literals.
-   Since literals make the header block larger, this can result in the
-   encoder becoming blocked on congestion or flow control limits.
-
-
 
 
 
@@ -393,6 +393,9 @@ Krasic, et al.          Expires February 14, 2020               [Page 7]
 
 Internet-Draft                    QPACK                      August 2019
 
+
+   Since literals make the header block larger, this can result in the
+   encoder becoming blocked on congestion or flow control limits.
 
 2.1.4.  Known Received Count
 
@@ -439,9 +442,6 @@ Internet-Draft                    QPACK                      August 2019
    Count for all header blocks the decoder has started reading from the
    stream.
 
-   When processing header blocks, the decoder expects the Required
-   Insert Count to exactly match the value defined in Section 2.1.3.  If
-   it encounters a smaller value than expected, it MUST treat this as a
 
 
 
@@ -450,13 +450,12 @@ Krasic, et al.          Expires February 14, 2020               [Page 8]
 Internet-Draft                    QPACK                      August 2019
 
 
+   When processing header blocks, the decoder expects the Required
+   Insert Count to exactly match the value defined in Section 2.1.3.  If
+   it encounters a smaller value than expected, it MUST treat this as a
    connection error of type HTTP_QPACK_DECOMPRESSION_FAILED (see
    Section 2.2.3).  If it encounters a larger value than expected, it
    MAY treat this as a connection error of type
-   HTTP_QPACK_DECOMPRESSION_FAILED.
-
-   If the decoder encounters more blocked streams than it promised to
-   support, it MUST treat this as a connection error of type
    HTTP_QPACK_DECOMPRESSION_FAILED.
 
 2.2.2.  State Synchronization
@@ -498,6 +497,7 @@ Internet-Draft                    QPACK                      August 2019
    chooses when to emit Insert Count Increment instructions (see
    Section 4.4.3).  Emitting this instruction after adding each new
    dynamic table entry will provide the timeliest feedback to the
+   encoder, but could be redundant with other decoder feedback.  By
 
 
 
@@ -506,7 +506,6 @@ Krasic, et al.          Expires February 14, 2020               [Page 9]
 Internet-Draft                    QPACK                      August 2019
 
 
-   encoder, but could be redundant with other decoder feedback.  By
    delaying an Insert Count Increment instruction, the decoder might be
    able to coalesce multiple Insert Count Increment instructions, or
    replace them entirely with Header Acknowledgements (see
@@ -550,6 +549,7 @@ Internet-Draft                    QPACK                      August 2019
    "HTTP_QPACK_DECOMPRESSION_FAILED".  If this index is received on the
    encoder stream, this MUST be treated as a connection error of type
    "HTTP_QPACK_ENCODER_STREAM_ERROR".
+
 
 
 
