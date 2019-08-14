@@ -384,7 +384,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-08-13" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-08-14" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -408,12 +408,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: February 14, 2020</td>
+<td class="left">Expires: February 15, 2020</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">August 13, 2019</td>
+<td class="right">August 14, 2019</td>
 </tr>
 
     	
@@ -432,7 +432,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on February 14, 2020.</p>
+<p>This Internet-Draft will expire on February 15, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -1249,7 +1249,7 @@ OnAckReceived(ack, pn_space):
 
   // Process ECN information if present.
   if (ACK frame contains ECN information):
-      ProcessECN(ack)
+      ProcessECN(ack, pn_space)
 
   for acked_packet in newly_acked_packets:
     OnPacketAcked(acked_packet.packet_number, pn_space)
@@ -1438,8 +1438,8 @@ DetectLostPackets(pn_space):
 <p></p>
 
 <dl>
-<dt>ecn_ce_counter:</dt>
-<dd style="margin-left: 8">The highest value reported for the ECN-CE counter by the peer in an ACK frame. This variable is used to detect increases in the reported ECN-CE counter.</dd>
+<dt>ecn_ce_counters[kPacketNumberSpace]:</dt>
+<dd style="margin-left: 8">The highest value reported for the ECN-CE counter in the packet number space by the peer in an ACK frame. This value is used to detect increases in the reported ECN-CE counter.</dd>
 <dt>bytes_in_flight:</dt>
 <dd style="margin-left: 8">The sum of the size in bytes of all sent packets that contain at least one ack-eliciting or PADDING frame, and have not been acked or declared lost. The size does not include IP or UDP overhead, but does include the QUIC header and AEAD overhead.  Packets only containing ACK frames do not count towards bytes_in_flight to ensure congestion control does not impede congestion feedback.</dd>
 <dt>congestion_window:</dt>
@@ -1458,7 +1458,8 @@ DetectLostPackets(pn_space):
    bytes_in_flight = 0
    congestion_recovery_start_time = 0
    ssthresh = infinite
-   ecn_ce_counter = 0
+   for pn_space in [ Initial, Handshake, ApplicationData ]:
+     ecn_ce_counters[pn_space] = 0
 </pre>
 <h2 id="rfc.appendix.B.4">
 <a href="#rfc.appendix.B.4">B.4.</a> <a href="#on-packet-sent" id="on-packet-sent">On Packet Sent</a>
@@ -1513,11 +1514,11 @@ DetectLostPackets(pn_space):
 </h2>
 <p id="rfc.section.B.7.p.1">Invoked when an ACK frame with an ECN section is received from the peer.</p>
 <pre>
-   ProcessECN(ack):
+   ProcessECN(ack, pn_space):
      // If the ECN-CE counter reported by the peer has increased,
      // this could be a new congestion event.
-     if (ack.ce_counter &gt; ecn_ce_counter):
-       ecn_ce_counter = ack.ce_counter
+     if (ack.ce_counter &gt; ecn_ce_counters[pn_space]):
+       ecn_ce_counters[pn_space] = ack.ce_counter
        CongestionEvent(sent_packets[ack.largest_acked].time_sent)
 </pre>
 <h2 id="rfc.appendix.B.8">
