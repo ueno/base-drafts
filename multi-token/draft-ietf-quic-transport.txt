@@ -204,16 +204,16 @@ Internet-Draft           QUIC Transport Protocol             August 2019
      19.5.  STOP_SENDING Frame . . . . . . . . . . . . . . . . . . . 107
      19.6.  CRYPTO Frame . . . . . . . . . . . . . . . . . . . . . . 108
      19.7.  NEW_TOKEN Frame  . . . . . . . . . . . . . . . . . . . . 109
-     19.8.  STREAM Frames  . . . . . . . . . . . . . . . . . . . . . 109
+     19.8.  STREAM Frames  . . . . . . . . . . . . . . . . . . . . . 110
      19.9.  MAX_DATA Frame . . . . . . . . . . . . . . . . . . . . . 111
-     19.10. MAX_STREAM_DATA Frame  . . . . . . . . . . . . . . . . . 111
-     19.11. MAX_STREAMS Frames . . . . . . . . . . . . . . . . . . . 112
+     19.10. MAX_STREAM_DATA Frame  . . . . . . . . . . . . . . . . . 112
+     19.11. MAX_STREAMS Frames . . . . . . . . . . . . . . . . . . . 113
      19.12. DATA_BLOCKED Frame . . . . . . . . . . . . . . . . . . . 113
      19.13. STREAM_DATA_BLOCKED Frame  . . . . . . . . . . . . . . . 114
      19.14. STREAMS_BLOCKED Frames . . . . . . . . . . . . . . . . . 114
      19.15. NEW_CONNECTION_ID Frame  . . . . . . . . . . . . . . . . 115
      19.16. RETIRE_CONNECTION_ID Frame . . . . . . . . . . . . . . . 117
-     19.17. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 117
+     19.17. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 118
      19.18. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 118
      19.19. CONNECTION_CLOSE Frames  . . . . . . . . . . . . . . . . 118
      19.20. Extension Frames . . . . . . . . . . . . . . . . . . . . 119
@@ -6092,12 +6092,12 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    Token:  An opaque blob that the client may use with a future Initial
       packet.
 
-19.8.  STREAM Frames
+   An endpoint might receive multiple NEW_TOKEN frames that contain the
+   same token value.  Endpoints are responsible for discarding duplicate
+   values, which might be used to link connection attempts; see
+   Section 8.1.2.
 
-   STREAM frames implicitly create a stream and carry stream data.  The
-   STREAM frame takes the form 0b00001XXX (or the set of values from
-   0x08 to 0x0f).  The value of the three low-order bits of the frame
-   type determines the fields that are present in the frame.
+
 
 
 
@@ -6105,6 +6105,13 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 109]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+19.8.  STREAM Frames
+
+   STREAM frames implicitly create a stream and carry stream data.  The
+   STREAM frame takes the form 0b00001XXX (or the set of values from
+   0x08 to 0x0f).  The value of the three low-order bits of the frame
+   type determines the fields that are present in the frame.
 
    o  The OFF bit (0x04) in the frame type is set to indicate that there
       is an Offset field present.  When set to 1, the Offset field is
@@ -6146,13 +6153,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    Stream ID:  A variable-length integer indicating the stream ID of the
       stream (see Section 2.1).
 
-   Offset:  A variable-length integer specifying the byte offset in the
-      stream for the data in this STREAM frame.  This field is present
-      when the OFF bit is set to 1.  When the Offset field is absent,
-      the offset is 0.
-
-   Length:  A variable-length integer specifying the length of the
-      Stream Data field in this STREAM frame.  This field is present
 
 
 
@@ -6162,6 +6162,13 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 110]
 Internet-Draft           QUIC Transport Protocol             August 2019
 
 
+   Offset:  A variable-length integer specifying the byte offset in the
+      stream for the data in this STREAM frame.  This field is present
+      when the OFF bit is set to 1.  When the Offset field is absent,
+      the offset is 0.
+
+   Length:  A variable-length integer specifying the length of the
+      Stream Data field in this STREAM frame.  This field is present
       when the LEN bit is set to 1.  When the LEN bit is set to 0, the
       Stream Data field consumes all the remaining bytes in the packet.
 
@@ -6204,19 +6211,18 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    has sent, unless this is a result of a change in the initial limits
    (see Section 7.3.1).
 
-19.10.  MAX_STREAM_DATA Frame
-
-   The MAX_STREAM_DATA frame (type=0x11) is used in flow control to
-   inform a peer of the maximum amount of data that can be sent on a
-   stream.
-
-
 
 
 Iyengar & Thomson       Expires February 16, 2020             [Page 111]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+19.10.  MAX_STREAM_DATA Frame
+
+   The MAX_STREAM_DATA frame (type=0x11) is used in flow control to
+   inform a peer of the maximum amount of data that can be sent on a
+   stream.
 
    A MAX_STREAM_DATA frame can be sent for streams in the Recv state
    (see Section 3.1).  Receiving a MAX_STREAM_DATA frame for a locally-
@@ -6258,13 +6264,7 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    affected stream, unless this is a result of a change in the initial
    limits (see Section 7.3.1).
 
-19.11.  MAX_STREAMS Frames
 
-   The MAX_STREAMS frames (type=0x12 and 0x13) inform the peer of the
-   cumulative number of streams of a given type it is permitted to open.
-   A MAX_STREAMS frame with a type of 0x12 applies to bidirectional
-   streams, and a MAX_STREAMS frame with a type of 0x13 applies to
-   unidirectional streams.
 
 
 
@@ -6273,6 +6273,14 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 112]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+19.11.  MAX_STREAMS Frames
+
+   The MAX_STREAMS frames (type=0x12 and 0x13) inform the peer of the
+   cumulative number of streams of a given type it is permitted to open.
+   A MAX_STREAMS frame with a type of 0x12 applies to bidirectional
+   streams, and a MAX_STREAMS frame with a type of 0x13 applies to
+   unidirectional streams.
 
    The MAX_STREAMS frames are as follows:
 
@@ -6314,14 +6322,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
 
    The DATA_BLOCKED frame is as follows:
 
-    0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                       Data Limit (i)                        ...
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-   DATA_BLOCKED frames contain the following fields:
-
 
 
 
@@ -6329,6 +6329,14 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 113]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       Data Limit (i)                        ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   DATA_BLOCKED frames contain the following fields:
 
    Data Limit:  A variable-length integer indicating the connection-
       level limit at which blocking occurred.
@@ -6369,14 +6377,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    stream limit, and a STREAMS_BLOCKED frame of type 0x17 indicates
    reaching the unidirectional stream limit.
 
-   A STREAMS_BLOCKED frame does not open the stream, but informs the
-   peer that a new stream was needed and the stream limit prevented the
-   creation of the stream.
-
-   The STREAMS_BLOCKED frames are as follows:
-
-
-
 
 
 
@@ -6385,6 +6385,12 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 114]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   A STREAMS_BLOCKED frame does not open the stream, but informs the
+   peer that a new stream was needed and the stream limit prevented the
+   creation of the stream.
+
+   The STREAMS_BLOCKED frames are as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -6427,12 +6433,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
 
    NEW_CONNECTION_ID frames contain the following fields:
 
-   Sequence Number:  The sequence number assigned to the connection ID
-      by the sender.  See Section 5.1.1.
-
-   Retire Prior To:  A variable-length integer indicating which
-      connection IDs should be retired.  See Section 5.1.2.
-
 
 
 
@@ -6441,6 +6441,12 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 115]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   Sequence Number:  The sequence number assigned to the connection ID
+      by the sender.  See Section 5.1.1.
+
+   Retire Prior To:  A variable-length integer indicating which
+      connection IDs should be retired.  See Section 5.1.2.
 
    Length:  An 8-bit unsigned integer containing the length of the
       connection ID.  Values less than 1 and greater than 20 are invalid
@@ -6484,12 +6490,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    Number field.  Receiving a value greater than the Sequence Number
    MUST be treated as a connection error of type PROTOCOL_VIOLATION.
 
-   Once a sender indicates a Retire Prior To value, smaller values sent
-   in subsequent NEW_CONNECTION_ID frames have no effect.  A receiver
-   MUST ignore any Retire Prior To fields that do not increase the
-   largest received Retire Prior To value.
-
-
 
 
 
@@ -6497,6 +6497,11 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 116]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   Once a sender indicates a Retire Prior To value, smaller values sent
+   in subsequent NEW_CONNECTION_ID frames have no effect.  A receiver
+   MUST ignore any Retire Prior To fields that do not increase the
+   largest received Retire Prior To value.
 
 19.16.  RETIRE_CONNECTION_ID Frame
 
@@ -6538,13 +6543,8 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    length connection ID MUST treat receipt of a RETIRE_CONNECTION_ID
    frame as a connection error of type PROTOCOL_VIOLATION.
 
-19.17.  PATH_CHALLENGE Frame
 
-   Endpoints can use PATH_CHALLENGE frames (type=0x1a) to check
-   reachability to the peer and for path validation during connection
-   migration.
 
-   The PATH_CHALLENGE frames are as follows:
 
 
 
@@ -6553,6 +6553,14 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 117]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+19.17.  PATH_CHALLENGE Frame
+
+   Endpoints can use PATH_CHALLENGE frames (type=0x1a) to check
+   reachability to the peer and for path validation during connection
+   migration.
+
+   The PATH_CHALLENGE frames are as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -6595,20 +6603,14 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    If there are open streams that haven't been explicitly closed, they
    are implicitly closed when the connection is closed.
 
-   The CONNECTION_CLOSE frames are as follows:
-
-
-
-
-
-
-
 
 
 Iyengar & Thomson       Expires February 16, 2020             [Page 118]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   The CONNECTION_CLOSE frames are as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -6656,8 +6658,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
 
    An extension to QUIC that wishes to use a new type of frame MUST
    first ensure that a peer is able to understand the frame.  An
-   endpoint can use a transport parameter to signal its willingness to
-
 
 
 
@@ -6666,6 +6666,7 @@ Iyengar & Thomson       Expires February 16, 2020             [Page 119]
 Internet-Draft           QUIC Transport Protocol             August 2019
 
 
+   endpoint can use a transport parameter to signal its willingness to
    receive one or more extension frame types with the one transport
    parameter.
 
@@ -6712,7 +6713,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
       stream data that was already received.  Or an endpoint received a
       STREAM frame or a RESET_STREAM frame containing a different final
       size to the one already established.
-
 
 
 
