@@ -290,6 +290,7 @@ ul.toc li {
 <link href="#rfc.section.2.1" rel="Chapter" title="2.1 Stream Types and Identifiers">
 <link href="#rfc.section.2.2" rel="Chapter" title="2.2 Sending and Receiving Data">
 <link href="#rfc.section.2.3" rel="Chapter" title="2.3 Stream Prioritization">
+<link href="#rfc.section.2.4" rel="Chapter" title="2.4 Required Operations on Streams">
 <link href="#rfc.section.3" rel="Chapter" title="3 Stream States">
 <link href="#rfc.section.3.1" rel="Chapter" title="3.1 Sending Stream States">
 <link href="#rfc.section.3.2" rel="Chapter" title="3.2 Receiving Stream States">
@@ -310,6 +311,7 @@ ul.toc li {
 <link href="#rfc.section.5.2.1" rel="Chapter" title="5.2.1 Client Packet Handling">
 <link href="#rfc.section.5.2.2" rel="Chapter" title="5.2.2 Server Packet Handling">
 <link href="#rfc.section.5.3" rel="Chapter" title="5.3 Life of a QUIC Connection">
+<link href="#rfc.section.5.4" rel="Chapter" title="5.4 Required Operations on Connections">
 <link href="#rfc.section.6" rel="Chapter" title="6 Version Negotiation">
 <link href="#rfc.section.6.1" rel="Chapter" title="6.1 Sending Version Negotiation Packets">
 <link href="#rfc.section.6.2" rel="Chapter" title="6.2 Handling Version Negotiation Packets">
@@ -543,6 +545,8 @@ ul.toc li {
 </li>
 <li>2.3.   <a href="#rfc.section.2.3">Stream Prioritization</a>
 </li>
+<li>2.4.   <a href="#rfc.section.2.4">Required Operations on Streams</a>
+</li>
 </ul><li>3.   <a href="#rfc.section.3">Stream States</a>
 </li>
 <ul><li>3.1.   <a href="#rfc.section.3.1">Sending Stream States</a>
@@ -582,6 +586,8 @@ ul.toc li {
 <li>5.2.2.   <a href="#rfc.section.5.2.2">Server Packet Handling</a>
 </li>
 </ul><li>5.3.   <a href="#rfc.section.5.3">Life of a QUIC Connection</a>
+</li>
+<li>5.4.   <a href="#rfc.section.5.4">Required Operations on Connections</a>
 </li>
 </ul><li>6.   <a href="#rfc.section.6">Version Negotiation</a>
 </li>
@@ -1068,6 +1074,26 @@ ul.toc li {
 <p id="rfc.section.2.3.p.1">Stream multiplexing can have a significant effect on application performance if resources allocated to streams are correctly prioritized.</p>
 <p id="rfc.section.2.3.p.2">QUIC does not provide a mechanism for exchanging prioritization information.  Instead, it relies on receiving priority information from the application that uses QUIC.</p>
 <p id="rfc.section.2.3.p.3">A QUIC implementation SHOULD provide ways in which an application can indicate the relative priority of streams.  When deciding which streams to dedicate resources to, the implementation SHOULD use the information provided by the application.</p>
+<h2 id="rfc.section.2.4">
+<a href="#rfc.section.2.4">2.4.</a> <a href="#required-operations-on-streams" id="required-operations-on-streams">Required Operations on Streams</a>
+</h2>
+<p id="rfc.section.2.4.p.1">There are certain operations which an application MUST be able to perform when interacting with QUIC streams.  This document does not specify an API, but any implementation of this version of QUIC MUST expose the ability to perform the operations described in this section on a QUIC stream.</p>
+<p id="rfc.section.2.4.p.2">On the sending part of a stream, application protocols need to be able to:</p>
+<p></p>
+
+<ul>
+<li>write data, understanding when stream flow control credit (<a href="#data-flow-control" class="xref">Section 4.1</a>) has successfully been reserved to send the written data</li>
+<li>end the stream (clean termination), resulting in a STREAM frame (<a href="#frame-stream" class="xref">Section 19.8</a>) with the FIN bit set; and</li>
+<li>reset the stream (abrupt termination), resulting in a RESET_STREAM frame (<a href="#frame-reset-stream" class="xref">Section 19.4</a>), even if the stream was already ended.</li>
+</ul>
+<p id="rfc.section.2.4.p.4">On the receiving part of a stream, application protocols need to be able to:</p>
+<p></p>
+
+<ul>
+<li>read data</li>
+<li>abort reading of the stream and request closure, possibly resulting in a STOP_SENDING frame (<a href="#frame-stop-sending" class="xref">Section 19.5</a>)</li>
+</ul>
+<p id="rfc.section.2.4.p.6">Applications also need to be informed of state changes on streams, including when the peer has opened or reset a stream, when a peer aborts reading on a stream, when new data is available, and when data can or cannot be written to the stream due to flow control.</p>
 <h1 id="rfc.section.3">
 <a href="#rfc.section.3">3.</a> <a href="#stream-states" id="stream-states">Stream States</a>
 </h1>
@@ -1266,14 +1292,15 @@ ul.toc li {
 <h2 id="rfc.section.3.5">
 <a href="#rfc.section.3.5">3.5.</a> <a href="#solicited-state-transitions" id="solicited-state-transitions">Solicited State Transitions</a>
 </h2>
-<p id="rfc.section.3.5.p.1">If an endpoint is no longer interested in the data it is receiving on a stream, it MAY send a STOP_SENDING frame identifying that stream to prompt closure of the stream in the opposite direction.  This typically indicates that the receiving application is no longer reading data it receives from the stream, but it is not a guarantee that incoming data will be ignored.</p>
-<p id="rfc.section.3.5.p.2">STREAM frames received after sending STOP_SENDING are still counted toward connection and stream flow control, even though these frames can be discarded upon receipt.</p>
-<p id="rfc.section.3.5.p.3">A STOP_SENDING frame requests that the receiving endpoint send a RESET_STREAM frame.  An endpoint that receives a STOP_SENDING frame MUST send a RESET_STREAM frame if the stream is in the Ready or Send state.  If the stream is in the Data Sent state and any outstanding data is declared lost, an endpoint SHOULD send a RESET_STREAM frame in lieu of a retransmission.</p>
-<p id="rfc.section.3.5.p.4">An endpoint SHOULD copy the error code from the STOP_SENDING frame to the RESET_STREAM frame it sends, but MAY use any application error code.  The endpoint that sends a STOP_SENDING frame MAY ignore the error code carried in any RESET_STREAM frame it receives.</p>
-<p id="rfc.section.3.5.p.5">If the STOP_SENDING frame is received on a stream that is already in the &#8220;Data Sent&#8221; state, an endpoint that wishes to cease retransmission of previously-sent STREAM frames on that stream MUST first send a RESET_STREAM frame.</p>
-<p id="rfc.section.3.5.p.6">STOP_SENDING SHOULD only be sent for a stream that has not been reset by the peer. STOP_SENDING is most useful for streams in the &#8220;Recv&#8221; or &#8220;Size Known&#8221; states.</p>
-<p id="rfc.section.3.5.p.7">An endpoint is expected to send another STOP_SENDING frame if a packet containing a previous STOP_SENDING is lost.  However, once either all stream data or a RESET_STREAM frame has been received for the stream - that is, the stream is in any state other than &#8220;Recv&#8221; or &#8220;Size Known&#8221; - sending a STOP_SENDING frame is unnecessary.</p>
-<p id="rfc.section.3.5.p.8">An endpoint that wishes to terminate both directions of a bidirectional stream can terminate one direction by sending a RESET_STREAM, and it can encourage prompt termination in the opposite direction by sending a STOP_SENDING frame.</p>
+<p id="rfc.section.3.5.p.1">If an application is no longer interested in the data it is receiving on a stream, it can abort reading the stream and specify an application error code.</p>
+<p id="rfc.section.3.5.p.2">If the stream is in the &#8220;Recv or &#8220;Size Known&#8221; states, the transport SHOULD signal this by sending a STOP_SENDING frame to prompt closure of the stream in the opposite direction.  This typically indicates that the receiving application is no longer reading data it receives from the stream, but it is not a guarantee that incoming data will be ignored.</p>
+<p id="rfc.section.3.5.p.3">STREAM frames received after sending STOP_SENDING are still counted toward connection and stream flow control, even though these frames can be discarded upon receipt.</p>
+<p id="rfc.section.3.5.p.4">A STOP_SENDING frame requests that the receiving endpoint send a RESET_STREAM frame.  An endpoint that receives a STOP_SENDING frame MUST send a RESET_STREAM frame if the stream is in the Ready or Send state.  If the stream is in the Data Sent state and any outstanding data is declared lost, an endpoint SHOULD send a RESET_STREAM frame in lieu of a retransmission.</p>
+<p id="rfc.section.3.5.p.5">An endpoint SHOULD copy the error code from the STOP_SENDING frame to the RESET_STREAM frame it sends, but MAY use any application error code.  The endpoint that sends a STOP_SENDING frame MAY ignore the error code carried in any RESET_STREAM frame it receives.</p>
+<p id="rfc.section.3.5.p.6">If the STOP_SENDING frame is received on a stream that is already in the &#8220;Data Sent&#8221; state, an endpoint that wishes to cease retransmission of previously-sent STREAM frames on that stream MUST first send a RESET_STREAM frame.</p>
+<p id="rfc.section.3.5.p.7">STOP_SENDING SHOULD only be sent for a stream that has not been reset by the peer. STOP_SENDING is most useful for streams in the &#8220;Recv&#8221; or &#8220;Size Known&#8221; states.</p>
+<p id="rfc.section.3.5.p.8">An endpoint is expected to send another STOP_SENDING frame if a packet containing a previous STOP_SENDING is lost.  However, once either all stream data or a RESET_STREAM frame has been received for the stream - that is, the stream is in any state other than &#8220;Recv&#8221; or &#8220;Size Known&#8221; - sending a STOP_SENDING frame is unnecessary.</p>
+<p id="rfc.section.3.5.p.9">An endpoint that wishes to terminate both directions of a bidirectional stream can terminate one direction by sending a RESET_STREAM, and it can encourage prompt termination in the opposite direction by sending a STOP_SENDING frame.</p>
 <h1 id="rfc.section.4">
 <a href="#rfc.section.4">4.</a> <a href="#flow-control" id="flow-control">Flow Control</a>
 </h1>
@@ -1390,6 +1417,36 @@ ul.toc li {
 <a href="#rfc.section.5.3">5.3.</a> <a href="#connection-lifecycle" id="connection-lifecycle">Life of a QUIC Connection</a>
 </h2>
 <p id="rfc.section.5.3.p.1">TBD.</p>
+<h2 id="rfc.section.5.4">
+<a href="#rfc.section.5.4">5.4.</a> <a href="#required-operations-on-connections" id="required-operations-on-connections">Required Operations on Connections</a>
+</h2>
+<p id="rfc.section.5.4.p.1">There are certain operations which an application MUST be able to perform when interacting with the QUIC transport.  This document does not specify an API, but any implementation of this version of QUIC MUST expose the ability to perform the operations described in this section on a QUIC connection.</p>
+<p id="rfc.section.5.4.p.2">When implementing the client role, applications need to be able to:</p>
+<p></p>
+
+<ul>
+<li>open a connection, which begins the exchange described in <a href="#handshake" class="xref">Section 7</a>;</li>
+<li>enable 0-RTT; and</li>
+<li>be informed when 0-RTT has been accepted or rejected by a server.</li>
+</ul>
+<p id="rfc.section.5.4.p.4">When implementing the server role, applications need to be able to:</p>
+<p></p>
+
+<ul>
+<li>listen for incoming connections, which prepares for the exchange described in <a href="#handshake" class="xref">Section 7</a>;</li>
+<li>if Early Data is supported, embed application-controlled data in the TLS resumption ticket sent to the client; and</li>
+<li>if Early Data is supported, retrieve application-controlled data from the client&#8217;s resumption ticket and enable rejecting Early Data based on that information.</li>
+</ul>
+<p id="rfc.section.5.4.p.6">In either role, applications need to be able to:</p>
+<p></p>
+
+<ul>
+<li>configure minimum values for the initial number of permitted streams of each type, as communicated in the transport parameters (<a href="#transport-parameters" class="xref">Section 7.3</a>);</li>
+<li>control resource allocation of various types, including flow control and the number of permitted streams of each type;</li>
+<li>identify whether the handshake has completed successfully or is still ongoing</li>
+<li>keep a connection from silently closing, either by generating PING frames (<a href="#frame-ping" class="xref">Section 19.2</a>) or by requesting that the transport send additional frames before the idle timeout expires (<a href="#idle-timeout" class="xref">Section 10.2</a>); and</li>
+<li>immediately close (<a href="#immediate-close" class="xref">Section 10.3</a>) the connection.</li>
+</ul>
 <h1 id="rfc.section.6">
 <a href="#rfc.section.6">6.</a> <a href="#version-negotiation" id="version-negotiation">Version Negotiation</a>
 </h1>
