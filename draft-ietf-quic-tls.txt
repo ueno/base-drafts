@@ -85,17 +85,17 @@ Table of Contents
      4.3.  ClientHello Size  . . . . . . . . . . . . . . . . . . . .  14
      4.4.  Peer Authentication . . . . . . . . . . . . . . . . . . .  14
      4.5.  Enabling 0-RTT  . . . . . . . . . . . . . . . . . . . . .  15
-     4.6.  Rejecting 0-RTT . . . . . . . . . . . . . . . . . . . . .  15
-     4.7.  HelloRetryRequest . . . . . . . . . . . . . . . . . . . .  15
+     4.6.  Accepting and Rejecting 0-RTT . . . . . . . . . . . . . .  15
+     4.7.  HelloRetryRequest . . . . . . . . . . . . . . . . . . . .  16
      4.8.  TLS Errors  . . . . . . . . . . . . . . . . . . . . . . .  16
      4.9.  Discarding Unused Keys  . . . . . . . . . . . . . . . . .  16
        4.9.1.  Discarding Initial Keys . . . . . . . . . . . . . . .  17
        4.9.2.  Discarding Handshake Keys . . . . . . . . . . . . . .  17
-       4.9.3.  Discarding 0-RTT Keys . . . . . . . . . . . . . . . .  17
+       4.9.3.  Discarding 0-RTT Keys . . . . . . . . . . . . . . . .  18
    5.  Packet Protection . . . . . . . . . . . . . . . . . . . . . .  18
      5.1.  Packet Protection Keys  . . . . . . . . . . . . . . . . .  18
-     5.2.  Initial Secrets . . . . . . . . . . . . . . . . . . . . .  18
-     5.3.  AEAD Usage  . . . . . . . . . . . . . . . . . . . . . . .  19
+     5.2.  Initial Secrets . . . . . . . . . . . . . . . . . . . . .  19
+     5.3.  AEAD Usage  . . . . . . . . . . . . . . . . . . . . . . .  20
      5.4.  Header Protection . . . . . . . . . . . . . . . . . . . .  21
        5.4.1.  Header Protection Application . . . . . . . . . . . .  21
        5.4.2.  Header Protection Sample  . . . . . . . . . . . . . .  23
@@ -810,11 +810,37 @@ Internet-Draft                QUIC over TLS                  August 2019
    with any other value as a connection error of type
    PROTOCOL_VIOLATION.
 
-4.6.  Rejecting 0-RTT
+   A client that wishes to send 0-RTT packets uses the "early_data"
+   extension in the ClientHello message of a subsequent handshake (see
+   Section 4.2.10 of [TLS13]).  It then sends the application data in
+   0-RTT packets.
 
-   A server rejects 0-RTT by rejecting 0-RTT at the TLS layer.  This
-   also prevents QUIC from sending 0-RTT data.  A server will always
-   reject 0-RTT if it sends a TLS HelloRetryRequest.
+   Early data within the TLS connection MUST NOT be used.  As it is for
+   other TLS application data, a server MUST treat receiving early data
+   on the TLS connection as a connection error of type
+   PROTOCOL_VIOLATION.
+
+4.6.  Accepting and Rejecting 0-RTT
+
+   A server accepts 0-RTT by sending an early_data extension in the
+   EncryptedExtensions (see Section 4.2.10 of [TLS13]).  The server then
+   processes and acknowledges the 0-RTT packets that it receives.
+
+   A server rejects 0-RTT by sending the EncryptedExtensions without an
+   early_data extension.  A server will always reject 0-RTT if it sends
+   a TLS HelloRetryRequest.  When rejecting 0-RTT, a server MUST NOT
+   process any 0-RTT packets, even if it could.  When 0-RTT was
+   rejected, a client SHOULD treat receipt of an acknowledgement for a
+   0-RTT packet as a connection error of type PROTOCOL_VIOLATION, if it
+   is able to detect the condition.
+
+
+
+
+Thomson & Turner        Expires February 17, 2020              [Page 15]
+
+Internet-Draft                QUIC over TLS                  August 2019
+
 
    When 0-RTT is rejected, all connection characteristics that the
    client assumed might be incorrect.  This includes the choice of
@@ -834,14 +860,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    perspective of QUIC, this just looks like additional messages carried
    in the Initial encryption level.  Although it is in principle
    possible to use this feature for address verification in QUIC, QUIC
-
-
-
-Thomson & Turner        Expires February 17, 2020              [Page 15]
-
-Internet-Draft                QUIC over TLS                  August 2019
-
-
    implementations SHOULD instead use the Retry feature (see Section 8.1
    of [QUIC-TRANSPORT]).  HelloRetryRequest is still used to request key
    shares.
@@ -872,6 +890,14 @@ Internet-Draft                QUIC over TLS                  August 2019
    CRYPTO frames, frames that retransmit that data MUST be sent at the
    same encryption level.  Similarly, an endpoint generates
    acknowledgements for packets at the same encryption level as the
+
+
+
+Thomson & Turner        Expires February 17, 2020              [Page 16]
+
+Internet-Draft                QUIC over TLS                  August 2019
+
+
    packet being acknowledged.  Thus, it is possible that keys for a
    lower encryption level are needed for a short time after keys for a
    newer encryption level are available.
@@ -888,15 +914,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    the highest currently-available encryption level.  Only ACK frames
    and retransmissions of data in CRYPTO frames are sent at a previous
    encryption level.  These packets MAY also include PADDING frames.
-
-
-
-
-
-Thomson & Turner        Expires February 17, 2020              [Page 16]
-
-Internet-Draft                QUIC over TLS                  August 2019
-
 
 4.9.1.  Discarding Initial Keys
 
@@ -929,6 +946,14 @@ Internet-Draft                QUIC over TLS                  August 2019
    frames, such as PING, which will cause the handshake to be confirmed
    when they are acknowledged.
 
+
+
+
+Thomson & Turner        Expires February 17, 2020              [Page 17]
+
+Internet-Draft                QUIC over TLS                  August 2019
+
+
 4.9.3.  Discarding 0-RTT Keys
 
    0-RTT and 1-RTT packets share the same packet number space, and
@@ -946,14 +971,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    a 1-RTT packet, servers MUST discard 0-RTT keys within a short time;
    the RECOMMENDED time period is three times the Probe Timeout (PTO,
    see [QUIC-RECOVERY]).  A server MAY discard 0-RTT keys earlier if it
-
-
-
-Thomson & Turner        Expires February 17, 2020              [Page 17]
-
-Internet-Draft                QUIC over TLS                  August 2019
-
-
    determines that it has received all 0-RTT packets, which can be done
    by keeping track of missing packet numbers.
 
@@ -986,6 +1003,13 @@ Internet-Draft                QUIC over TLS                  August 2019
    the "quic hp" label; see Section 5.4.  Using these labels provides
    key separation between QUIC and TLS; see Section 9.4.
 
+
+
+Thomson & Turner        Expires February 17, 2020              [Page 18]
+
+Internet-Draft                QUIC over TLS                  August 2019
+
+
    The KDF used for initial secrets is always the HKDF-Expand-Label
    function from TLS 1.3 (see Section 5.2).
 
@@ -994,21 +1018,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    Initial packets are protected with a secret derived from the
    Destination Connection ID field from the client's first Initial
    packet of the connection.  Specifically:
-
-
-
-
-
-
-
-
-
-
-
-Thomson & Turner        Expires February 17, 2020              [Page 18]
-
-Internet-Draft                QUIC over TLS                  August 2019
-
 
    initial_salt = 0xc3eef712c72ebb5a11a7d2432bb46365bef9f502
    initial_secret = HKDF-Extract(initial_salt,
@@ -1050,6 +1059,13 @@ Internet-Draft                QUIC over TLS                  August 2019
       its packet; the client has to rely on the exchange that included
       the Retry packet for that property.
 
+
+
+Thomson & Turner        Expires February 17, 2020              [Page 19]
+
+Internet-Draft                QUIC over TLS                  August 2019
+
+
 5.3.  AEAD Usage
 
    The Authentication Encryption with Associated Data (AEAD) [AEAD]
@@ -1057,14 +1073,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    negotiated for use with the TLS connection.  For example, if TLS is
    using the TLS_AES_128_GCM_SHA256, the AEAD_AES_128_GCM function is
    used.
-
-
-
-
-Thomson & Turner        Expires February 17, 2020              [Page 19]
-
-Internet-Draft                QUIC over TLS                  August 2019
-
 
    Packets are protected prior to applying header protection
    (Section 5.4).  The unprotected packet header is part of the
@@ -1107,6 +1115,13 @@ Internet-Draft                QUIC over TLS                  August 2019
    The input plaintext, P, for the AEAD is the payload of the QUIC
    packet, as described in [QUIC-TRANSPORT].
 
+
+
+Thomson & Turner        Expires February 17, 2020              [Page 20]
+
+Internet-Draft                QUIC over TLS                  August 2019
+
+
    The output ciphertext, C, of the AEAD is transmitted in place of P.
 
    Some AEAD functions have limits for how many packets can be encrypted
@@ -1114,13 +1129,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    be lower than the packet number limit.  An endpoint MUST initiate a
    key update (Section 6) prior to exceeding any limit set for the AEAD
    that is in use.
-
-
-
-Thomson & Turner        Expires February 17, 2020              [Page 20]
-
-Internet-Draft                QUIC over TLS                  August 2019
-
 
 5.4.  Header Protection
 
@@ -1161,14 +1169,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    masked with the remaining bytes.  Any unused bytes of mask that might
    result from a shorter packet number encoding are unused.
 
-   Figure 4 shows a sample algorithm for applying header protection.
-   Removing header protection only differs in the order in which the
-   packet number length (pn_length) is determined.
-
-
-
-
-
 
 
 
@@ -1177,6 +1177,10 @@ Thomson & Turner        Expires February 17, 2020              [Page 21]
 
 Internet-Draft                QUIC over TLS                  August 2019
 
+
+   Figure 4 shows a sample algorithm for applying header protection.
+   Removing header protection only differs in the order in which the
+   packet number length (pn_length) is determined.
 
    mask = header_protection(hp_key, sample)
 
@@ -1223,10 +1227,6 @@ Internet-Draft                QUIC over TLS                  August 2019
 
              Figure 5: Header Protection and Ciphertext Sample
 
-   Before a TLS ciphersuite can be used with QUIC, a header protection
-   algorithm MUST be specified for the AEAD used with that ciphersuite.
-   This document defines algorithms for AEAD_AES_128_GCM,
-
 
 
 Thomson & Turner        Expires February 17, 2020              [Page 22]
@@ -1234,6 +1234,9 @@ Thomson & Turner        Expires February 17, 2020              [Page 22]
 Internet-Draft                QUIC over TLS                  August 2019
 
 
+   Before a TLS ciphersuite can be used with QUIC, a header protection
+   algorithm MUST be specified for the AEAD used with that ciphersuite.
+   This document defines algorithms for AEAD_AES_128_GCM,
    AEAD_AES_128_CCM, AEAD_AES_256_GCM (all AES AEADs are defined in
    [AEAD]), and AEAD_CHACHA20_POLY1305 [CHACHA].  Prior to TLS selecting
    a ciphersuite, AES header protection is used (Section 5.4.3),
@@ -1278,9 +1281,6 @@ Internet-Draft                QUIC over TLS                  August 2019
    A packet with a long header is sampled in the same way, noting that
    multiple QUIC packets might be included in the same UDP datagram and
    that each one is handled separately.
-
-
-
 
 
 

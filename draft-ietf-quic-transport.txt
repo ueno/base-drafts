@@ -3956,19 +3956,19 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    Therefore, the receiver SHOULD repeatedly acknowledge newly received
    packets in preference to packets received in the past.
 
+   An endpoint SHOULD treat receipt of an acknowledgment for a packet it
+   did not send as a connection error of type PROTOCOL_VIOLATION, if it
+   is able to detect the condition.  This includes receiving an ACK
+   frame containing a packet number that the endpoint has not sent, as
+   well as acknowledgements for 0-RTT packets when the server has
+   rejected the use of 0-RTT.
+
 13.1.3.  ACK Frames and Packet Protection
 
    ACK frames MUST only be carried in a packet that has the same packet
    number space as the packet being ACKed (see Section 12.1).  For
    instance, packets that are protected with 1-RTT keys MUST be
    acknowledged in packets that are also protected with 1-RTT keys.
-
-   Packets that a client sends with 0-RTT packet protection MUST be
-   acknowledged by the server in packets protected by 1-RTT keys.  This
-   can mean that the client is unable to use these acknowledgments if
-   the server cryptographic handshake messages are delayed or lost.
-   Note that the same limitation applies to other data sent by the
-   server protected by the 1-RTT keys.
 
 
 
@@ -3977,6 +3977,13 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 71]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   Packets that a client sends with 0-RTT packet protection MUST be
+   acknowledged by the server in packets protected by 1-RTT keys.  This
+   can mean that the client is unable to use these acknowledgments if
+   the server cryptographic handshake messages are delayed or lost.
+   Note that the same limitation applies to other data sent by the
+   server protected by the 1-RTT keys.
 
    Endpoints SHOULD send acknowledgments for packets containing CRYPTO
    frames with a reduced delay; see Section 6.2 of [QUIC-RECOVERY].
@@ -4020,13 +4027,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
       stream enters either a "Data Recvd" or "Reset Recvd" state; see
       Section 3.5.
 
-   o  Connection close signals, including packets that contain
-      CONNECTION_CLOSE frames, are not sent again when packet loss is
-      detected, but as described in Section 10.
-
-   o  The current connection maximum data is sent in MAX_DATA frames.
-      An updated value is sent in a MAX_DATA frame if the packet
-
 
 
 Iyengar & Thomson       Expires February 17, 2020              [Page 72]
@@ -4034,6 +4034,12 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 72]
 Internet-Draft           QUIC Transport Protocol             August 2019
 
 
+   o  Connection close signals, including packets that contain
+      CONNECTION_CLOSE frames, are not sent again when packet loss is
+      detected, but as described in Section 10.
+
+   o  The current connection maximum data is sent in MAX_DATA frames.
+      An updated value is sent in a MAX_DATA frame if the packet
       containing the most recently sent MAX_DATA frame is declared lost,
       or when the endpoint decides to update the limit.  Care is
       necessary to avoid sending this frame too often as the limit can
@@ -4076,12 +4082,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    o  New connection IDs are sent in NEW_CONNECTION_ID frames and
       retransmitted if the packet containing them is lost.
       Retransmissions of this frame carry the same sequence number
-      value.  Likewise, retired connection IDs are sent in
-      RETIRE_CONNECTION_ID frames and retransmitted if the packet
-      containing them is lost.
-
-   o  PING and PADDING frames contain no information, so lost PING or
-      PADDING frames do not require repair.
 
 
 
@@ -4089,6 +4089,13 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 73]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+      value.  Likewise, retired connection IDs are sent in
+      RETIRE_CONNECTION_ID frames and retransmitted if the packet
+      containing them is lost.
+
+   o  PING and PADDING frames contain no information, so lost PING or
+      PADDING frames do not require repair.
 
    Endpoints SHOULD prioritize retransmission of data over sending new
    data, unless priorities specified by the application indicate
@@ -4130,13 +4137,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    to read the ECN codepoints from the enclosing IP packet, which is not
    possible on all platforms.
 
-   A packet detected by a receiver as a duplicate does not affect the
-   receiver's local ECN codepoint counts; see (Section 21.8) for
-   relevant security concerns.
-
-   If an endpoint receives a QUIC packet without an ECT or CE codepoint
-   in the IP packet header, it responds per Section 13.1 with an ACK
-   frame without increasing any ECN counts.  If an endpoint does not
 
 
 
@@ -4146,6 +4146,13 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 74]
 Internet-Draft           QUIC Transport Protocol             August 2019
 
 
+   A packet detected by a receiver as a duplicate does not affect the
+   receiver's local ECN codepoint counts; see (Section 21.8) for
+   relevant security concerns.
+
+   If an endpoint receives a QUIC packet without an ECT or CE codepoint
+   in the IP packet header, it responds per Section 13.1 with an ACK
+   frame without increasing any ECN counts.  If an endpoint does not
    implement ECN support or does not have access to received ECN
    codepoints, it does not increase ECN counts.
 
@@ -4188,19 +4195,18 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    reduce this risk, an endpoint uses the following steps to verify the
    counts it receives in an ACK frame.
 
-   o  The total increase in ECT(0), ECT(1), and CE counts MUST be no
-      smaller than the total number of QUIC packets sent with an ECT
-      codepoint that are newly acknowledged in this ACK frame.  This
-      step detects any network remarking from ECT(0), ECT(1), or CE
-      codepoints to Not-ECT.
-
-
 
 
 Iyengar & Thomson       Expires February 17, 2020              [Page 75]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   o  The total increase in ECT(0), ECT(1), and CE counts MUST be no
+      smaller than the total number of QUIC packets sent with an ECT
+      codepoint that are newly acknowledged in this ACK frame.  This
+      step detects any network remarking from ECT(0), ECT(1), or CE
+      codepoints to Not-ECT.
 
    o  Any increase in either ECT(0) or ECT(1) counts, plus any increase
       in the CE count, MUST be no smaller than the number of packets
@@ -4244,12 +4250,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    The QUIC packet size includes the QUIC header and protected payload,
    but not the UDP or IP header.
 
-   Clients MUST ensure they send the first Initial packet in a single IP
-   packet.  Similarly, the first Initial packet sent after receiving a
-   Retry packet MUST be sent in a single IP packet.
-
-   The payload of a UDP datagram carrying the first Initial packet MUST
-   be expanded to at least 1200 bytes, by adding PADDING frames to the
 
 
 
@@ -4258,6 +4258,12 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 76]
 Internet-Draft           QUIC Transport Protocol             August 2019
 
 
+   Clients MUST ensure they send the first Initial packet in a single IP
+   packet.  Similarly, the first Initial packet sent after receiving a
+   Retry packet MUST be sent in a single IP packet.
+
+   The payload of a UDP datagram carrying the first Initial packet MUST
+   be expanded to at least 1200 bytes, by adding PADDING frames to the
    Initial packet and/or by coalescing the Initial packet (see
    Section 12.2).  Sending a UDP datagram of this size ensures that the
    network path supports a reasonable Maximum Transmission Unit (MTU),
@@ -4300,12 +4306,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
 
    In the absence of these mechanisms, QUIC endpoints SHOULD NOT send IP
    packets larger than 1280 bytes.  Assuming the minimum IP header size,
-   this results in a QUIC maximum packet size of 1232 bytes for IPv6 and
-   1252 bytes for IPv4.  A QUIC implementation MAY be more conservative
-   in computing the QUIC maximum packet size to allow for unknown tunnel
-   overheads or IP header options/extensions.
-
-
 
 
 
@@ -4313,6 +4313,11 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 77]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   this results in a QUIC maximum packet size of 1232 bytes for IPv6 and
+   1252 bytes for IPv4.  A QUIC implementation MAY be more conservative
+   in computing the QUIC maximum packet size to allow for unknown tunnel
+   overheads or IP header options/extensions.
 
    Each pair of local and remote addresses could have a different PMTU.
    QUIC implementations that implement any kind of PMTU discovery
@@ -4358,17 +4363,17 @@ Internet-Draft           QUIC Transport Protocol             August 2019
 
    Further validation can also be provided:
 
-   o  An IPv4 endpoint could set the Don't Fragment (DF) bit on a small
-      proportion of packets, so that most invalid ICMP messages arrive
-      when there are no DF packets outstanding, and can therefore be
-      identified as spurious.
-
 
 
 Iyengar & Thomson       Expires February 17, 2020              [Page 78]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   o  An IPv4 endpoint could set the Don't Fragment (DF) bit on a small
+      proportion of packets, so that most invalid ICMP messages arrive
+      when there are no DF packets outstanding, and can therefore be
+      identified as spurious.
 
    o  An endpoint could store additional information from the IP or UDP
       headers to use for validation (for example, the IP ID or UDP
@@ -4413,11 +4418,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    coalesce (see Section 12.2) a Handshake packet (Section 17.2.4) with
    a short header packet in a single UDP datagram.  If the UDP datagram
    reaches the endpoint, the Handshake packet will be ignored, but the
-   short header packet will be acknowledged.  If the UDP datagram
-   elicits an ICMP message, that message will likely contain the source
-   connection ID within the quoted portion of the UDP datagram.
-
-
 
 
 
@@ -4425,6 +4425,10 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 79]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   short header packet will be acknowledged.  If the UDP datagram
+   elicits an ICMP message, that message will likely contain the source
+   connection ID within the quoted portion of the UDP datagram.
 
 15.  Versions
 
@@ -4468,10 +4472,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    the draft number to 0xff000000.  For example, draft-ietf-quic-
    transport-13 would be identified as 0xff00000D.
 
-   Implementors are encouraged to register version numbers of QUIC that
-   they are using for private experimentation on the GitHub wiki at
-   <https://github.com/quicwg/base-drafts/wiki/QUIC-Versions>.
-
 
 
 
@@ -4481,6 +4481,10 @@ Iyengar & Thomson       Expires February 17, 2020              [Page 80]
 
 Internet-Draft           QUIC Transport Protocol             August 2019
 
+
+   Implementors are encouraged to register version numbers of QUIC that
+   they are using for private experimentation on the GitHub wiki at
+   <https://github.com/quicwg/base-drafts/wiki/QUIC-Versions>.
 
 16.  Variable-Length Integer Encoding
 
@@ -4525,10 +4529,6 @@ Internet-Draft           QUIC Transport Protocol             August 2019
    All numeric values are encoded in network byte order (that is, big-
    endian) and all field sizes are in bits.  Hexadecimal notation is
    used for describing the value of fields.
-
-
-
-
 
 
 
