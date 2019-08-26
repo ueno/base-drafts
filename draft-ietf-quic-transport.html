@@ -372,7 +372,7 @@ ul.toc li {
 <link href="#rfc.section.13.2" rel="Chapter" title="13.2 Retransmission of Information">
 <link href="#rfc.section.13.3" rel="Chapter" title="13.3 Explicit Congestion Notification">
 <link href="#rfc.section.13.3.1" rel="Chapter" title="13.3.1 ECN Counts">
-<link href="#rfc.section.13.3.2" rel="Chapter" title="13.3.2 ECN Verification">
+<link href="#rfc.section.13.3.2" rel="Chapter" title="13.3.2 ECN Validation">
 <link href="#rfc.section.14" rel="Chapter" title="14 Packet Size">
 <link href="#rfc.section.14.1" rel="Chapter" title="14.1 Path Maximum Transmission Unit (PMTU)">
 <link href="#rfc.section.14.2" rel="Chapter" title="14.2 ICMP Packet Too Big Messages">
@@ -710,7 +710,7 @@ ul.toc li {
 </li>
 <ul><li>13.3.1.   <a href="#rfc.section.13.3.1">ECN Counts</a>
 </li>
-<li>13.3.2.   <a href="#rfc.section.13.3.2">ECN Verification</a>
+<li>13.3.2.   <a href="#rfc.section.13.3.2">ECN Validation</a>
 </li>
 </ul></ul><li>14.   <a href="#rfc.section.14">Packet Size</a>
 </li>
@@ -1500,7 +1500,7 @@ ul.toc li {
 </ul>
 <p id="rfc.section.7.p.4">The first CRYPTO frame from a client MUST be sent in a single packet.  Any second attempt that is triggered by address validation (see <a href="#validate-handshake" class="xref">Section 8.1</a>) MUST also be sent within a single packet. This avoids having to reassemble a message from multiple packets.</p>
 <p id="rfc.section.7.p.5">The first client packet of the cryptographic handshake protocol MUST fit within a 1232 byte QUIC packet payload.  This includes overheads that reduce the space available to the cryptographic handshake protocol.</p>
-<p id="rfc.section.7.p.6">An endpoint can verify support for Explicit Congestion Notification (ECN) in the first packets it sends, as described in <a href="#ecn-verification" class="xref">Section 13.3.2</a>.</p>
+<p id="rfc.section.7.p.6">An endpoint can verify support for Explicit Congestion Notification (ECN) in the first packets it sends, as described in <a href="#ecn-validation" class="xref">Section 13.3.2</a>.</p>
 <p id="rfc.section.7.p.7">The CRYPTO frame can be sent in different packet number spaces.  The sequence numbers used by CRYPTO frames to ensure ordered delivery of cryptographic handshake data start from zero in each packet number space.</p>
 <p id="rfc.section.7.p.8">Endpoints MUST explicitly negotiate an application protocol.  This avoids situations where there is a disagreement about the protocol that is in use.</p>
 <h2 id="rfc.section.7.1">
@@ -2195,7 +2195,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <a href="#rfc.section.13.3">13.3.</a> <a href="#ecn" id="ecn">Explicit Congestion Notification</a>
 </h2>
 <p id="rfc.section.13.3.p.1">QUIC endpoints can use Explicit Congestion Notification (ECN) <a href="#RFC3168" class="xref">[RFC3168]</a> to detect and respond to network congestion.  ECN allows a network node to indicate congestion in the network by setting a codepoint in the IP header of a packet instead of dropping it.  Endpoints react to congestion by reducing their sending rate in response, as described in <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>.</p>
-<p id="rfc.section.13.3.p.2">To use ECN, QUIC endpoints first determine whether a path supports ECN marking and the peer is able to access the ECN codepoint in the IP header.  A network path does not support ECN if ECN marked packets get dropped or ECN markings are rewritten on the path. An endpoint verifies the path, both during connection establishment and when migrating to a new path (see <a href="#migration" class="xref">Section 9</a>).</p>
+<p id="rfc.section.13.3.p.2">To use ECN, QUIC endpoints first determine whether a path supports ECN marking and the peer is able to access the ECN codepoint in the IP header.  A network path does not support ECN if ECN marked packets get dropped or ECN markings are rewritten on the path. An endpoint validates the use of ECN on the path, both during connection establishment and when migrating to a new path (<a href="#migration" class="xref">Section 9</a>).</p>
 <h3 id="rfc.section.13.3.1">
 <a href="#rfc.section.13.3.1">13.3.1.</a> <a href="#ecn-counts" id="ecn-counts">ECN Counts</a>
 </h3>
@@ -2205,24 +2205,42 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <p id="rfc.section.13.3.1.p.4">Coalesced packets (see <a href="#packet-coalesce" class="xref">Section 12.2</a>) mean that several packets can share the same IP header.  The ECN counter for the ECN codepoint received in the associated IP header are incremented once for each QUIC packet, not per enclosing IP packet or UDP datagram.</p>
 <p id="rfc.section.13.3.1.p.5">Each packet number space maintains separate acknowledgement state and separate ECN counts.  For example, if one each of an Initial, 0-RTT, Handshake, and 1-RTT QUIC packet are coalesced, the corresponding counts for the Initial and Handshake packet number space will be incremented by one and the counts for the 1-RTT packet number space will be increased by two.</p>
 <h3 id="rfc.section.13.3.2">
-<a href="#rfc.section.13.3.2">13.3.2.</a> <a href="#ecn-verification" id="ecn-verification">ECN Verification</a>
+<a href="#rfc.section.13.3.2">13.3.2.</a> <a href="#ecn-validation" id="ecn-validation">ECN Validation</a>
 </h3>
-<p id="rfc.section.13.3.2.p.1">Each endpoint independently verifies and enables use of ECN by setting the IP header ECN codepoint to ECN Capable Transport (ECT) for the path from it to the other peer. Even if not setting ECN codepoints on packets it transmits, the endpoint SHOULD provide feedback about ECN markings received (if accessible).</p>
-<p id="rfc.section.13.3.2.p.2">To verify both that a path supports ECN and the peer can provide ECN feedback, an endpoint sets the ECT(0) codepoint in the IP header of all outgoing packets <a href="#RFC8311" class="xref">[RFC8311]</a>.</p>
-<p id="rfc.section.13.3.2.p.3">If an ECT codepoint set in the IP header is not corrupted by a network device, then a received packet contains either the codepoint sent by the peer or the Congestion Experienced (CE) codepoint set by a network device that is experiencing congestion.</p>
-<p id="rfc.section.13.3.2.p.4">If a QUIC packet sent with an ECT codepoint is newly acknowledged by the peer in an ACK frame without ECN feedback, the endpoint stops setting ECT codepoints in subsequent IP packets, with the expectation that either the network path or the peer no longer supports ECN.</p>
-<p id="rfc.section.13.3.2.p.5">Network devices that corrupt or apply non-standard ECN markings might result in reduced throughput or other undesirable side-effects.  To reduce this risk, an endpoint uses the following steps to verify the counts it receives in an ACK frame.</p>
+<p id="rfc.section.13.3.2.p.1">It is possible for faulty network devices to corrupt or erroneously drop packets with ECN markings.  To provide robust connectivity in the presence of such devices, each endpoint independently validates ECN counts and disables ECN if errors are detected.</p>
+<p id="rfc.section.13.3.2.p.2">Endpoints validate ECN for packets sent on each network path independently.  An endpoint thus validates ECN on new connection establishment, when switching to a new server preferred address, and on active connection migration to a new path.</p>
+<p id="rfc.section.13.3.2.p.3">Even if an endpoint does not use ECN markings on packets it transmits, the endpoint MUST provide feedback about ECN markings received from the peer if they are accessible.  Failing to report ECN counts will cause the peer to disable ECN marking.</p>
+<h4 id="rfc.section.13.3.2.1">
+<a href="#rfc.section.13.3.2.1">13.3.2.1.</a> <a href="#sending-ecn-markings" id="sending-ecn-markings">Sending ECN Markings</a>
+</h4>
+<p id="rfc.section.13.3.2.1.p.1">To start ECN validation, an endpoint SHOULD do the following when sending packets on a new path to a peer:</p>
 <p></p>
 
 <ul>
-<li>The total increase in ECT(0), ECT(1), and CE counts MUST be no smaller than the total number of QUIC packets sent with an ECT codepoint that are newly acknowledged in this ACK frame.  This step detects any network remarking from ECT(0), ECT(1), or CE codepoints to Not-ECT.</li>
+<li>Set the ECT(0) codepoint in the IP header of early outgoing packets sent on a new path to the peer <a href="#RFC8311" class="xref">[RFC8311]</a>.</li>
+<li>If all packets that were sent with the ECT(0) codepoint are eventually deemed lost <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>, validation is deemed to have failed.</li>
+</ul>
+<p id="rfc.section.13.3.2.1.p.3">To reduce the chances of misinterpreting congestive loss as packets dropped by a faulty network element, an endpoint could set the ECT(0) codepoint in the first ten outgoing packets on a path, or for a period of three RTTs, whichever occurs first.</p>
+<p id="rfc.section.13.3.2.1.p.4">Implementations MAY experiment with and use other strategies for use of ECN.  Other methods of probing paths for ECN support are possible, as are different marking strategies.  Implementations can also use the ECT(1) codepoint, as specified in <a href="#RFC8311" class="xref">[RFC8311]</a>.</p>
+<h4 id="rfc.section.13.3.2.2">
+<a href="#rfc.section.13.3.2.2">13.3.2.2.</a> <a href="#receiving-ack-frames" id="receiving-ack-frames">Receiving ACK Frames</a>
+</h4>
+<p id="rfc.section.13.3.2.2.p.1">An endpoint that sets ECT(0) or ECT(1) codepoints on packets it transmits MUST use the following steps on receiving an ACK frame to validate ECN.</p>
+<p></p>
+
+<ul>
+<li>If this ACK frame newly acknowledges a packet that the endpoint sent with either ECT(0) or ECT(1) codepoints set, and if no ECN feedback is present in the ACK frame, validation fails.  This step protects against both a network element that zeroes out ECN bits and a peer that is unable to access ECN markings, since the peer could respond without ECN feedback in these cases.</li>
+<li>For validation to succeed, the total increase in ECT(0), ECT(1), and CE counts MUST be no smaller than the total number of QUIC packets sent with an ECT codepoint that are newly acknowledged in this ACK frame.  This step detects any network remarking from ECT(0), ECT(1), or CE codepoints to Not-ECT.</li>
 <li>Any increase in either ECT(0) or ECT(1) counts, plus any increase in the CE count, MUST be no smaller than the number of packets sent with the corresponding ECT codepoint that are newly acknowledged in this ACK frame.  This step detects any erroneous network remarking from ECT(0) to ECT(1) (or vice versa).</li>
 </ul>
-<p id="rfc.section.13.3.2.p.7">An endpoint could miss acknowledgements for a packet when ACK frames are lost.  It is therefore possible for the total increase in ECT(0), ECT(1), and CE counts to be greater than the number of packets acknowledged in an ACK frame.  When this happens, and if verification succeeds, the local reference counts MUST be increased to match the counts in the ACK frame.</p>
-<p id="rfc.section.13.3.2.p.8">Processing counts out of order can result in verification failure.  An endpoint SHOULD NOT perform this verification if the ACK frame is received in a packet with packet number lower than a previously received ACK frame.  Verifying based on ACK frames that arrive out of order can result in disabling ECN unnecessarily.</p>
-<p id="rfc.section.13.3.2.p.9">Upon successful verification, an endpoint continues to set ECT codepoints in subsequent packets with the expectation that the path is ECN-capable.</p>
-<p id="rfc.section.13.3.2.p.10">If verification fails, then the endpoint ceases setting ECT codepoints in subsequent IP packets with the expectation that either the network path or the peer does not support ECN.</p>
-<p id="rfc.section.13.3.2.p.11">If an endpoint sets ECT codepoints on outgoing IP packets and encounters a retransmission timeout due to the absence of acknowledgments from the peer (see <a href="#QUIC-RECOVERY" class="xref">[QUIC-RECOVERY]</a>), or if an endpoint has reason to believe that an element on the network path might be corrupting ECN codepoints, the endpoint MAY cease setting ECT codepoints in subsequent packets.  Doing so allows the connection to be resilient to network elements that corrupt ECN codepoints in the IP header or drop packets with ECT or CE codepoints in the IP header.</p>
+<p id="rfc.section.13.3.2.2.p.3">Processing ECN counts out of order can result in validation failure.  An endpoint SHOULD NOT perform this validation if this ACK frame does not advance the largest packet number acknowledged in this connection.</p>
+<p id="rfc.section.13.3.2.2.p.4">An endpoint could miss acknowledgements for a packet when ACK frames are lost.  It is therefore possible for the total increase in ECT(0), ECT(1), and CE counts to be greater than the number of packets acknowledged in an ACK frame.  When this happens, and if validation succeeds, the local reference counts MUST be increased to match the counts in the ACK frame.</p>
+<h4 id="rfc.section.13.3.2.3">
+<a href="#rfc.section.13.3.2.3">13.3.2.3.</a> <a href="#validation-outcomes" id="validation-outcomes">Validation Outcomes</a>
+</h4>
+<p id="rfc.section.13.3.2.3.p.1">If validation fails, then the endpoint stops sending ECN markings in subsequent IP packets with the expectation that either the network path or the peer does not support ECN.</p>
+<p id="rfc.section.13.3.2.3.p.2">Upon successful validation, an endpoint can continue to set ECT codepoints in subsequent packets with the expectation that the path is ECN-capable.  Network routing and path elements can change mid-connection however; an endpoint MUST disable ECN if validation fails at any point in the connection.</p>
+<p id="rfc.section.13.3.2.3.p.3">Even if validation fails, an endpoint MAY revalidate ECN on the same path at any later time in the connection.</p>
 <h1 id="rfc.section.14">
 <a href="#rfc.section.14">14.</a> <a href="#packet-size" id="packet-size">Packet Size</a>
 </h1>
