@@ -300,7 +300,8 @@ ul.toc li {
 <link href="#rfc.section.4.1.2" rel="Chapter" title="4.1.2 Request Cancellation and Rejection">
 <link href="#rfc.section.4.1.3" rel="Chapter" title="4.1.3 Malformed Requests and Responses">
 <link href="#rfc.section.4.2" rel="Chapter" title="4.2 The CONNECT Method">
-<link href="#rfc.section.4.3" rel="Chapter" title="4.3 Server Push">
+<link href="#rfc.section.4.3" rel="Chapter" title="4.3 HTTP Upgrade">
+<link href="#rfc.section.4.4" rel="Chapter" title="4.4 Server Push">
 <link href="#rfc.section.5" rel="Chapter" title="5 Connection Closure">
 <link href="#rfc.section.5.1" rel="Chapter" title="5.1 Idle Connections">
 <link href="#rfc.section.5.2" rel="Chapter" title="5.2 Connection Shutdown">
@@ -475,7 +476,9 @@ ul.toc li {
 </li>
 </ul><li>4.2.   <a href="#rfc.section.4.2">The CONNECT Method</a>
 </li>
-<li>4.3.   <a href="#rfc.section.4.3">Server Push</a>
+<li>4.3.   <a href="#rfc.section.4.3">HTTP Upgrade</a>
+</li>
+<li>4.4.   <a href="#rfc.section.4.4">Server Push</a>
 </li>
 </ul><li>5.   <a href="#rfc.section.5">Connection Closure</a>
 </li>
@@ -791,7 +794,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <li>optionally, the payload body, if present (see <a href="#RFC7230" class="xref">[RFC7230]</a>, Section 3.3), sent as a series of DATA frames (see <a href="#frame-data" class="xref">Section 7.2.1</a>),</li>
 <li>optionally, trailing headers, if present (see <a href="#RFC7230" class="xref">[RFC7230]</a>, Section 4.1.2), sent as a single HEADERS frame.</li>
 </ol>
-<p id="rfc.section.4.1.p.4">A server MAY send one or more PUSH_PROMISE frames (see <a href="#frame-push-promise" class="xref">Section 7.2.5</a>) before, after, or interleaved with the frames of a response message. These PUSH_PROMISE frames are not part of the response; see <a href="#server-push" class="xref">Section 4.3</a> for more details.</p>
+<p id="rfc.section.4.1.p.4">A server MAY send one or more PUSH_PROMISE frames (see <a href="#frame-push-promise" class="xref">Section 7.2.5</a>) before, after, or interleaved with the frames of a response message. These PUSH_PROMISE frames are not part of the response; see <a href="#server-push" class="xref">Section 4.4</a> for more details.</p>
 <p id="rfc.section.4.1.p.5">Frames of unknown types (<a href="#extensions" class="xref">Section 9</a>), including reserved frames (<a href="#frame-grease" class="xref">Section 7.2.9</a>) MAY be sent on a request or push stream before, after, or interleaved with other frames described in this section.</p>
 <p id="rfc.section.4.1.p.6">The HEADERS and PUSH_PROMISE frames might reference updates to the QPACK dynamic table. While these updates are not directly part of the message exchange, they must be received and processed before the message can be consumed.  See <a href="#header-formatting" class="xref">Section 4.1.1</a> for more details.</p>
 <p id="rfc.section.4.1.p.7">The &#8220;chunked&#8221; transfer encoding defined in Section 4.1 of <a href="#RFC7230" class="xref">[RFC7230]</a> MUST NOT be used.</p>
@@ -835,17 +838,21 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <p id="rfc.section.4.2.p.6">The TCP connection can be closed by either peer. When the client ends the request stream (that is, the receive stream at the proxy enters the &#8220;Data Recvd&#8221; state), the proxy will set the FIN bit on its connection to the TCP server. When the proxy receives a packet with the FIN bit set, it will terminate the send stream that it sends to the client. TCP connections which remain half-closed in a single direction are not invalid, but are often handled poorly by servers, so clients SHOULD NOT close a stream for sending while they still expect to receive data from the target of the CONNECT.</p>
 <p id="rfc.section.4.2.p.7">A TCP connection error is signaled by abruptly terminating the stream. A proxy treats any error in the TCP connection, which includes receiving a TCP segment with the RST bit set, as a stream error of type HTTP_CONNECT_ERROR (<a href="#http-error-codes" class="xref">Section 8.1</a>).  Correspondingly, if a proxy detects an error with the stream or the QUIC connection, it MUST close the TCP connection.  If the underlying TCP implementation permits it, the proxy SHOULD send a TCP segment with the RST bit set.</p>
 <h2 id="rfc.section.4.3">
-<a href="#rfc.section.4.3">4.3.</a> <a href="#server-push" id="server-push">Server Push</a>
+<a href="#rfc.section.4.3">4.3.</a> <a href="#http-upgrade" id="http-upgrade">HTTP Upgrade</a>
 </h2>
-<p id="rfc.section.4.3.p.1">Server push is an interaction mode introduced in HTTP/2 <a href="#HTTP2" class="xref">[HTTP2]</a> which permits a server to push a request-response exchange to a client in anticipation of the client making the indicated request.  This trades off network usage against a potential latency gain.  HTTP/3 server push is similar to what is described in HTTP/2 <a href="#HTTP2" class="xref">[HTTP2]</a>, but uses different mechanisms.</p>
-<p id="rfc.section.4.3.p.2">Each server push is identified by a unique Push ID. This Push ID is used in a single PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 7.2.5</a>) which carries the request headers, possibly included in one or more DUPLICATE_PUSH frames (see <a href="#frame-duplicate-push" class="xref">Section 7.2.8</a>), then included with the push stream which ultimately fulfills those promises.</p>
-<p id="rfc.section.4.3.p.3">Server push is only enabled on a connection when a client sends a MAX_PUSH_ID frame (see <a href="#frame-max-push-id" class="xref">Section 7.2.7</a>). A server cannot use server push until it receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to control the number of pushes that a server can promise. A server SHOULD use Push IDs sequentially, starting at 0. A client MUST treat receipt of a push stream with a Push ID that is greater than the maximum Push ID as a connection error of type HTTP_ID_ERROR.</p>
-<p id="rfc.section.4.3.p.4">The header of the request message is carried by a PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 7.2.5</a>) on the request stream which generated the push. This allows the server push to be associated with a client request.  Promised requests MUST conform to the requirements in Section 8.2 of <a href="#HTTP2" class="xref">[HTTP2]</a>.</p>
-<p id="rfc.section.4.3.p.5">The same server push can be associated with additional client requests using a DUPLICATE_PUSH frame (see <a href="#frame-duplicate-push" class="xref">Section 7.2.8</a>).</p>
-<p id="rfc.section.4.3.p.6">Ordering of a PUSH_PROMISE or DUPLICATE_PUSH in relation to certain parts of the response is important. The server SHOULD send PUSH_PROMISE or DUPLICATE_PUSH frames prior to sending HEADERS or DATA frames that reference the promised responses.  This reduces the chance that a client requests a resource that will be pushed by the server.</p>
-<p id="rfc.section.4.3.p.7">When a server later fulfills a promise, the server push response is conveyed on a push stream (see <a href="#push-streams" class="xref">Section 6.2.2</a>). The push stream identifies the Push ID of the promise that it fulfills, then contains a response to the promised request using the same format described for responses in <a href="#request-response" class="xref">Section 4.1</a>.</p>
-<p id="rfc.section.4.3.p.8">Due to reordering, DUPLICATE_PUSH frames or push stream data can arrive before the corresponding PUSH_PROMISE frame.  When a client receives a DUPLICATE_PUSH frame for an as-yet-unknown Push ID, the request headers of the push are not immediately available.  The client can either delay generating new requests for content referenced following the DUPLICATE_PUSH frame until the request headers become available, or can initiate requests for discovered resources and cancel the requests if the requested resource is already being pushed. When a client receives a new push stream with an as-yet-unknown Push ID, both the associated client request and the pushed request headers are unknown.  The client can buffer the stream data in expectation of the matching PUSH_PROMISE. The client can use stream flow control (see section 4.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>) to limit the amount of data a server may commit to the pushed stream.</p>
-<p id="rfc.section.4.3.p.9">If a promised server push is not needed by the client, the client SHOULD send a CANCEL_PUSH frame. If the push stream is already open or opens after sending the CANCEL_PUSH frame, the client can abort reading the stream with an error code of HTTP_REQUEST_CANCELLED. This asks the server not to transfer additional data and indicates that it will be discarded upon receipt.</p>
+<p id="rfc.section.4.3.p.1">HTTP/3 does not support the HTTP Upgrade mechanism (<a href="#RFC7230" class="xref">[RFC7230]</a>, Section 6.7) or 101 (Switching Protocols) informational status code (<a href="#RFC7231" class="xref">[RFC7231]</a>, Section 6.2.2).</p>
+<h2 id="rfc.section.4.4">
+<a href="#rfc.section.4.4">4.4.</a> <a href="#server-push" id="server-push">Server Push</a>
+</h2>
+<p id="rfc.section.4.4.p.1">Server push is an interaction mode introduced in HTTP/2 <a href="#HTTP2" class="xref">[HTTP2]</a> which permits a server to push a request-response exchange to a client in anticipation of the client making the indicated request.  This trades off network usage against a potential latency gain.  HTTP/3 server push is similar to what is described in HTTP/2 <a href="#HTTP2" class="xref">[HTTP2]</a>, but uses different mechanisms.</p>
+<p id="rfc.section.4.4.p.2">Each server push is identified by a unique Push ID. This Push ID is used in a single PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 7.2.5</a>) which carries the request headers, possibly included in one or more DUPLICATE_PUSH frames (see <a href="#frame-duplicate-push" class="xref">Section 7.2.8</a>), then included with the push stream which ultimately fulfills those promises.</p>
+<p id="rfc.section.4.4.p.3">Server push is only enabled on a connection when a client sends a MAX_PUSH_ID frame (see <a href="#frame-max-push-id" class="xref">Section 7.2.7</a>). A server cannot use server push until it receives a MAX_PUSH_ID frame. A client sends additional MAX_PUSH_ID frames to control the number of pushes that a server can promise. A server SHOULD use Push IDs sequentially, starting at 0. A client MUST treat receipt of a push stream with a Push ID that is greater than the maximum Push ID as a connection error of type HTTP_ID_ERROR.</p>
+<p id="rfc.section.4.4.p.4">The header of the request message is carried by a PUSH_PROMISE frame (see <a href="#frame-push-promise" class="xref">Section 7.2.5</a>) on the request stream which generated the push. This allows the server push to be associated with a client request.  Promised requests MUST conform to the requirements in Section 8.2 of <a href="#HTTP2" class="xref">[HTTP2]</a>.</p>
+<p id="rfc.section.4.4.p.5">The same server push can be associated with additional client requests using a DUPLICATE_PUSH frame (see <a href="#frame-duplicate-push" class="xref">Section 7.2.8</a>).</p>
+<p id="rfc.section.4.4.p.6">Ordering of a PUSH_PROMISE or DUPLICATE_PUSH in relation to certain parts of the response is important. The server SHOULD send PUSH_PROMISE or DUPLICATE_PUSH frames prior to sending HEADERS or DATA frames that reference the promised responses.  This reduces the chance that a client requests a resource that will be pushed by the server.</p>
+<p id="rfc.section.4.4.p.7">When a server later fulfills a promise, the server push response is conveyed on a push stream (see <a href="#push-streams" class="xref">Section 6.2.2</a>). The push stream identifies the Push ID of the promise that it fulfills, then contains a response to the promised request using the same format described for responses in <a href="#request-response" class="xref">Section 4.1</a>.</p>
+<p id="rfc.section.4.4.p.8">Due to reordering, DUPLICATE_PUSH frames or push stream data can arrive before the corresponding PUSH_PROMISE frame.  When a client receives a DUPLICATE_PUSH frame for an as-yet-unknown Push ID, the request headers of the push are not immediately available.  The client can either delay generating new requests for content referenced following the DUPLICATE_PUSH frame until the request headers become available, or can initiate requests for discovered resources and cancel the requests if the requested resource is already being pushed. When a client receives a new push stream with an as-yet-unknown Push ID, both the associated client request and the pushed request headers are unknown.  The client can buffer the stream data in expectation of the matching PUSH_PROMISE. The client can use stream flow control (see section 4.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>) to limit the amount of data a server may commit to the pushed stream.</p>
+<p id="rfc.section.4.4.p.9">If a promised server push is not needed by the client, the client SHOULD send a CANCEL_PUSH frame. If the push stream is already open or opens after sending the CANCEL_PUSH frame, the client can abort reading the stream with an error code of HTTP_REQUEST_CANCELLED. This asks the server not to transfer additional data and indicates that it will be discarded upon receipt.</p>
 <h1 id="rfc.section.5">
 <a href="#rfc.section.5">5.</a> <a href="#connection-closure" id="connection-closure">Connection Closure</a>
 </h1>
@@ -917,8 +924,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <h3 id="rfc.section.6.2.2">
 <a href="#rfc.section.6.2.2">6.2.2.</a> <a href="#push-streams" id="push-streams">Push Streams</a>
 </h3>
-<p id="rfc.section.6.2.2.p.1">Server push is an optional feature introduced in HTTP/2 that allows a server to initiate a response before a request has been made.  See <a href="#server-push" class="xref">Section 4.3</a> for more details.</p>
-<p id="rfc.section.6.2.2.p.2">A push stream is indicated by a stream type of <samp>0x01</samp>, followed by the Push ID of the promise that it fulfills, encoded as a variable-length integer. The remaining data on this stream consists of HTTP/3 frames, as defined in <a href="#frames" class="xref">Section 7.2</a>, and fulfills a promised server push by zero or more non-final HTTP responses followed by a single final HTTP response, as defined in <a href="#request-response" class="xref">Section 4.1</a>.  Server push and Push IDs are described in <a href="#server-push" class="xref">Section 4.3</a>.</p>
+<p id="rfc.section.6.2.2.p.1">Server push is an optional feature introduced in HTTP/2 that allows a server to initiate a response before a request has been made.  See <a href="#server-push" class="xref">Section 4.4</a> for more details.</p>
+<p id="rfc.section.6.2.2.p.2">A push stream is indicated by a stream type of <samp>0x01</samp>, followed by the Push ID of the promise that it fulfills, encoded as a variable-length integer. The remaining data on this stream consists of HTTP/3 frames, as defined in <a href="#frames" class="xref">Section 7.2</a>, and fulfills a promised server push by zero or more non-final HTTP responses followed by a single final HTTP response, as defined in <a href="#request-response" class="xref">Section 4.1</a>.  Server push and Push IDs are described in <a href="#server-push" class="xref">Section 4.4</a>.</p>
 <p id="rfc.section.6.2.2.p.3">Only servers can push; if a server receives a client-initiated push stream, this MUST be treated as a connection error of type HTTP_STREAM_CREATION_ERROR.</p>
 <div id="rfc.figure.2"></div>
 <div id="fig-push-stream-header"></div>
@@ -1165,7 +1172,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 
 <dl>
 <dt>Push ID:</dt>
-<dd style="margin-left: 8">A variable-length integer that identifies the server push operation.  A Push ID is used in push stream headers (<a href="#server-push" class="xref">Section 4.3</a>), CANCEL_PUSH frames (<a href="#frame-cancel-push" class="xref">Section 7.2.3</a>), and DUPLICATE_PUSH frames (<a href="#frame-duplicate-push" class="xref">Section 7.2.8</a>).</dd>
+<dd style="margin-left: 8">A variable-length integer that identifies the server push operation.  A Push ID is used in push stream headers (<a href="#server-push" class="xref">Section 4.4</a>), CANCEL_PUSH frames (<a href="#frame-cancel-push" class="xref">Section 7.2.3</a>), and DUPLICATE_PUSH frames (<a href="#frame-duplicate-push" class="xref">Section 7.2.8</a>).</dd>
 <dt>Header Block:</dt>
 <dd style="margin-left: 8">QPACK-compressed request header fields for the promised response.  See <a href="#QPACK" class="xref">[QPACK]</a> for more details.</dd>
 </dl>
@@ -1173,7 +1180,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <p id="rfc.section.7.2.5.p.5">A server MUST NOT use the same Push ID in multiple PUSH_PROMISE frames. A client MUST treat receipt of a Push ID which has already been promised as a connection error of type HTTP_ID_ERROR.</p>
 <p id="rfc.section.7.2.5.p.6">If a PUSH_PROMISE frame is received on the control stream, the client MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_WRONG_STREAM.</p>
 <p id="rfc.section.7.2.5.p.7">A client MUST NOT send a PUSH_PROMISE frame.  A server MUST treat the receipt of a PUSH_PROMISE frame as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
-<p id="rfc.section.7.2.5.p.8">See <a href="#server-push" class="xref">Section 4.3</a> for a description of the overall server push mechanism.</p>
+<p id="rfc.section.7.2.5.p.8">See <a href="#server-push" class="xref">Section 4.4</a> for a description of the overall server push mechanism.</p>
 <h3 id="rfc.section.7.2.6">
 <a href="#rfc.section.7.2.6">7.2.6.</a> <a href="#frame-goaway" id="frame-goaway">GOAWAY</a>
 </h3>
@@ -1663,7 +1670,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <tr>
 <td class="left">Push Stream</td>
 <td class="center">0x01</td>
-<td class="left"><a href="#server-push" class="xref">Section 4.3</a></td>
+<td class="left"><a href="#server-push" class="xref">Section 4.4</a></td>
 <td class="left">Server</td>
 </tr>
 </tbody>

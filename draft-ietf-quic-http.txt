@@ -93,9 +93,10 @@ Table of Contents
        4.1.2.  Request Cancellation and Rejection  . . . . . . . . .  13
        4.1.3.  Malformed Requests and Responses  . . . . . . . . . .  14
      4.2.  The CONNECT Method  . . . . . . . . . . . . . . . . . . .  15
-     4.3.  Server Push . . . . . . . . . . . . . . . . . . . . . . .  16
+     4.3.  HTTP Upgrade  . . . . . . . . . . . . . . . . . . . . . .  16
+     4.4.  Server Push . . . . . . . . . . . . . . . . . . . . . . .  16
    5.  Connection Closure  . . . . . . . . . . . . . . . . . . . . .  17
-     5.1.  Idle Connections  . . . . . . . . . . . . . . . . . . . .  17
+     5.1.  Idle Connections  . . . . . . . . . . . . . . . . . . . .  18
      5.2.  Connection Shutdown . . . . . . . . . . . . . . . . . . .  18
      5.3.  Immediate Application Closure . . . . . . . . . . . . . .  19
      5.4.  Transport Closure . . . . . . . . . . . . . . . . . . . .  20
@@ -103,9 +104,8 @@ Table of Contents
      6.1.  Bidirectional Streams . . . . . . . . . . . . . . . . . .  20
      6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  21
        6.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .  22
-       6.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .  22
+       6.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .  23
        6.2.3.  Reserved Stream Types . . . . . . . . . . . . . . . .  23
-   7.  HTTP Framing Layer  . . . . . . . . . . . . . . . . . . . . .  23
 
 
 
@@ -114,7 +114,8 @@ Bishop                  Expires February 29, 2020               [Page 2]
 Internet-Draft                   HTTP/3                      August 2019
 
 
-     7.1.  Frame Layout  . . . . . . . . . . . . . . . . . . . . . .  24
+   7.  HTTP Framing Layer  . . . . . . . . . . . . . . . . . . . . .  24
+     7.1.  Frame Layout  . . . . . . . . . . . . . . . . . . . . . .  25
      7.2.  Frame Definitions . . . . . . . . . . . . . . . . . . . .  25
        7.2.1.  DATA  . . . . . . . . . . . . . . . . . . . . . . . .  25
        7.2.2.  HEADERS . . . . . . . . . . . . . . . . . . . . . . .  26
@@ -161,7 +162,6 @@ Internet-Draft                   HTTP/3                      August 2019
      B.5.  Since draft-ietf-quic-http-18 . . . . . . . . . . . . . .  51
      B.6.  Since draft-ietf-quic-http-17 . . . . . . . . . . . . . .  52
      B.7.  Since draft-ietf-quic-http-16 . . . . . . . . . . . . . .  52
-     B.8.  Since draft-ietf-quic-http-15 . . . . . . . . . . . . . .  52
 
 
 
@@ -170,6 +170,7 @@ Bishop                  Expires February 29, 2020               [Page 3]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+     B.8.  Since draft-ietf-quic-http-15 . . . . . . . . . . . . . .  52
      B.9.  Since draft-ietf-quic-http-14 . . . . . . . . . . . . . .  53
      B.10. Since draft-ietf-quic-http-13 . . . . . . . . . . . . . .  53
      B.11. Since draft-ietf-quic-http-12 . . . . . . . . . . . . . .  53
@@ -213,7 +214,6 @@ Internet-Draft                   HTTP/3                      August 2019
    recovery mechanisms, a lost or reordered packet causes all active
    transactions to experience a stall regardless of whether that
    transaction was impacted by the lost packet.
-
 
 
 
@@ -590,7 +590,7 @@ Internet-Draft                   HTTP/3                      August 2019
    A server MAY send one or more PUSH_PROMISE frames (see Section 7.2.5)
    before, after, or interleaved with the frames of a response message.
    These PUSH_PROMISE frames are not part of the response; see
-   Section 4.3 for more details.
+   Section 4.4 for more details.
 
    Frames of unknown types (Section 9), including reserved frames
    (Section 7.2.9) MAY be sent on a request or push stream before,
@@ -854,7 +854,13 @@ Internet-Draft                   HTTP/3                      August 2019
    MUST close the TCP connection.  If the underlying TCP implementation
    permits it, the proxy SHOULD send a TCP segment with the RST bit set.
 
-4.3.  Server Push
+4.3.  HTTP Upgrade
+
+   HTTP/3 does not support the HTTP Upgrade mechanism ([RFC7230],
+   Section 6.7) or 101 (Switching Protocols) informational status code
+   ([RFC7231], Section 6.2.2).
+
+4.4.  Server Push
 
    Server push is an interaction mode introduced in HTTP/2 [HTTP2] which
    permits a server to push a request-response exchange to a client in
@@ -884,12 +890,6 @@ Internet-Draft                   HTTP/3                      August 2019
    Promised requests MUST conform to the requirements in Section 8.2 of
    [HTTP2].
 
-   The same server push can be associated with additional client
-   requests using a DUPLICATE_PUSH frame (see Section 7.2.8).
-
-   Ordering of a PUSH_PROMISE or DUPLICATE_PUSH in relation to certain
-   parts of the response is important.  The server SHOULD send
-   PUSH_PROMISE or DUPLICATE_PUSH frames prior to sending HEADERS or
 
 
 
@@ -898,6 +898,12 @@ Bishop                  Expires February 29, 2020              [Page 16]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   The same server push can be associated with additional client
+   requests using a DUPLICATE_PUSH frame (see Section 7.2.8).
+
+   Ordering of a PUSH_PROMISE or DUPLICATE_PUSH in relation to certain
+   parts of the response is important.  The server SHOULD send
+   PUSH_PROMISE or DUPLICATE_PUSH frames prior to sending HEADERS or
    DATA frames that reference the promised responses.  This reduces the
    chance that a client requests a resource that will be pushed by the
    server.
@@ -936,6 +942,18 @@ Internet-Draft                   HTTP/3                      August 2019
    and responses over time until the connection is closed.  Connection
    closure can happen in any of several different ways.
 
+
+
+
+
+
+
+
+Bishop                  Expires February 29, 2020              [Page 17]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
 5.1.  Idle Connections
 
    Each QUIC endpoint declares an idle timeout during the handshake.  If
@@ -945,14 +963,6 @@ Internet-Draft                   HTTP/3                      August 2019
    for new requests if the existing connection has been idle for longer
    than the server's advertised idle timeout, and SHOULD do so if
    approaching the idle timeout.
-
-
-
-
-Bishop                  Expires February 29, 2020              [Page 17]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
    HTTP clients are expected to request that the transport keep
    connections open while there are responses outstanding for requests
@@ -992,6 +1002,14 @@ Internet-Draft                   HTTP/3                      August 2019
    that indicated in the GOAWAY frame, those requests will not be
    processed and MAY be retried by the client on a different connection.
    The client MAY cancel these requests.  It is RECOMMENDED that the
+
+
+
+Bishop                  Expires February 29, 2020              [Page 18]
+
+Internet-Draft                   HTTP/3                      August 2019
+
+
    server explicitly reject such requests (see Section 4.1.2) in order
    to clean up transport state for the affected streams.
 
@@ -1000,15 +1018,6 @@ Internet-Draft                   HTTP/3                      August 2019
    response is received, the stream is reset individually, or the
    connection terminates.  Servers MAY reject individual requests on
    streams below the indicated ID if these requests were not processed.
-
-
-
-
-
-Bishop                  Expires February 29, 2020              [Page 18]
-
-Internet-Draft                   HTTP/3                      August 2019
-
 
    Servers SHOULD send a GOAWAY frame when the closing of a connection
    is known in advance, even if the advance notice is small, so that the
@@ -1050,21 +1059,17 @@ Internet-Draft                   HTTP/3                      August 2019
    connection is being closed.  See Section 8 for error codes which can
    be used when closing a connection.
 
-   Before closing the connection, a GOAWAY MAY be sent to allow the
-   client to retry some requests.  Including the GOAWAY frame in the
-   same packet as the QUIC CONNECTION_CLOSE frame improves the chances
-   of the frame being received by clients.
-
-
-
-
-
 
 
 Bishop                  Expires February 29, 2020              [Page 19]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   Before closing the connection, a GOAWAY MAY be sent to allow the
+   client to retry some requests.  Including the GOAWAY frame in the
+   same packet as the QUIC CONNECTION_CLOSE frame improves the chances
+   of the frame being received by clients.
 
 5.4.  Transport Closure
 
@@ -1110,11 +1115,6 @@ Internet-Draft                   HTTP/3                      August 2019
    is RECOMMENDED that at least 100 requests be permitted at a time, so
    as to not unnecessarily limit parallelism.
 
-   HTTP/3 does not use server-initiated bidirectional streams, though an
-   extension could define a use for these streams.  Clients MUST treat
-   receipt of a server-initiated bidirectional stream as a connection
-
-
 
 
 Bishop                  Expires February 29, 2020              [Page 20]
@@ -1122,6 +1122,9 @@ Bishop                  Expires February 29, 2020              [Page 20]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+   HTTP/3 does not use server-initiated bidirectional streams, though an
+   extension could define a use for these streams.  Clients MUST treat
+   receipt of a server-initiated bidirectional stream as a connection
    error of type HTTP_STREAM_CREATION_ERROR unless such an extension has
    been negotiated.
 
@@ -1167,9 +1170,6 @@ Internet-Draft                   HTTP/3                      August 2019
    initial credits before creating the critical unidirectional streams.
    Endpoints SHOULD create the HTTP control stream as well as the
    unidirectional streams required by mandatory extensions (such as the
-   QPACK encoder and decoder streams) first, and then create additional
-   streams as allowed by their peer.
-
 
 
 
@@ -1177,6 +1177,9 @@ Bishop                  Expires February 29, 2020              [Page 21]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+   QPACK encoder and decoder streams) first, and then create additional
+   streams as allowed by their peer.
 
    If the stream header indicates a stream type which is not supported
    by the recipient, the remainder of the stream cannot be consumed as
@@ -1219,11 +1222,8 @@ Internet-Draft                   HTTP/3                      August 2019
    connection, either client or server might be able to send stream data
    first after the cryptographic handshake completes.
 
-6.2.2.  Push Streams
 
-   Server push is an optional feature introduced in HTTP/2 that allows a
-   server to initiate a response before a request has been made.  See
-   Section 4.3 for more details.
+
 
 
 
@@ -1234,13 +1234,19 @@ Bishop                  Expires February 29, 2020              [Page 22]
 Internet-Draft                   HTTP/3                      August 2019
 
 
+6.2.2.  Push Streams
+
+   Server push is an optional feature introduced in HTTP/2 that allows a
+   server to initiate a response before a request has been made.  See
+   Section 4.4 for more details.
+
    A push stream is indicated by a stream type of "0x01", followed by
    the Push ID of the promise that it fulfills, encoded as a variable-
    length integer.  The remaining data on this stream consists of HTTP/3
    frames, as defined in Section 7.2, and fulfills a promised server
    push by zero or more non-final HTTP responses followed by a single
    final HTTP response, as defined in Section 4.1.  Server push and Push
-   IDs are described in Section 4.3.
+   IDs are described in Section 4.4.
 
    Only servers can push; if a server receives a client-initiated push
    stream, this MUST be treated as a connection error of type
@@ -1273,14 +1279,8 @@ Internet-Draft                   HTTP/3                      August 2019
    The payload and length of the stream are selected in any manner the
    implementation chooses.
 
-7.  HTTP Framing Layer
 
-   HTTP frames are carried on QUIC streams, as described in Section 6.
-   HTTP/3 defines three stream types: control stream, request stream,
-   and push stream.  This section describes HTTP/3 frame formats and the
-   streams types on which they are permitted; see Table 1 for an
-   overview.  A comparison between HTTP/2 and HTTP/3 frames is provided
-   in Appendix A.2.
+
 
 
 
@@ -1289,6 +1289,15 @@ Bishop                  Expires February 29, 2020              [Page 23]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+7.  HTTP Framing Layer
+
+   HTTP frames are carried on QUIC streams, as described in Section 6.
+   HTTP/3 defines three stream types: control stream, request stream,
+   and push stream.  This section describes HTTP/3 frame formats and the
+   streams types on which they are permitted; see Table 1 for an
+   overview.  A comparison between HTTP/2 and HTTP/3 frames is provided
+   in Appendix A.2.
 
    +----------------+------------+------------+-----------+------------+
    | Frame          | Control    | Request    | Push      | Section    |
@@ -1328,15 +1337,6 @@ Internet-Draft                   HTTP/3                      August 2019
    Note that, unlike QUIC frames, HTTP/3 frames can span multiple
    packets.
 
-7.1.  Frame Layout
-
-   All frames have the following format:
-
-
-
-
-
-
 
 
 
@@ -1345,6 +1345,10 @@ Bishop                  Expires February 29, 2020              [Page 24]
 
 Internet-Draft                   HTTP/3                      August 2019
 
+
+7.1.  Frame Layout
+
+   All frames have the following format:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1390,10 +1394,6 @@ Internet-Draft                   HTTP/3                      August 2019
    a DATA frame is received on a control stream, the recipient MUST
    respond with a connection error (Section 8) of type
    HTTP_WRONG_STREAM.
-
-
-
-
 
 
 
@@ -1648,7 +1648,7 @@ Internet-Draft                   HTTP/3                      August 2019
 
    Push ID:  A variable-length integer that identifies the server push
       operation.  A Push ID is used in push stream headers
-      (Section 4.3), CANCEL_PUSH frames (Section 7.2.3), and
+      (Section 4.4), CANCEL_PUSH frames (Section 7.2.3), and
       DUPLICATE_PUSH frames (Section 7.2.8).
 
    Header Block:  QPACK-compressed request header fields for the
@@ -1671,7 +1671,7 @@ Internet-Draft                   HTTP/3                      August 2019
    receipt of a PUSH_PROMISE frame as a connection error of type
    HTTP_UNEXPECTED_FRAME.
 
-   See Section 4.3 for a description of the overall server push
+   See Section 4.4 for a description of the overall server push
    mechanism.
 
 
@@ -2333,7 +2333,7 @@ Internet-Draft                   HTTP/3                      August 2019
             +----------------+------+---------------+--------+
             | Control Stream | 0x00 | Section 6.2.1 | Both   |
             |                |      |               |        |
-            | Push Stream    | 0x01 | Section 4.3   | Server |
+            | Push Stream    | 0x01 | Section 4.4   | Server |
             +----------------+------+---------------+--------+
 
    Additionally, each code of the format "0x1f * N + 0x21" for integer
