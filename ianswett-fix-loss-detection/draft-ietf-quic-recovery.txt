@@ -138,7 +138,7 @@ Internet-Draft             QUIC Loss Detection            September 2019
      A.6.  On Receiving an Acknowledgment  . . . . . . . . . . . . .  27
      A.7.  On Packet Acknowledgment  . . . . . . . . . . . . . . . .  29
      A.8.  Setting the Loss Detection Timer  . . . . . . . . . . . .  29
-     A.9.  On Timeout  . . . . . . . . . . . . . . . . . . . . . . .  30
+     A.9.  On Timeout  . . . . . . . . . . . . . . . . . . . . . . .  31
      A.10. Detecting Lost Packets  . . . . . . . . . . . . . . . . .  31
    Appendix B.  Congestion Control Pseudocode  . . . . . . . . . . .  32
      B.1.  Constants of interest . . . . . . . . . . . . . . . . . .  32
@@ -1638,10 +1638,14 @@ Internet-Draft             QUIC Loss Detection            September 2019
          space = pn_space
      return time, space
 
-   IsPeerAwaitingAddressValidation():
-     return endpoint is client &&
-            !(has received Handshake ACK ||
-              has received 1-RTT ACK)
+   PeerNotAwaitingAddressValidation():
+     # Assume clients validate the server's address implicitly.
+     if (endpoint is server):
+       return true
+     # Servers complete address validation when a
+     # protected packet is received.
+     return has received Handshake ACK ||
+            has received 1-RTT ACK
 
    SetLossDetectionTimer():
      loss_time, _ = GetEarliestLossTime()
@@ -1651,7 +1655,7 @@ Internet-Draft             QUIC Loss Detection            September 2019
        return
 
      if (no ack-eliciting packets in flight &&
-         !IsPeerAwaitingAddressValidation()):
+         PeerNotAwaitingAddressValidation()):
        loss_detection_timer.cancel()
        return
 
@@ -1667,12 +1671,8 @@ Internet-Draft             QUIC Loss Detection            September 2019
      loss_detection_timer.update(
        time_of_last_sent_ack_eliciting_packet + timeout)
 
-A.9.  On Timeout
 
-   When the loss detection timer expires, the timer's mode determines
-   the action to be performed.
 
-   Pseudocode for OnLossDetectionTimeout follows:
 
 
 
@@ -1681,6 +1681,13 @@ Iyengar & Swett           Expires March 7, 2020                [Page 30]
 
 Internet-Draft             QUIC Loss Detection            September 2019
 
+
+A.9.  On Timeout
+
+   When the loss detection timer expires, the timer's mode determines
+   the action to be performed.
+
+   Pseudocode for OnLossDetectionTimeout follows:
 
    OnLossDetectionTimeout():
      loss_time, pn_space = GetEarliestLossTime()
@@ -1712,13 +1719,6 @@ A.10.  Detecting Lost Packets
    operates on the sent_packets for that packet number space.
 
    Pseudocode for DetectLostPackets follows:
-
-
-
-
-
-
-
 
 
 
