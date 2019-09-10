@@ -799,7 +799,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <p id="rfc.section.4.1.p.6">The HEADERS and PUSH_PROMISE frames might reference updates to the QPACK dynamic table. While these updates are not directly part of the message exchange, they must be received and processed before the message can be consumed.  See <a href="#header-formatting" class="xref">Section 4.1.1</a> for more details.</p>
 <p id="rfc.section.4.1.p.7">The &#8220;chunked&#8221; transfer encoding defined in Section 4.1 of <a href="#RFC7230" class="xref">[RFC7230]</a> MUST NOT be used.</p>
 <p id="rfc.section.4.1.p.8">A response MAY consist of multiple messages when and only when one or more informational responses (1xx; see <a href="#RFC7231" class="xref">[RFC7231]</a>, Section 6.2) precede a final response to the same request.  Non-final responses do not contain a payload body or trailers.</p>
-<p id="rfc.section.4.1.p.9">If an endpoint receives an invalid sequence of frames on either a request or a push stream, it MUST respond with a connection error of type HTTP_UNEXPECTED_FRAME (<a href="#errors" class="xref">Section 8</a>).  In particular, a DATA frame before any HEADERS frame, or a HEADERS or DATA frame after the trailing HEADERS frame is considered invalid.</p>
+<p id="rfc.section.4.1.p.9">If an endpoint receives an invalid sequence of frames on either a request or a push stream, it MUST respond with a connection error of type HTTP_FRAME_UNEXPECTED (<a href="#errors" class="xref">Section 8</a>).  In particular, a DATA frame before any HEADERS frame, or a HEADERS or DATA frame after the trailing HEADERS frame is considered invalid.</p>
 <p id="rfc.section.4.1.p.10">An HTTP request/response exchange fully consumes a bidirectional QUIC stream.  After sending a request, a client MUST close the stream for sending.  Unless using the CONNECT method (see <a href="#the-connect-method" class="xref">Section 4.2</a>), clients MUST NOT make stream closure dependent on receiving a response to their request. After sending a final response, the server MUST close the stream for sending. At this point, the QUIC stream is fully closed.</p>
 <p id="rfc.section.4.1.p.11">When a stream is closed, this indicates the end of an HTTP message. Because some messages are large or unbounded, endpoints SHOULD begin processing partial HTTP messages once enough of the message has been received to make progress.  If a client stream terminates without enough of the HTTP message to provide a complete response, the server SHOULD abort its response with the error code HTTP_REQUEST_INCOMPLETE.</p>
 <p id="rfc.section.4.1.p.12">A server can send a complete response prior to the client sending an entire request if the response does not depend on any portion of the request that has not been sent and received. When this is true, a server MAY abort reading the request stream with error code HTTP_EARLY_RESPONSE, send a complete response, and cleanly close the sending part of the stream. Clients MUST NOT discard complete responses as a result of having their request terminated abruptly, though clients can always discard responses at their discretion for other reasons.</p>
@@ -834,7 +834,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <p id="rfc.section.4.2.p.2">A CONNECT request in HTTP/3 functions in the same manner as in HTTP/2. The request MUST be formatted as described in <a href="#HTTP2" class="xref">[HTTP2]</a>, Section 8.3. A CONNECT request that does not conform to these restrictions is malformed (see <a href="#malformed" class="xref">Section 4.1.3</a>). The request stream MUST NOT be closed at the end of the request.</p>
 <p id="rfc.section.4.2.p.3">A proxy that supports CONNECT establishes a TCP connection (<a href="#RFC0793" class="xref">[RFC0793]</a>) to the server identified in the &#8220;:authority&#8221; pseudo-header field. Once this connection is successfully established, the proxy sends a HEADERS frame containing a 2xx series status code to the client, as defined in <a href="#RFC7231" class="xref">[RFC7231]</a>, Section 4.3.6.</p>
 <p id="rfc.section.4.2.p.4">All DATA frames on the stream correspond to data sent or received on the TCP connection. Any DATA frame sent by the client is transmitted by the proxy to the TCP server; data received from the TCP server is packaged into DATA frames by the proxy. Note that the size and number of TCP segments is not guaranteed to map predictably to the size and number of HTTP DATA or QUIC STREAM frames.</p>
-<p id="rfc.section.4.2.p.5">Once the CONNECT method has completed, only DATA frames are permitted to be sent on the stream.  Extension frames MAY be used if specifically permitted by the definition of the extension.  Receipt of any other frame type MUST be treated as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
+<p id="rfc.section.4.2.p.5">Once the CONNECT method has completed, only DATA frames are permitted to be sent on the stream.  Extension frames MAY be used if specifically permitted by the definition of the extension.  Receipt of any other frame type MUST be treated as a connection error of type HTTP_FRAME_UNEXPECTED.</p>
 <p id="rfc.section.4.2.p.6">The TCP connection can be closed by either peer. When the client ends the request stream (that is, the receive stream at the proxy enters the &#8220;Data Recvd&#8221; state), the proxy will set the FIN bit on its connection to the TCP server. When the proxy receives a packet with the FIN bit set, it will terminate the send stream that it sends to the client. TCP connections which remain half-closed in a single direction are not invalid, but are often handled poorly by servers, so clients SHOULD NOT close a stream for sending while they still expect to receive data from the target of the CONNECT.</p>
 <p id="rfc.section.4.2.p.7">A TCP connection error is signaled by abruptly terminating the stream. A proxy treats any error in the TCP connection, which includes receiving a TCP segment with the RST bit set, as a stream error of type HTTP_CONNECT_ERROR (<a href="#http-error-codes" class="xref">Section 8.1</a>).  Correspondingly, if a proxy detects an error with the stream or the QUIC connection, it MUST close the TCP connection.  If the underlying TCP implementation permits it, the proxy SHOULD send a TCP segment with the RST bit set.</p>
 <h2 id="rfc.section.4.3">
@@ -1066,7 +1066,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <a href="#rfc.section.7.2.1">7.2.1.</a> <a href="#frame-data" id="frame-data">DATA</a>
 </h3>
 <p id="rfc.section.7.2.1.p.1">DATA frames (type=0x0) convey arbitrary, variable-length sequences of bytes associated with an HTTP request or response payload.</p>
-<p id="rfc.section.7.2.1.p.2">DATA frames MUST be associated with an HTTP request or response.  If a DATA frame is received on a control stream, the recipient MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_WRONG_STREAM.</p>
+<p id="rfc.section.7.2.1.p.2">DATA frames MUST be associated with an HTTP request or response.  If a DATA frame is received on a control stream, the recipient MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_FRAME_UNEXPECTED.</p>
 <div id="rfc.figure.4"></div>
 <div id="fig-data"></div>
 <pre>
@@ -1091,14 +1091,14 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
 <p class="figure">Figure 5: HEADERS frame payload</p>
-<p id="rfc.section.7.2.2.p.2">HEADERS frames can only be sent on request / push streams.  If a HEADERS frame is received on a control stream, the recipient MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_WRONG_STREAM.</p>
+<p id="rfc.section.7.2.2.p.2">HEADERS frames can only be sent on request / push streams.  If a HEADERS frame is received on a control stream, the recipient MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_FRAME_UNEXPECTED.</p>
 <h3 id="rfc.section.7.2.3">
 <a href="#rfc.section.7.2.3">7.2.3.</a> <a href="#frame-cancel-push" id="frame-cancel-push">CANCEL_PUSH</a>
 </h3>
 <p id="rfc.section.7.2.3.p.1">The CANCEL_PUSH frame (type=0x3) is used to request cancellation of a server push prior to the push stream being received.  The CANCEL_PUSH frame identifies a server push by Push ID (see <a href="#frame-push-promise" class="xref">Section 7.2.5</a>), encoded as a variable-length integer.</p>
 <p id="rfc.section.7.2.3.p.2">When a server receives this frame, it aborts sending the response for the identified server push.  If the server has not yet started to send the server push, it can use the receipt of a CANCEL_PUSH frame to avoid opening a push stream.  If the push stream has been opened by the server, the server SHOULD abruptly terminate that stream.</p>
 <p id="rfc.section.7.2.3.p.3">A server can send the CANCEL_PUSH frame to indicate that it will not be fulfilling a promise prior to creation of a push stream.  Once the push stream has been created, sending CANCEL_PUSH has no effect on the state of the push stream.  The server SHOULD abruptly terminate the push stream instead.</p>
-<p id="rfc.section.7.2.3.p.4">A CANCEL_PUSH frame is sent on the control stream.  Receiving a CANCEL_PUSH frame on a stream other than the control stream MUST be treated as a connection error of type HTTP_WRONG_STREAM.</p>
+<p id="rfc.section.7.2.3.p.4">A CANCEL_PUSH frame is sent on the control stream.  Receiving a CANCEL_PUSH frame on a stream other than the control stream MUST be treated as a connection error of type HTTP_FRAME_UNEXPECTED.</p>
 <div id="rfc.figure.6"></div>
 <div id="fig-cancel-push"></div>
 <pre>
@@ -1115,8 +1115,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <a href="#rfc.section.7.2.4">7.2.4.</a> <a href="#frame-settings" id="frame-settings">SETTINGS</a>
 </h3>
 <p id="rfc.section.7.2.4.p.1">The SETTINGS frame (type=0x4) conveys configuration parameters that affect how endpoints communicate, such as preferences and constraints on peer behavior.  Individually, a SETTINGS parameter can also be referred to as a &#8220;setting&#8221;; the identifier and value of each setting parameter can be referred to as a &#8220;setting identifier&#8221; and a &#8220;setting value&#8221;.</p>
-<p id="rfc.section.7.2.4.p.2">SETTINGS frames always apply to a connection, never a single stream.  A SETTINGS frame MUST be sent as the first frame of each control stream (see <a href="#control-streams" class="xref">Section 6.2.1</a>) by each peer, and MUST NOT be sent subsequently. If an endpoint receives a second SETTINGS frame on the control stream, the endpoint MUST respond with a connection error of type HTTP_UNEXPECTED_FRAME.</p>
-<p id="rfc.section.7.2.4.p.3">SETTINGS frames MUST NOT be sent on any stream other than the control stream.  If an endpoint receives a SETTINGS frame on a different stream, the endpoint MUST respond with a connection error of type HTTP_WRONG_STREAM.</p>
+<p id="rfc.section.7.2.4.p.2">SETTINGS frames always apply to a connection, never a single stream.  A SETTINGS frame MUST be sent as the first frame of each control stream (see <a href="#control-streams" class="xref">Section 6.2.1</a>) by each peer, and MUST NOT be sent subsequently. If an endpoint receives a second SETTINGS frame on the control stream, the endpoint MUST respond with a connection error of type HTTP_FRAME_UNEXPECTED.</p>
+<p id="rfc.section.7.2.4.p.3">SETTINGS frames MUST NOT be sent on any stream other than the control stream.  If an endpoint receives a SETTINGS frame on a different stream, the endpoint MUST respond with a connection error of type HTTP_FRAME_UNEXPECTED.</p>
 <p id="rfc.section.7.2.4.p.4">SETTINGS parameters are not negotiated; they describe characteristics of the sending peer, which can be used by the receiving peer. However, a negotiation can be implied by the use of SETTINGS - each peer uses SETTINGS to advertise a set of supported values. The definition of the setting would describe how each peer combines the two sets to conclude which choice will be used.  SETTINGS does not provide a mechanism to identify when the choice takes effect.</p>
 <p id="rfc.section.7.2.4.p.5">Different values for the same parameter can be advertised by each peer. For example, a client might be willing to consume a very large response header, while servers are more cautious about request size.</p>
 <p id="rfc.section.7.2.4.p.6">The same setting identifier MUST NOT occur more than once in the SETTINGS frame.  A receiver MAY treat the presence of duplicate setting identifiers as a connection error of type HTTP_SETTINGS_ERROR.</p>
@@ -1185,8 +1185,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 </dl>
 <p id="rfc.section.7.2.5.p.4">A server MUST NOT use a Push ID that is larger than the client has provided in a MAX_PUSH_ID frame (<a href="#frame-max-push-id" class="xref">Section 7.2.7</a>). A client MUST treat receipt of a PUSH_PROMISE frame that contains a larger Push ID than the client has advertised as a connection error of HTTP_ID_ERROR.</p>
 <p id="rfc.section.7.2.5.p.5">A server MUST NOT use the same Push ID in multiple PUSH_PROMISE frames. A client MUST treat receipt of a Push ID which has already been promised as a connection error of type HTTP_ID_ERROR.</p>
-<p id="rfc.section.7.2.5.p.6">If a PUSH_PROMISE frame is received on the control stream, the client MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_WRONG_STREAM.</p>
-<p id="rfc.section.7.2.5.p.7">A client MUST NOT send a PUSH_PROMISE frame.  A server MUST treat the receipt of a PUSH_PROMISE frame as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
+<p id="rfc.section.7.2.5.p.6">If a PUSH_PROMISE frame is received on the control stream, the client MUST respond with a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_FRAME_UNEXPECTED.</p>
+<p id="rfc.section.7.2.5.p.7">A client MUST NOT send a PUSH_PROMISE frame.  A server MUST treat the receipt of a PUSH_PROMISE frame as a connection error of type HTTP_FRAME_UNEXPECTED.</p>
 <p id="rfc.section.7.2.5.p.8">See <a href="#server-push" class="xref">Section 4.4</a> for a description of the overall server push mechanism.</p>
 <h3 id="rfc.section.7.2.6">
 <a href="#rfc.section.7.2.6">7.2.6.</a> <a href="#frame-goaway" id="frame-goaway">GOAWAY</a>
@@ -1203,15 +1203,15 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 </pre>
 <p class="figure">Figure 9: GOAWAY frame payload</p>
 <p id="rfc.section.7.2.6.p.2">The GOAWAY frame is always sent on the control stream. It carries a QUIC Stream ID for a client-initiated bidirectional stream encoded as a variable-length integer.  A client MUST treat receipt of a GOAWAY frame containing a Stream ID of any other type as a connection error of type HTTP_ID_ERROR.</p>
-<p id="rfc.section.7.2.6.p.3">Clients do not need to send GOAWAY to initiate a graceful shutdown; they simply stop making new requests.  A server MUST treat receipt of a GOAWAY frame on any stream as a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_UNEXPECTED_FRAME.</p>
-<p id="rfc.section.7.2.6.p.4">The GOAWAY frame applies to the connection, not a specific stream.  A client MUST treat a GOAWAY frame on a stream other than the control stream as a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_WRONG_STREAM.</p>
+<p id="rfc.section.7.2.6.p.3">Clients do not need to send GOAWAY to initiate a graceful shutdown; they simply stop making new requests.  A server MUST treat receipt of a GOAWAY frame on any stream as a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_FRAME_UNEXPECTED.</p>
+<p id="rfc.section.7.2.6.p.4">The GOAWAY frame applies to the connection, not a specific stream.  A client MUST treat a GOAWAY frame on a stream other than the control stream as a connection error (<a href="#errors" class="xref">Section 8</a>) of type HTTP_FRAME_UNEXPECTED.</p>
 <p id="rfc.section.7.2.6.p.5">See <a href="#connection-shutdown" class="xref">Section 5.2</a> for more information on the use of the GOAWAY frame.</p>
 <h3 id="rfc.section.7.2.7">
 <a href="#rfc.section.7.2.7">7.2.7.</a> <a href="#frame-max-push-id" id="frame-max-push-id">MAX_PUSH_ID</a>
 </h3>
 <p id="rfc.section.7.2.7.p.1">The MAX_PUSH_ID frame (type=0xD) is used by clients to control the number of server pushes that the server can initiate.  This sets the maximum value for a Push ID that the server can use in a PUSH_PROMISE frame.  Consequently, this also limits the number of push streams that the server can initiate in addition to the limit maintained by the QUIC transport.</p>
-<p id="rfc.section.7.2.7.p.2">The MAX_PUSH_ID frame is always sent on the control stream.  Receipt of a MAX_PUSH_ID frame on any other stream MUST be treated as a connection error of type HTTP_WRONG_STREAM.</p>
-<p id="rfc.section.7.2.7.p.3">A server MUST NOT send a MAX_PUSH_ID frame.  A client MUST treat the receipt of a MAX_PUSH_ID frame as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
+<p id="rfc.section.7.2.7.p.2">The MAX_PUSH_ID frame is always sent on the control stream.  Receipt of a MAX_PUSH_ID frame on any other stream MUST be treated as a connection error of type HTTP_FRAME_UNEXPECTED.</p>
+<p id="rfc.section.7.2.7.p.3">A server MUST NOT send a MAX_PUSH_ID frame.  A client MUST treat the receipt of a MAX_PUSH_ID frame as a connection error of type HTTP_FRAME_UNEXPECTED.</p>
 <p id="rfc.section.7.2.7.p.4">The maximum Push ID is unset when a connection is created, meaning that a server cannot push until it receives a MAX_PUSH_ID frame.  A client that wishes to manage the number of promised server pushes can increase the maximum Push ID by sending MAX_PUSH_ID frames as the server fulfills or cancels server pushes.</p>
 <div id="rfc.figure.10"></div>
 <div id="fig-max-push"></div>
@@ -1228,8 +1228,8 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <a href="#rfc.section.7.2.8">7.2.8.</a> <a href="#frame-duplicate-push" id="frame-duplicate-push">DUPLICATE_PUSH</a>
 </h3>
 <p id="rfc.section.7.2.8.p.1">The DUPLICATE_PUSH frame (type=0xE) is used by servers to indicate that an existing pushed resource is related to multiple client requests.</p>
-<p id="rfc.section.7.2.8.p.2">The DUPLICATE_PUSH frame is always sent on a request stream.  Receipt of a DUPLICATE_PUSH frame on any other stream MUST be treated as a connection error of type HTTP_WRONG_STREAM.</p>
-<p id="rfc.section.7.2.8.p.3">A client MUST NOT send a DUPLICATE_PUSH frame.  A server MUST treat the receipt of a DUPLICATE_PUSH frame as a connection error of type HTTP_UNEXPECTED_FRAME.</p>
+<p id="rfc.section.7.2.8.p.2">The DUPLICATE_PUSH frame is always sent on a request stream.  Receipt of a DUPLICATE_PUSH frame on any other stream MUST be treated as a connection error of type HTTP_FRAME_UNEXPECTED.</p>
+<p id="rfc.section.7.2.8.p.3">A client MUST NOT send a DUPLICATE_PUSH frame.  A server MUST treat the receipt of a DUPLICATE_PUSH frame as a connection error of type HTTP_FRAME_UNEXPECTED.</p>
 <div id="rfc.figure.11"></div>
 <div id="fig-duplicate-push"></div>
 <pre>
@@ -1272,31 +1272,29 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dd style="margin-left: 8">The endpoint detected that its peer created a stream that it will not accept.</dd>
 <dt>HTTP_CLOSED_CRITICAL_STREAM (0x104):</dt>
 <dd style="margin-left: 8">A stream required by the connection was closed or reset.</dd>
-<dt>HTTP_UNEXPECTED_FRAME (0x105):</dt>
-<dd style="margin-left: 8">A frame was received which was not permitted in the current state.</dd>
+<dt>HTTP_FRAME_UNEXPECTED (0x105):</dt>
+<dd style="margin-left: 8">A frame was received which was not permitted in the current state or on the current stream.</dd>
 <dt>HTTP_FRAME_ERROR (0x106):</dt>
 <dd style="margin-left: 8">A frame that fails to satisfy layout requirements or with an invalid size was received.</dd>
 <dt>HTTP_EXCESSIVE_LOAD (0x107):</dt>
 <dd style="margin-left: 8">The endpoint detected that its peer is exhibiting a behavior that might be generating excessive load.</dd>
-<dt>HTTP_WRONG_STREAM (0x108):</dt>
-<dd style="margin-left: 8">A frame was received on a stream where it is not permitted.</dd>
-<dt>HTTP_ID_ERROR (0x109):</dt>
+<dt>HTTP_ID_ERROR (0x108):</dt>
 <dd style="margin-left: 8">A Stream ID or Push ID was used incorrectly, such as exceeding a limit, reducing a limit, or being reused.</dd>
-<dt>HTTP_SETTINGS_ERROR (0x10A):</dt>
+<dt>HTTP_SETTINGS_ERROR (0x109):</dt>
 <dd style="margin-left: 8">An endpoint detected an error in the payload of a SETTINGS frame.</dd>
-<dt>HTTP_MISSING_SETTINGS (0x10B):</dt>
+<dt>HTTP_MISSING_SETTINGS (0x10A):</dt>
 <dd style="margin-left: 8">No SETTINGS frame was received at the beginning of the control stream.</dd>
-<dt>HTTP_REQUEST_REJECTED (0x10C):</dt>
+<dt>HTTP_REQUEST_REJECTED (0x10B):</dt>
 <dd style="margin-left: 8">A server rejected a request without performing any application processing.</dd>
-<dt>HTTP_REQUEST_CANCELLED (0x10D):</dt>
+<dt>HTTP_REQUEST_CANCELLED (0x10C):</dt>
 <dd style="margin-left: 8">The request or its response (including pushed response) is cancelled.</dd>
-<dt>HTTP_REQUEST_INCOMPLETE (0x10E):</dt>
+<dt>HTTP_REQUEST_INCOMPLETE (0x10D):</dt>
 <dd style="margin-left: 8">The client&#8217;s stream terminated without containing a fully-formed request.</dd>
-<dt>HTTP_EARLY_RESPONSE (0x10F):</dt>
+<dt>HTTP_EARLY_RESPONSE (0x10E):</dt>
 <dd style="margin-left: 8">The remainder of the client&#8217;s request is not needed to produce a response.  For use in STOP_SENDING only.</dd>
-<dt>HTTP_CONNECT_ERROR (0x110):</dt>
+<dt>HTTP_CONNECT_ERROR (0x10F):</dt>
 <dd style="margin-left: 8">The connection established in response to a CONNECT request was reset or abnormally closed.</dd>
-<dt>HTTP_VERSION_FALLBACK (0x111):</dt>
+<dt>HTTP_VERSION_FALLBACK (0x110):</dt>
 <dd style="margin-left: 8">The requested operation cannot be served over HTTP/3.  The peer should retry over HTTP/1.1.</dd>
 </dl>
 <h1 id="rfc.section.9">
@@ -1565,7 +1563,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_UNEXPECTED_FRAME</td>
+<td class="left">HTTP_FRAME_UNEXPECTED</td>
 <td class="left">0x0105</td>
 <td class="left">Frame not permitted in the current state</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
@@ -1583,62 +1581,56 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
-<td class="left">HTTP_WRONG_STREAM</td>
-<td class="left">0x0108</td>
-<td class="left">A frame was sent on the wrong stream</td>
-<td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
-</tr>
-<tr>
 <td class="left">HTTP_ID_ERROR</td>
-<td class="left">0x0109</td>
+<td class="left">0x0108</td>
 <td class="left">An identifier was used incorrectly</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_SETTINGS_ERROR</td>
-<td class="left">0x010A</td>
+<td class="left">0x0109</td>
 <td class="left">SETTINGS frame contained invalid values</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_MISSING_SETTINGS</td>
-<td class="left">0x010B</td>
+<td class="left">0x010A</td>
 <td class="left">No SETTINGS frame received</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_REQUEST_REJECTED</td>
-<td class="left">0x010C</td>
+<td class="left">0x010B</td>
 <td class="left">Request not processed</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_REQUEST_CANCELLED</td>
-<td class="left">0x010D</td>
+<td class="left">0x010C</td>
 <td class="left">Data no longer needed</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_REQUEST_INCOMPLETE</td>
-<td class="left">0x010E</td>
+<td class="left">0x010D</td>
 <td class="left">Stream terminated early</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_EARLY_RESPONSE</td>
-<td class="left">0x010F</td>
+<td class="left">0x010E</td>
 <td class="left">Remainder of request not needed</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_CONNECT_ERROR</td>
-<td class="left">0x0110</td>
+<td class="left">0x010F</td>
 <td class="left">TCP reset or error on CONNECT request</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
 <tr>
 <td class="left">HTTP_VERSION_FALLBACK</td>
-<td class="left">0x0111</td>
+<td class="left">0x0110</td>
 <td class="left">Retry over HTTP/1.1</td>
 <td class="left"><a href="#http-error-codes" class="xref">Section 8.1</a></td>
 </tr>
@@ -1893,7 +1885,7 @@ Alt-Svc: h3=":49288";quic="1,1abadaba,51303334"
 <dt>NO_ERROR (0x0):</dt>
 <dd style="margin-left: 8">HTTP_NO_ERROR in <a href="#http-error-codes" class="xref">Section 8.1</a>.</dd>
 <dt>PROTOCOL_ERROR (0x1):</dt>
-<dd style="margin-left: 8">This is mapped to HTTP_GENERAL_PROTOCOL_ERROR except in cases where more specific error codes have been defined. This includes HTTP_WRONG_STREAM, HTTP_UNEXPECTED_FRAME and HTTP_CLOSED_CRITICAL_STREAM defined in <a href="#http-error-codes" class="xref">Section 8.1</a>.</dd>
+<dd style="margin-left: 8">This is mapped to HTTP_GENERAL_PROTOCOL_ERROR except in cases where more specific error codes have been defined. This includes HTTP_FRAME_UNEXPECTED and HTTP_CLOSED_CRITICAL_STREAM defined in <a href="#http-error-codes" class="xref">Section 8.1</a>.</dd>
 <dt>INTERNAL_ERROR (0x2):</dt>
 <dd style="margin-left: 8">HTTP_INTERNAL_ERROR in <a href="#http-error-codes" class="xref">Section 8.1</a>.</dd>
 <dt>FLOW_CONTROL_ERROR (0x3):</dt>
