@@ -366,7 +366,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Thomson, M., Ed. and S. Turner, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-tls-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-09-10" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-09-11" />
   <meta name="dct.abstract" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
   <meta name="description" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
 
@@ -390,12 +390,12 @@ ul.toc li {
 <td class="right">S. Turner, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: March 13, 2020</td>
+<td class="left">Expires: March 14, 2020</td>
 <td class="right">sn3rd</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">September 10, 2019</td>
+<td class="right">September 11, 2019</td>
 </tr>
 
     	
@@ -414,7 +414,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on March 13, 2020.</p>
+<p>This Internet-Draft will expire on March 14, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -808,7 +808,7 @@ ul.toc li {
 <h3 id="rfc.section.4.1.4">
 <a href="#rfc.section.4.1.4">4.1.4.</a> <a href="#encryption-level-changes" id="encryption-level-changes">Encryption Level Changes</a>
 </h3>
-<p id="rfc.section.4.1.4.p.1">As keys for new encryption levels become available, TLS provides QUIC with those keys.  Separately, as TLS starts using keys at a given encryption level, TLS indicates to QUIC that it is now reading or writing with keys at that encryption level.  These events are not asynchronous; they always occur immediately after TLS is provided with new handshake bytes, or after TLS produces handshake bytes.</p>
+<p id="rfc.section.4.1.4.p.1">As keys for new encryption levels become available, TLS provides QUIC with those keys.  Separately, as keys at a given encryption level become available to TLS, TLS indicates to QUIC that reading or writing keys at that encryption level are available.  These events are not asynchronous; they always occur immediately after TLS is provided with new handshake bytes, or after TLS produces handshake bytes.</p>
 <p id="rfc.section.4.1.4.p.2">TLS provides QUIC with three items as a new encryption level becomes available:</p>
 <p></p>
 
@@ -821,6 +821,7 @@ ul.toc li {
 <p id="rfc.section.4.1.4.p.5">If 0-RTT is possible, it is ready after the client sends a TLS ClientHello message or the server receives that message.  After providing a QUIC client with the first handshake bytes, the TLS stack might signal the change to 0-RTT keys. On the server, after receiving handshake bytes that contain a ClientHello message, a TLS server might signal that 0-RTT keys are available.</p>
 <p id="rfc.section.4.1.4.p.6">Although TLS only uses one encryption level at a time, QUIC may use more than one level. For instance, after sending its Finished message (using a CRYPTO frame at the Handshake encryption level) an endpoint can send STREAM data (in 1-RTT encryption). If the Finished message is lost, the endpoint uses the Handshake encryption level to retransmit the lost message.  Reordering or loss of packets can mean that QUIC will need to handle packets at multiple encryption levels.  During the handshake, this means potentially handling packets at higher and lower encryption levels than the current encryption level used by TLS.</p>
 <p id="rfc.section.4.1.4.p.7">In particular, server implementations need to be able to read packets at the Handshake encryption level at the same time as the 0-RTT encryption level.  A client could interleave ACK frames that are protected with Handshake keys with 0-RTT data and the server needs to process those acknowledgments in order to detect lost Handshake packets.</p>
+<p id="rfc.section.4.1.4.p.8">QUIC also needs access to keys that might not ordinarily be available to a TLS implementation.  For instance, a client might need to acknowledge Handshake packets before it is ready to send CRYPTO frames at that encryption level.  TLS therefore needs to provide keys to QUIC before it might produce them for its own use.</p>
 <h3 id="rfc.section.4.1.5">
 <a href="#rfc.section.4.1.5">4.1.5.</a> <a href="#tls-interface-summary" id="tls-interface-summary">TLS Interface Summary</a>
 </h3>
@@ -832,33 +833,34 @@ Client                                                    Server
 
 Get Handshake
                      Initial -------------&gt;
+                                              Handshake Received
 Install tx 0-RTT Keys
                      0-RTT ---------------&gt;
-                                              Handshake Received
                                                    Get Handshake
                      &lt;------------- Initial
+Handshake Received
+Install Handshake keys
                                            Install rx 0-RTT keys
                                           Install Handshake keys
                                                    Get Handshake
                      &lt;----------- Handshake
+Handshake Received
                                            Install tx 1-RTT keys
                      &lt;--------------- 1-RTT
-Handshake Received
-Install tx Handshake keys
-Handshake Received
 Get Handshake
 Handshake Complete
                      Handshake -----------&gt;
-Install 1-RTT keys
-                     1-RTT ---------------&gt;
                                               Handshake Received
                                            Install rx 1-RTT keys
                                               Handshake Complete
+Install 1-RTT keys
+                     1-RTT ---------------&gt;
                                                    Get Handshake
                      &lt;--------------- 1-RTT
 Handshake Received
 </pre>
 <p class="figure">Figure 3: Interaction Summary between QUIC and TLS</p>
+<p><a href="#exchange-summary" class="xref">Figure 3</a> shows the multiple packets that form a single &#8220;flight&#8221; of messages being processed individually, to show what incoming messages trigger different actions.  New handshake messages are requested after all incoming packets have been processed.  This process might vary depending on how QUIC implementations and the packets they receive are structured.</p>
 <h2 id="rfc.section.4.2">
 <a href="#rfc.section.4.2">4.2.</a> <a href="#tls-version" id="tls-version">TLS Version</a>
 </h2>
