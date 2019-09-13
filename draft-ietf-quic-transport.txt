@@ -1370,12 +1370,13 @@ Internet-Draft           QUIC Transport Protocol          September 2019
    client and to allow the client to validate that the packet is in
    response to an Initial packet.
 
-   A zero-length connection ID MAY be used when the connection ID is not
-   needed for routing and the address/port tuple of packets is
-   sufficient to identify a connection.  An endpoint whose peer has
-   selected a zero-length connection ID MUST continue to use a zero-
-   length connection ID for the lifetime of the connection and MUST NOT
-   send packets from any other local address.
+   A zero-length connection ID can be used when a connection ID is not
+   needed to route to the correct endpoint.  However, multiplexing
+   connections on the same local IP address and port while using zero-
+   length connection IDs will cause failures in the presence of peer
+   connection migration, NAT rebinding, and client port reuse; and
+   therefore MUST NOT be done unless an endpoint is certain that those
+   protocol features are not in use.
 
    When an endpoint has requested a non-zero-length connection ID, it
    needs to ensure that the peer has a supply of connection IDs from
@@ -1392,7 +1393,6 @@ Internet-Draft           QUIC Transport Protocol          September 2019
    the initial connection ID is 0.  If the preferred_address transport
    parameter is sent, the sequence number of the supplied connection ID
    is 1.
-
 
 
 
@@ -1486,18 +1486,15 @@ Internet-Draft           QUIC Transport Protocol          September 2019
    potentially create a new connection.
 
    Hosts try to associate a packet with an existing connection.  If the
-   packet has a Destination Connection ID corresponding to an existing
-   connection, QUIC processes that packet accordingly.  Note that more
-   than one connection ID can be associated with a connection; see
-   Section 5.1.
+   packet has a non-zero-length Destination Connection ID corresponding
+   to an existing connection, QUIC processes that packet accordingly.
+   Note that more than one connection ID can be associated with a
+   connection; see Section 5.1.
 
    If the Destination Connection ID is zero length and the packet
-   matches the address/port tuple of a connection where the host did not
-   require connection IDs, QUIC processes the packet as part of that
-   connection.  Endpoints SHOULD either reject connection attempts that
-   use the same addresses as existing connections, or use a non-zero-
-   length Destination Connection ID so that packets can be correctly
-   attributed to connections.
+   matches the local address and port of a connection where the host
+   used zero-length connection IDs, QUIC processes the packet as part of
+   that connection.
 
    Endpoints can send a Stateless Reset (Section 10.4) for any packets
    that cannot be attributed to an existing connection.  A stateless
@@ -1506,6 +1503,9 @@ Internet-Draft           QUIC Transport Protocol          September 2019
 
    Packets that are matched to an existing connection are discarded if
    the packets are inconsistent with the state of that connection.  For
+   example, packets are discarded if they indicate a different protocol
+   version than that of the connection, or if the removal of packet
+   protection is unsuccessful once the expected keys are available.
 
 
 
@@ -1513,10 +1513,6 @@ Iyengar & Thomson        Expires March 16, 2020                [Page 27]
 
 Internet-Draft           QUIC Transport Protocol          September 2019
 
-
-   example, packets are discarded if they indicate a different protocol
-   version than that of the connection, or if the removal of packet
-   protection is unsuccessful once the expected keys are available.
 
    Invalid packets without packet protection, such as Initial, Retry, or
    Version Negotiation, MAY be discarded.  An endpoint MUST generate a
@@ -1527,8 +1523,8 @@ Internet-Draft           QUIC Transport Protocol          September 2019
 
    Valid packets sent to clients always include a Destination Connection
    ID that matches a value the client selects.  Clients that choose to
-   receive zero-length connection IDs can use the address/port tuple to
-   identify a connection.  Packets that don't match an existing
+   receive zero-length connection IDs can use the local address and port
+   to identify a connection.  Packets that don't match an existing
    connection are discarded.
 
    Due to packet reordering or loss, a client might receive packets for
@@ -1559,8 +1555,12 @@ Internet-Draft           QUIC Transport Protocol          September 2019
 
    Packets with a supported version, or no version field, are matched to
    a connection using the connection ID or - for packets with zero-
-   length connection IDs - the address tuple.  If the packet doesn't
-   match an existing connection, the server continues below.
+   length connection IDs - the local address and port.  If the packet
+   doesn't match an existing connection, the server continues below.
+
+   If the packet is an Initial packet fully conforming with the
+   specification, the server proceeds with the handshake (Section 7).
+   This commits the server to the version that the client selected.
 
 
 
@@ -1569,10 +1569,6 @@ Iyengar & Thomson        Expires March 16, 2020                [Page 28]
 
 Internet-Draft           QUIC Transport Protocol          September 2019
 
-
-   If the packet is an Initial packet fully conforming with the
-   specification, the server proceeds with the handshake (Section 7).
-   This commits the server to the version that the client selected.
 
    If a server isn't currently accepting any new connections, it SHOULD
    send an Initial packet containing a CONNECTION_CLOSE frame with error
@@ -1619,14 +1615,16 @@ Internet-Draft           QUIC Transport Protocol          September 2019
       from the client's resumption ticket and enable rejecting Early
       Data based on that information.
 
+   In either role, applications need to be able to:
+
+
+
 
 
 Iyengar & Thomson        Expires March 16, 2020                [Page 29]
 
 Internet-Draft           QUIC Transport Protocol          September 2019
 
-
-   In either role, applications need to be able to:
 
    o  configure minimum values for the initial number of permitted
       streams of each type, as communicated in the transport parameters
@@ -1674,6 +1672,8 @@ Internet-Draft           QUIC Transport Protocol          September 2019
    a response or it abandons the connection attempt.  As a result, the
    client discards all state for the connection and does not send any
    more packets on the connection.
+
+
 
 
 
