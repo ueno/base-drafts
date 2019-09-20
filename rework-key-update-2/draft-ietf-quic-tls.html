@@ -373,7 +373,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Thomson, M., Ed. and S. Turner, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-tls-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-09-19" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-09-20" />
   <meta name="dct.abstract" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
   <meta name="description" content="This document describes how Transport Layer Security (TLS) is used to secure QUIC." />
 
@@ -397,12 +397,12 @@ ul.toc li {
 <td class="right">S. Turner, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: March 22, 2020</td>
+<td class="left">Expires: March 23, 2020</td>
 <td class="right">sn3rd</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">September 19, 2019</td>
+<td class="right">September 20, 2019</td>
 </tr>
 
     	
@@ -421,7 +421,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on March 22, 2020.</p>
+<p>This Internet-Draft will expire on March 23, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -1150,11 +1150,11 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 <h1 id="rfc.section.6">
 <a href="#rfc.section.6">6.</a> <a href="#key-update" id="key-update">Key Update</a>
 </h1>
-<p id="rfc.section.6.p.1">Once the 1-RTT keys are established and confirmed, it is possible to update the keys used to protect packets.</p>
+<p id="rfc.section.6.p.1">Once the handshake is confirmed (see <a href="#handshake-confirmed" class="xref">Section 4.1.2</a>), it is possible to update the keys used to protect packets.</p>
 <p id="rfc.section.6.p.2">The Key Phase bit indicates which packet protection keys are used to protect the packet.  The Key Phase bit is initially set to 0 for the first set of 1-RTT packets and toggled to signal each subsequent key update.</p>
 <p id="rfc.section.6.p.3">The Key Phase bit allows a recipient to detect a change in keying material without needing to receive the first packet that triggered the change.  An endpoint that notices a changed Key Phase bit updates keys and decrypts the packet that contains the changed value.</p>
 <p id="rfc.section.6.p.4">This mechanism replaces the TLS KeyUpdate message.  Endpoints MUST NOT send a TLS KeyUpdate message.  Endpoints MUST treat the receipt of a TLS KeyUpdate message as a connection error of type 0x10a, equivalent to a fatal TLS alert of unexpected_message (see <a href="#tls-errors" class="xref">Section 4.8</a>).</p>
-<p><a href="#ex-key-update" class="xref">Figure 6</a> shows a key update process, with keys used identified with @M cannot be used until the endpoint has received and successfully decrypted a and @N.  The value of Key Phase bit is indicated in brackets []..</p>
+<p><a href="#ex-key-update" class="xref">Figure 6</a> shows a key update process, where the initial set of keys used (identified with @M) are replaced by updated keys (identified with @N).  The value of the Key Phase bit is indicated in brackets [].</p>
 <div id="rfc.figure.6"></div>
 <div id="ex-key-update"></div>
 <pre>
@@ -1183,16 +1183,21 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 <a href="#rfc.section.6.1">6.1.</a> <a href="#key-update-initiate" id="key-update-initiate">Initiating a Key Update</a>
 </h2>
 <p id="rfc.section.6.1.p.1">Endpoints maintain separate read and write secrets for packet protection.  An endpoint initiates a key update by updating its packet protection write secret and using that to protect new packets.  The endpoint creates a new write secret from the existing write secret as performed in Section 7.2 of <a href="#TLS13" class="xref">[TLS13]</a>.  This uses the KDF function provided by TLS with a label of &#8220;quic ku&#8221;.  The corresponding key and IV are created from that secret as defined in <a href="#protection-keys" class="xref">Section 5.1</a>.  The header protection key is not updated.</p>
-<p id="rfc.section.6.1.p.2">The endpoint toggles the value of the Key Phase bit and uses the updated key and IV to protect all subsequent packets.</p>
-<p id="rfc.section.6.1.p.3">An endpoint MUST NOT initiate a key update prior to having received an acknowledgment for a packet that it sent protected with keys from the current key phase.  This ensures that keys are available to both peers before another can be initiated.</p>
+<p id="rfc.section.6.1.p.2">For example, to update write keys with TLS 1.3, HKDF-Expand-Label is used as:</p>
+<pre>
+secret_&lt;n+1&gt; = HKDF-Expand-Label(secret_&lt;n&gt;, "quic ku",
+                                 "", Hash.length)
+</pre>
+<p id="rfc.section.6.1.p.3">The endpoint toggles the value of the Key Phase bit and uses the updated key and IV to protect all subsequent packets.</p>
+<p id="rfc.section.6.1.p.4">An endpoint MUST NOT initiate a key update prior to having received an acknowledgment for a packet that it sent protected with keys from the current key phase.  This ensures that keys are available to both peers before another can be initiated.</p>
 <p></p>
 
 <dl>
 <dt>Note:</dt>
 <dd style="margin-left: 8">Keys of packets other than the 1-RTT packets are never updated; their keys are derived solely from the TLS handshake state.</dd>
 </dl>
-<p id="rfc.section.6.1.p.5">The endpoint that initiates a key update also updates the keys that it uses for receiving packets.  These keys will be needed to process packets the peer sends after updating.</p>
-<p id="rfc.section.6.1.p.6">An endpoint SHOULD retain old keys so that packets sent by its peer prior to receiving the key update can be processed.  Discarding old keys too early can cause delayed packets to be discarded.  Discarding packets will be interpreted as packet loss by the peer and could adversely affect performance.</p>
+<p id="rfc.section.6.1.p.6">The endpoint that initiates a key update also updates the keys that it uses for receiving packets.  These keys will be needed to process packets the peer sends after updating.</p>
+<p id="rfc.section.6.1.p.7">An endpoint SHOULD retain old keys so that packets sent by its peer prior to receiving the key update can be processed.  Discarding old keys too early can cause delayed packets to be discarded.  Discarding packets will be interpreted as packet loss by the peer and could adversely affect performance.</p>
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#responding-to-a-key-update" id="responding-to-a-key-update">Responding to a Key Update</a>
 </h2>
@@ -1205,11 +1210,11 @@ mask = ChaCha20(hp_key, counter, nonce, {0,0,0,0,0})
 <a href="#rfc.section.6.3">6.3.</a> <a href="#receive-key-generation" id="receive-key-generation">Timing of Receive Key Generation</a>
 </h2>
 <p id="rfc.section.6.3.p.1">Endpoints responding to an apparent key update MUST NOT generate a timing side-channel signal that might indicate that the Key Phase bit was invalid (see <a href="#header-protect-analysis" class="xref">Section 9.3</a>).  Endpoints can use dummy packet protection keys in place of discarded keys when key updates are not permitted; using dummy keys will generate no variation in the timing signal produced by attempting to remove packet protection, but all packets with an invalid Key Phase bit will be rejected.</p>
-<p id="rfc.section.6.3.p.2">The process of creating new packet protection keys for receiving packets could reveal that a key update has occurred.  An endpoint MAY perform this process as part of packet processing, but this creates a timing signal that can be used by an attacker to learn when key updates happen and thus the value of the Key Phase bit in certain packets.  Endpoints SHOULD instead defer the creation of the next set of packet protection keys until some time after a key update completes, up to three times the PTO; see <a href="#old-keys-recv" class="xref">Section 6.5</a>.</p>
+<p id="rfc.section.6.3.p.2">The process of creating new packet protection keys for receiving packets could reveal that a key update has occurred.  An endpoint MAY perform this process as part of packet processing, but this creates a timing signal that can be used by an attacker to learn when key updates happen and thus the value of the Key Phase bit in certain packets.  Endpoints SHOULD instead defer the creation of the next set of receive packet protection keys until some time after a key update completes, up to three times the PTO; see <a href="#old-keys-recv" class="xref">Section 6.5</a>.</p>
 <p id="rfc.section.6.3.p.3">Once generated, the next set of packet protection keys SHOULD be retained, even if the packet that was received was subsequently discarded.  Packets containing apparent key updates are easy to forge and - while the process of key update does not require significant effort - triggering this process could be used by an attacker for DoS.</p>
 <p id="rfc.section.6.3.p.4">For this reason, endpoints MUST be able to retain two sets of packet protection keys for receiving packets: the current and the next.  Retaining the previous keys in addition to these might improve performance, but this is not essential.</p>
-<p id="rfc.section.6.3.p.5">The time taken to generate new keys could reveal through timing side channels that a key update has occurred, or where an attacker injects packets, be used to reveal the value of the Key Phase on injected packets.  After receiving a key update, an endpoint SHOULD generate and save the next set of packet protection keys.  After new keys are available, receipt of packets will not create timing signals about the value of the Key Phase.</p>
-<p id="rfc.section.6.3.p.6">This depends on not doing this key generation during packet processing and it can require that endpoints maintain three sets of packet protection keys for receiving: for the previous key phase, for the current key phase, and for the next key phase.  Endpoints MAY instead choose to defer generation of the next packet protection keys until they discard old keys so that only two sets of receive keys need to be retained at any point in time.</p>
+<p id="rfc.section.6.3.p.5">The time taken to generate new keys could reveal through timing side channels that a key update has occurred, or where an attacker injects packets, be used to reveal the value of the Key Phase on injected packets.  After receiving a key update, an endpoint SHOULD generate and save the next set of receive packet protection keys.  After new keys are available, receipt of packets will not create timing signals about the value of the Key Phase.</p>
+<p id="rfc.section.6.3.p.6">This depends on not doing this key generation during packet processing and it can require that endpoints maintain three sets of packet protection keys for receiving: for the previous key phase, for the current key phase, and for the next key phase.  Endpoints MAY instead choose to defer generation of the next receive packet protection keys until they discard old keys so that only two sets of receive keys need to be retained at any point in time.</p>
 <h2 id="rfc.section.6.4">
 <a href="#rfc.section.6.4">6.4.</a> <a href="#old-keys-send" id="old-keys-send">Sending with Updated Keys</a>
 </h2>
