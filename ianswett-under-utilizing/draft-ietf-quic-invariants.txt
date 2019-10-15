@@ -4,8 +4,8 @@
 
 QUIC                                                          M. Thomson
 Internet-Draft                                                   Mozilla
-Intended status: Standards Track                           July 21, 2019
-Expires: January 22, 2020
+Intended status: Standards Track                        October 15, 2019
+Expires: April 17, 2020
 
 
                  Version-Independent Properties of QUIC
@@ -42,7 +42,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on January 22, 2020.
+   This Internet-Draft will expire on April 17, 2020.
 
 Copyright Notice
 
@@ -53,9 +53,9 @@ Copyright Notice
 
 
 
-Thomson                 Expires January 22, 2020                [Page 1]
+Thomson                  Expires April 17, 2020                 [Page 1]
 
-Internet-Draft               QUIC Invariants                   July 2019
+Internet-Draft               QUIC Invariants                October 2019
 
 
    This document is subject to BCP 78 and the IETF Trust's Legal
@@ -81,7 +81,7 @@ Table of Contents
    5.  Version Negotiation . . . . . . . . . . . . . . . . . . . . .   6
    6.  Security and Privacy Considerations . . . . . . . . . . . . .   7
    7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   7
-   8.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   7
+   8.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   8
      8.1.  Normative References  . . . . . . . . . . . . . . . . . .   8
      8.2.  Informative References  . . . . . . . . . . . . . . . . .   8
      8.3.  URIs  . . . . . . . . . . . . . . . . . . . . . . . . . .   8
@@ -109,9 +109,9 @@ Table of Contents
 
 
 
-Thomson                 Expires January 22, 2020                [Page 2]
+Thomson                  Expires April 17, 2020                 [Page 2]
 
-Internet-Draft               QUIC Invariants                   July 2019
+Internet-Draft               QUIC Invariants                October 2019
 
 
    Appendix A is a non-exhaustive list of some incorrect assumptions
@@ -165,9 +165,9 @@ Internet-Draft               QUIC Invariants                   July 2019
 
 
 
-Thomson                 Expires January 22, 2020                [Page 3]
+Thomson                  Expires April 17, 2020                 [Page 3]
 
-Internet-Draft               QUIC Invariants                   July 2019
+Internet-Draft               QUIC Invariants                October 2019
 
 
     0                   1                   2                   3
@@ -177,11 +177,13 @@ Internet-Draft               QUIC Invariants                   July 2019
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                         Version (32)                          |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |DCIL(4)|SCIL(4)|
+   | DCID Len (8)  |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |               Destination Connection ID (0/32..144)         ...
+   |               Destination Connection ID (0..2040)           ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                 Source Connection ID (0/32..144)            ...
+   | SCID Len (8)  |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                 Source Connection ID (0..2040)              ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |X X X X X X X X X X X X X X X X X X X X X X X X X X X X X X  ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -193,22 +195,16 @@ Internet-Draft               QUIC Invariants                   July 2019
 
    The next four bytes include a 32-bit Version field (see Section 4.4).
 
-   The next byte contains the length in bytes of the two Connection IDs
-   (see Section 4.3) that follow.  Each length is encoded as a 4-bit
-   unsigned integer.  The length of the Destination Connection ID (DCIL)
-   occupies the high bits of the byte and the length of the Source
-   Connection ID (SCIL) occupies the low bits of the byte.  An encoded
-   length of 0 indicates that the connection ID is also 0 bytes in
-   length.  Non-zero encoded lengths are increased by 3 to get the full
-   length of the connection ID; the final value is therefore either 0 or
-   between 4 and 18 bytes in length (inclusive).  For example, an byte
-   with the value 0xe0 describes a 17 byte Destination Connection ID and
-   a zero byte Source Connection ID.
+   The next byte contains the length in bytes of the Destination
+   Connection ID (see Section 4.3) field that follows it.  This length
+   is encoded as an 8-bit unsigned integer.  The Destination Connection
+   ID field follows the DCID Len field and is between 0 and 255 bytes in
+   length.
 
-   The connection ID lengths are followed by two connection IDs.  The
-   connection ID associated with the recipient of the packet (the
-   Destination Connection ID) is followed by the connection ID
-   associated with the sender of the packet (the Source Connection ID).
+   The next byte contains the length in bytes of the Source Connection
+   ID field that follows it.  This length is encoded as a 8-bit unsigned
+   integer.  The Source Connection ID field follows the SCID Len field
+   and is between 0 and 255 bytes in length.
 
    The remainder of the packet contains version-specific content.
 
@@ -221,9 +217,13 @@ Internet-Draft               QUIC Invariants                   July 2019
 
 
 
-Thomson                 Expires January 22, 2020                [Page 4]
+
+
+
+
+Thomson                  Expires April 17, 2020                 [Page 4]
 
-Internet-Draft               QUIC Invariants                   July 2019
+Internet-Draft               QUIC Invariants                October 2019
 
 
     0                   1                   2                   3
@@ -242,8 +242,11 @@ Internet-Draft               QUIC Invariants                   July 2019
    set to 0.
 
    A QUIC packet with a short header includes a Destination Connection
-   ID.  The short header does not include the Connection ID Lengths,
-   Source Connection ID, or Version fields.
+   ID immediately following the first byte.  The short header does not
+   include the Connection ID Lengths, Source Connection ID, or Version
+   fields.  The length of the Destination Connection ID is not specified
+   in packets with a short header and is not constrained by this
+   specification.
 
    The remainder of the packet has version-specific semantics.
 
@@ -271,16 +274,17 @@ Internet-Draft               QUIC Invariants                   July 2019
 
    The properties described in this document apply to all versions of
    QUIC.  A protocol that does not conform to the properties described
+
+
+
+Thomson                  Expires April 17, 2020                 [Page 5]
+
+Internet-Draft               QUIC Invariants                October 2019
+
+
    in this document is not QUIC.  Future documents might describe
    additional properties which apply to a specific QUIC version, or to a
    range of QUIC versions.
-
-
-
-Thomson                 Expires January 22, 2020                [Page 5]
-
-Internet-Draft               QUIC Invariants                   July 2019
-
 
 5.  Version Negotiation
 
@@ -301,11 +305,13 @@ Internet-Draft               QUIC Invariants                   July 2019
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                       Version (32) = 0                        |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |DCIL(4)|SCIL(4)|
+   | DCID Len (8)  |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |               Destination Connection ID (0/32..144)         ...
+   |               Destination Connection ID (0..2040)           ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                 Source Connection ID (0/32..144)            ...
+   | SCID Len (8)  |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                 Source Connection ID (0..2040)              ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                    Supported Version 1 (32)                   |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -325,18 +331,16 @@ Internet-Draft               QUIC Invariants                   July 2019
    endpoint MUST ignore a packet that contains no Supported Version
    fields, or a truncated Supported Version.
 
+
+
+Thomson                  Expires April 17, 2020                 [Page 6]
+
+Internet-Draft               QUIC Invariants                October 2019
+
+
    Version Negotiation packets do not use integrity or confidentiality
    protection.  A specific QUIC version might authenticate the packet as
    part of its connection establishment process.
-
-
-
-
-
-Thomson                 Expires January 22, 2020                [Page 6]
-
-Internet-Draft               QUIC Invariants                   July 2019
-
 
    An endpoint MUST include the value from the Source Connection ID
    field of the packet it receives in the Destination Connection ID
@@ -381,25 +385,23 @@ Internet-Draft               QUIC Invariants                   July 2019
 
    This document makes no request of IANA.
 
-8.  References
 
 
 
 
-
-
-
-Thomson                 Expires January 22, 2020                [Page 7]
+Thomson                  Expires April 17, 2020                 [Page 7]
 
-Internet-Draft               QUIC Invariants                   July 2019
+Internet-Draft               QUIC Invariants                October 2019
 
+
+8.  References
 
 8.1.  Normative References
 
    [QUIC-TRANSPORT]
               Iyengar, J., Ed. and M. Thomson, Ed., "QUIC: A UDP-Based
               Multiplexed and Secure Transport", draft-ietf-quic-
-              transport (work in progress), July 2019.
+              transport (work in progress), October 2019.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -415,7 +417,7 @@ Internet-Draft               QUIC Invariants                   July 2019
    [QUIC-TLS]
               Thomson, M., Ed. and S. Turner, Ed., "Using Transport
               Layer Security (TLS) to Secure QUIC", draft-ietf-quic-tls
-              (work in progress), July 2019.
+              (work in progress), October 2019.
 
    [RFC5116]  McGrew, D., "An Interface and Algorithms for Authenticated
               Encryption", RFC 5116, DOI 10.17487/RFC5116, January 2008,
@@ -440,15 +442,16 @@ Appendix A.  Incorrect Assumptions
    are not even true for QUIC version 1.  This is not an exhaustive
    list, it is intended to be illustrative only.
 
+
+
+
+Thomson                  Expires April 17, 2020                 [Page 8]
+
+Internet-Draft               QUIC Invariants                October 2019
+
+
    The following statements are NOT guaranteed to be true for every QUIC
    version:
-
-
-
-Thomson                 Expires January 22, 2020                [Page 8]
-
-Internet-Draft               QUIC Invariants                   July 2019
-
 
    o  QUIC uses TLS [QUIC-TLS] and some TLS messages are visible on the
       wire
@@ -492,6 +495,17 @@ Internet-Draft               QUIC Invariants                   July 2019
 
 Author's Address
 
+
+
+
+
+
+
+Thomson                  Expires April 17, 2020                 [Page 9]
+
+Internet-Draft               QUIC Invariants                October 2019
+
+
    Martin Thomson
    Mozilla
 
@@ -501,4 +515,46 @@ Author's Address
 
 
 
-Thomson                 Expires January 22, 2020                [Page 9]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Thomson                  Expires April 17, 2020                [Page 10]
