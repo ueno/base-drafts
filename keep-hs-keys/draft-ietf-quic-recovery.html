@@ -375,12 +375,12 @@ ul.toc li {
 <link href="#rfc.authors" rel="Chapter">
 
 
-  <meta name="generator" content="xml2rfc version 2.22.2 - https://tools.ietf.org/tools/xml2rfc" />
+  <meta name="generator" content="xml2rfc version 2.33.0 - https://tools.ietf.org/tools/xml2rfc" />
   <link rel="schema.dct" href="http://purl.org/dc/terms/" />
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-09-17" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-10-17" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -404,12 +404,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: March 20, 2020</td>
+<td class="left">Expires: April 19, 2020</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">September 17, 2019</td>
+<td class="right">October 17, 2019</td>
 </tr>
 
     	
@@ -428,7 +428,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on March 20, 2020.</p>
+<p>This Internet-Draft will expire on April 19, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -778,15 +778,15 @@ rttvar = 3/4 * rttvar + 1/4 * rttvar_sample
 </h3>
 <p id="rfc.section.5.1.2.p.1">Once a later packet packet within the same packet number space has been acknowledged, an endpoint SHOULD declare an earlier packet lost if it was sent a threshold amount of time in the past. To avoid declaring packets as lost too early, this time threshold MUST be set to at least kGranularity.  The time threshold is:</p>
 <pre>
-kTimeThreshold * max(SRTT, latest_RTT, kGranularity)
+kTimeThreshold * max(smoothed_rtt, latest_rtt, kGranularity)
 </pre>
 <p id="rfc.section.5.1.2.p.2">If packets sent prior to the largest acknowledged packet cannot yet be declared lost, then a timer SHOULD be set for the remaining time.</p>
-<p id="rfc.section.5.1.2.p.3">Using max(SRTT, latest_RTT) protects from the two following cases:</p>
+<p id="rfc.section.5.1.2.p.3">Using max(smoothed_rtt, latest_rtt) protects from the two following cases:</p>
 <p></p>
 
 <ul>
-<li>the latest RTT sample is lower than the SRTT, perhaps due to reordering where the acknowledgement encountered a shorter path;</li>
-<li>the latest RTT sample is higher than the SRTT, perhaps due to a sustained increase in the actual RTT, but the smoothed SRTT has not yet caught up.</li>
+<li>the latest RTT sample is lower than the smoothed RTT, perhaps due to reordering where the acknowledgement encountered a shorter path;</li>
+<li>the latest RTT sample is higher than the smoothed RTT, perhaps due to a sustained increase in the actual RTT, but the smoothed RTT has not yet caught up.</li>
 </ul>
 <p id="rfc.section.5.1.2.p.5">The RECOMMENDED time threshold (kTimeThreshold), expressed as a round-trip time multiplier, is 9/8.</p>
 <p id="rfc.section.5.1.2.p.6">Implementations MAY experiment with absolute thresholds, thresholds from previous connections, adaptive thresholds, or including RTT variance.  Smaller thresholds reduce reordering resilience and increase spurious retransmissions, and larger thresholds increase loss detection delay.</p>
@@ -824,7 +824,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <p id="rfc.section.5.3.1.p.3">When there is no data to send, the sender SHOULD send a PING or other ack-eliciting frame in a single packet, re-arming the PTO timer.</p>
 <p id="rfc.section.5.3.1.p.4">Alternatively, instead of sending an ack-eliciting packet, the sender MAY mark any packets still in flight as lost.  Doing so avoids sending an additional packet, but increases the risk that loss is declared too aggressively, resulting in an unnecessary rate reduction by the congestion controller.</p>
 <p id="rfc.section.5.3.1.p.5">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drops, thus reducing the probability of consecutive PTO events.</p>
-<p id="rfc.section.5.3.1.p.6">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
+<p id="rfc.section.5.3.1.p.6">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternative strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
 <p id="rfc.section.5.3.1.p.7">When the PTO timer expires multiple times and new data cannot be sent, implementations must choose between sending the same payload every time or sending different payloads.  Sending the same payload may be simpler and ensures the highest priority frames arrive first.  Sending different payloads each time reduces the chances of spurious retransmission.</p>
 <h3 id="rfc.section.5.3.2">
 <a href="#rfc.section.5.3.2">5.3.2.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
@@ -890,7 +890,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 </pre>
 <p id="rfc.section.6.7.p.2">For example, assume:</p>
 <p id="rfc.section.6.7.p.3">smoothed_rtt = 1 rttvar = 0 max_ack_delay = 0 kPersistentCongestionThreshold = 3</p>
-<p id="rfc.section.6.7.p.4">If an eck-eliciting packet is sent at time = 0, the following scenario would illustrate persistent congestion:</p>
+<p id="rfc.section.6.7.p.4">If an ack-eliciting packet is sent at time = 0, the following scenario would illustrate persistent congestion:</p>
 <table cellpadding="3" cellspacing="0" class="tt full center">
 <thead><tr>
 <th class="left">t=0</th>
@@ -920,17 +920,17 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <h2 id="rfc.section.6.8">
 <a href="#rfc.section.6.8">6.8.</a> <a href="#pacing" id="pacing">Pacing</a>
 </h2>
-<p id="rfc.section.6.8.p.1">This document does not specify a pacer, but it is RECOMMENDED that a sender pace sending of all in-flight packets based on input from the congestion controller. For example, a pacer might distribute the congestion window over the SRTT when used with a window-based controller, and a pacer might use the rate estimate of a rate-based controller.</p>
+<p id="rfc.section.6.8.p.1">This document does not specify a pacer, but it is RECOMMENDED that a sender pace sending of all in-flight packets based on input from the congestion controller. For example, a pacer might distribute the congestion window over the smoothed RTT when used with a window-based controller, and a pacer might use the rate estimate of a rate-based controller.</p>
 <p id="rfc.section.6.8.p.2">An implementation should take care to architect its congestion controller to work well with a pacer.  For instance, a pacer might wrap the congestion controller and control the availability of the congestion window, or a pacer might pace out packets handed to it by the congestion controller. Timely delivery of ACK frames is important for efficient loss recovery. Packets containing only ACK frames should therefore not be paced, to avoid delaying their delivery to the peer.</p>
-<p id="rfc.section.6.8.p.3">As an example of a well-known and publicly available implementation of a flow pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc) in Linux (3.11 onwards).</p>
+<p id="rfc.section.6.8.p.3">Sending multiple packets into the network without any delay between them creates a packet burst that might cause short-term congestion and losses.  Implementations MUST either use pacing or limit such bursts to minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14720)), the same as the recommended initial congestion window.</p>
+<p id="rfc.section.6.8.p.4">As an example of a well-known and publicly available implementation of a flow pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc) in Linux (3.11 onwards).</p>
 <h2 id="rfc.section.6.9">
 <a href="#rfc.section.6.9">6.9.</a> <a href="#under-utilizing-the-congestion-window" id="under-utilizing-the-congestion-window">Under-utilizing the Congestion Window</a>
 </h2>
-<p id="rfc.section.6.9.p.1">A congestion window that is under-utilized SHOULD NOT be increased in either slow start or congestion avoidance. This can happen due to insufficient application data or flow control credit.</p>
+<p id="rfc.section.6.9.p.1">When bytes in flight is smaller than the congestion window and sending is not pacing limited, the congestion window is under-utilized.  When this occurs, the congestion window SHOULD NOT be increased in either slow start or congestion avoidance. This can happen due to insufficient application data or flow control credit.</p>
 <p id="rfc.section.6.9.p.2">A sender MAY use the pipeACK method described in section 4.3 of <a href="#RFC7661" class="xref">[RFC7661]</a> to determine if the congestion window is sufficiently utilized.</p>
 <p id="rfc.section.6.9.p.3">A sender that paces packets (see <a href="#pacing" class="xref">Section 6.8</a>) might delay sending packets and not fully utilize the congestion window due to this delay. A sender should not consider itself application limited if it would have fully utilized the congestion window without pacing delay.</p>
-<p id="rfc.section.6.9.p.4">Bursting more than an initial window&#8217;s worth of data into the network might cause short-term congestion and losses. Implemementations SHOULD either use pacing or reduce their congestion window to limit such bursts.</p>
-<p id="rfc.section.6.9.p.5">A sender MAY implement alternate mechanisms to update its congestion window after periods of under-utilization, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
+<p id="rfc.section.6.9.p.4">A sender MAY implement alternative mechanisms to update its congestion window after periods of under-utilization, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
 <h1 id="rfc.section.7">
 <a href="#rfc.section.7">7.</a> <a href="#security-considerations" id="security-considerations">Security Considerations</a>
 </h1>
@@ -961,12 +961,12 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <tr>
 <td class="reference"><b id="QUIC-TLS">[QUIC-TLS]</b></td>
 <td class="top">
-<a title="Mozilla">Thomson, M.</a> and <a title="sn3rd">S. Turner</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-tls">Using TLS to Secure QUIC</a>", Internet-Draft draft-ietf-quic-tls, September 2019.</td>
+<a title="Mozilla">Thomson, M.</a> and <a title="sn3rd">S. Turner</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-tls">Using TLS to Secure QUIC</a>", Internet-Draft draft-ietf-quic-tls, October 2019.</td>
 </tr>
 <tr>
 <td class="reference"><b id="QUIC-TRANSPORT">[QUIC-TRANSPORT]</b></td>
 <td class="top">
-<a title="Fastly">Iyengar, J.</a> and <a title="Mozilla">M. Thomson</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-transport">QUIC: A UDP-Based Multiplexed and Secure Transport</a>", Internet-Draft draft-ietf-quic-transport, September 2019.</td>
+<a title="Fastly">Iyengar, J.</a> and <a title="Mozilla">M. Thomson</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-transport">QUIC: A UDP-Based Multiplexed and Secure Transport</a>", Internet-Draft draft-ietf-quic-transport, October 2019.</td>
 </tr>
 <tr>
 <td class="reference"><b id="RFC2119">[RFC2119]</b></td>
@@ -1193,8 +1193,8 @@ OnAckReceived(ack, pn_space):
     largest_acked_packet[pn_space] =
         max(largest_acked_packet[pn_space], ack.largest_acked)
 
-  newly_acked_packets = DetermineNewlyAckedPackets(ack, pn_space)
   // Nothing to do if there are no newly acked packets.
+  newly_acked_packets = DetermineNewlyAckedPackets(ack, pn_space)
   if (newly_acked_packets.empty()):
     return
 
@@ -1217,8 +1217,9 @@ OnAckReceived(ack, pn_space):
     OnPacketAcked(acked_packet.packet_number, pn_space)
 
   DetectLostPackets(pn_space)
-  SendPacketsAsCongestionControllerAllows()
+
   pto_count = 0
+
   SetLossDetectionTimer()
 
 
