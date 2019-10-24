@@ -778,22 +778,22 @@ rttvar = 3/4 * rttvar + 1/4 * rttvar_sample
 </h3>
 <p id="rfc.section.5.1.2.p.1">Once a later packet packet within the same packet number space has been acknowledged, an endpoint SHOULD declare an earlier packet lost if it was sent a threshold amount of time in the past. To avoid declaring packets as lost too early, this time threshold MUST be set to at least kGranularity.  The time threshold is:</p>
 <pre>
-kTimeThreshold * max(SRTT, latest_RTT, kGranularity)
+kTimeThreshold * max(smoothed_rtt, latest_rtt, kGranularity)
 </pre>
 <p id="rfc.section.5.1.2.p.2">If packets sent prior to the largest acknowledged packet cannot yet be declared lost, then a timer SHOULD be set for the remaining time.</p>
-<p id="rfc.section.5.1.2.p.3">Using max(SRTT, latest_RTT) protects from the two following cases:</p>
+<p id="rfc.section.5.1.2.p.3">Using max(smoothed_rtt, latest_rtt) protects from the two following cases:</p>
 <p></p>
 
 <ul>
-<li>the latest RTT sample is lower than the SRTT, perhaps due to reordering where the acknowledgement encountered a shorter path;</li>
-<li>the latest RTT sample is higher than the SRTT, perhaps due to a sustained increase in the actual RTT, but the smoothed SRTT has not yet caught up.</li>
+<li>the latest RTT sample is lower than the smoothed RTT, perhaps due to reordering where the acknowledgement encountered a shorter path;</li>
+<li>the latest RTT sample is higher than the smoothed RTT, perhaps due to a sustained increase in the actual RTT, but the smoothed RTT has not yet caught up.</li>
 </ul>
 <p id="rfc.section.5.1.2.p.5">The RECOMMENDED time threshold (kTimeThreshold), expressed as a round-trip time multiplier, is 9/8.</p>
 <p id="rfc.section.5.1.2.p.6">Implementations MAY experiment with absolute thresholds, thresholds from previous connections, adaptive thresholds, or including RTT variance.  Smaller thresholds reduce reordering resilience and increase spurious retransmissions, and larger thresholds increase loss detection delay.</p>
 <h2 id="rfc.section.5.2">
 <a href="#rfc.section.5.2">5.2.</a> <a href="#pto" id="pto">Probe Timeout</a>
 </h2>
-<p id="rfc.section.5.2.p.1">A Probe Timeout (PTO) triggers sending one or two probe datagrams when ack-eliciting packets are not acknowledged within the expected period of time or the handshake has not been completed.  A PTO enables a connection to recover from loss of tail packets or acknowledgements. The PTO algorithm used in QUIC implements the reliability functions of Tail Loss Probe <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>, RTO <a href="#RFC5681" class="xref">[RFC5681]</a> and F-RTO algorithms for TCP <a href="#RFC5682" class="xref">[RFC5682]</a>, and the timeout computation is based on TCP&#8217;s retransmission timeout period <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
+<p id="rfc.section.5.2.p.1">A Probe Timeout (PTO) triggers sending one or two probe datagrams when ack-eliciting packets are not acknowledged within the expected period of time or the handshake has not been completed.  A PTO enables a connection to recover from loss of tail packets or acknowledgements. The PTO algorithm used in QUIC implements the reliability functions of Tail Loss Probe <a href="#RACK" class="xref">[RACK]</a>, RTO <a href="#RFC5681" class="xref">[RFC5681]</a> and F-RTO algorithms for TCP <a href="#RFC5682" class="xref">[RFC5682]</a>, and the timeout computation is based on TCP&#8217;s retransmission timeout period <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
 <h3 id="rfc.section.5.2.1">
 <a href="#rfc.section.5.2.1">5.2.1.</a> <a href="#computing-pto" id="computing-pto">Computing PTO</a>
 </h3>
@@ -824,7 +824,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <p id="rfc.section.5.3.1.p.3">When there is no data to send, the sender SHOULD send a PING or other ack-eliciting frame in a single packet, re-arming the PTO timer.</p>
 <p id="rfc.section.5.3.1.p.4">Alternatively, instead of sending an ack-eliciting packet, the sender MAY mark any packets still in flight as lost.  Doing so avoids sending an additional packet, but increases the risk that loss is declared too aggressively, resulting in an unnecessary rate reduction by the congestion controller.</p>
 <p id="rfc.section.5.3.1.p.5">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drops, thus reducing the probability of consecutive PTO events.</p>
-<p id="rfc.section.5.3.1.p.6">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
+<p id="rfc.section.5.3.1.p.6">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternative strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
 <p id="rfc.section.5.3.1.p.7">When the PTO timer expires multiple times and new data cannot be sent, implementations must choose between sending the same payload every time or sending different payloads.  Sending the same payload may be simpler and ensures the highest priority frames arrive first.  Sending different payloads each time reduces the chances of spurious retransmission.</p>
 <h3 id="rfc.section.5.3.2">
 <a href="#rfc.section.5.3.2">5.3.2.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
@@ -890,7 +890,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 </pre>
 <p id="rfc.section.6.7.p.2">For example, assume:</p>
 <p id="rfc.section.6.7.p.3">smoothed_rtt = 1 rttvar = 0 max_ack_delay = 0 kPersistentCongestionThreshold = 3</p>
-<p id="rfc.section.6.7.p.4">If an eck-eliciting packet is sent at time = 0, the following scenario would illustrate persistent congestion:</p>
+<p id="rfc.section.6.7.p.4">If an ack-eliciting packet is sent at time = 0, the following scenario would illustrate persistent congestion:</p>
 <table cellpadding="3" cellspacing="0" class="tt full center">
 <thead><tr>
 <th class="left">t=0</th>
@@ -916,21 +916,21 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 </tbody>
 </table>
 <p id="rfc.section.6.7.p.5">The first three packets are determined to be lost when the ACK of packet 4 is received at t=8.  The congestion period is calculated as the time between the oldest and newest lost packets: (3 - 0) = 3.  The duration for persistent congestion is equal to: (1 * kPersistentCongestionThreshold) = 3.  Because the threshold was reached and because none of the packets between the oldest and the newest packets are acknowledged, the network is considered to have experienced persistent congestion.</p>
-<p id="rfc.section.6.7.p.6">When persistent congestion is established, the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a> after Tail Loss Probes (TLP) <a href="#TLP" class="xref">[TLP]</a>.</p>
+<p id="rfc.section.6.7.p.6">When persistent congestion is established, the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a> after Tail Loss Probes (TLP) <a href="#RACK" class="xref">[RACK]</a>.</p>
 <h2 id="rfc.section.6.8">
 <a href="#rfc.section.6.8">6.8.</a> <a href="#pacing" id="pacing">Pacing</a>
 </h2>
-<p id="rfc.section.6.8.p.1">This document does not specify a pacer, but it is RECOMMENDED that a sender pace sending of all in-flight packets based on input from the congestion controller. For example, a pacer might distribute the congestion window over the SRTT when used with a window-based controller, and a pacer might use the rate estimate of a rate-based controller.</p>
+<p id="rfc.section.6.8.p.1">This document does not specify a pacer, but it is RECOMMENDED that a sender pace sending of all in-flight packets based on input from the congestion controller. For example, a pacer might distribute the congestion window over the smoothed RTT when used with a window-based controller, and a pacer might use the rate estimate of a rate-based controller.</p>
 <p id="rfc.section.6.8.p.2">An implementation should take care to architect its congestion controller to work well with a pacer.  For instance, a pacer might wrap the congestion controller and control the availability of the congestion window, or a pacer might pace out packets handed to it by the congestion controller. Timely delivery of ACK frames is important for efficient loss recovery. Packets containing only ACK frames should therefore not be paced, to avoid delaying their delivery to the peer.</p>
-<p id="rfc.section.6.8.p.3">As an example of a well-known and publicly available implementation of a flow pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc) in Linux (3.11 onwards).</p>
+<p id="rfc.section.6.8.p.3">Sending multiple packets into the network without any delay between them creates a packet burst that might cause short-term congestion and losses.  Implementations MUST either use pacing or limit such bursts to the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14720)), the same as the recommended initial congestion window.</p>
+<p id="rfc.section.6.8.p.4">As an example of a well-known and publicly available implementation of a flow pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc) in Linux (3.11 onwards).</p>
 <h2 id="rfc.section.6.9">
 <a href="#rfc.section.6.9">6.9.</a> <a href="#under-utilizing-the-congestion-window" id="under-utilizing-the-congestion-window">Under-utilizing the Congestion Window</a>
 </h2>
-<p id="rfc.section.6.9.p.1">A congestion window that is under-utilized SHOULD NOT be increased in either slow start or congestion avoidance. This can happen due to insufficient application data or flow control credit.</p>
+<p id="rfc.section.6.9.p.1">When bytes in flight is smaller than the congestion window and sending is not pacing limited, the congestion window is under-utilized.  When this occurs, the congestion window SHOULD NOT be increased in either slow start or congestion avoidance. This can happen due to insufficient application data or flow control credit.</p>
 <p id="rfc.section.6.9.p.2">A sender MAY use the pipeACK method described in section 4.3 of <a href="#RFC7661" class="xref">[RFC7661]</a> to determine if the congestion window is sufficiently utilized.</p>
 <p id="rfc.section.6.9.p.3">A sender that paces packets (see <a href="#pacing" class="xref">Section 6.8</a>) might delay sending packets and not fully utilize the congestion window due to this delay. A sender should not consider itself application limited if it would have fully utilized the congestion window without pacing delay.</p>
-<p id="rfc.section.6.9.p.4">Bursting more than an initial window&#8217;s worth of data into the network might cause short-term congestion and losses. Implemementations SHOULD either use pacing or reduce their congestion window to limit such bursts.</p>
-<p id="rfc.section.6.9.p.5">A sender MAY implement alternate mechanisms to update its congestion window after periods of under-utilization, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
+<p id="rfc.section.6.9.p.4">A sender MAY implement alternative mechanisms to update its congestion window after periods of under-utilization, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
 <h1 id="rfc.section.7">
 <a href="#rfc.section.7">7.</a> <a href="#security-considerations" id="security-considerations">Security Considerations</a>
 </h1>
@@ -1051,11 +1051,6 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <td class="reference"><b id="RFC8312">[RFC8312]</b></td>
 <td class="top">
 <a>Rhee, I.</a>, <a>Xu, L.</a>, <a>Ha, S.</a>, <a>Zimmermann, A.</a>, <a>Eggert, L.</a> and <a>R. Scheffenegger</a>, "<a href="https://tools.ietf.org/html/rfc8312">CUBIC for Fast Long-Distance Networks</a>", RFC 8312, DOI 10.17487/RFC8312, February 2018.</td>
-</tr>
-<tr>
-<td class="reference"><b id="TLP">[TLP]</b></td>
-<td class="top">
-<a>Dukkipati, N.</a>, <a>Cardwell, N.</a>, <a>Cheng, Y.</a> and <a>M. Mathis</a>, "<a href="https://tools.ietf.org/html/draft-dukkipati-tcpm-tcp-loss-probe-01">Tail Loss Probe (TLP): An Algorithm for Fast Recovery of Tail Losses</a>", Internet-Draft draft-dukkipati-tcpm-tcp-loss-probe-01, February 2013.</td>
 </tr>
 </tbody></table>
 <h1 id="rfc.appendix.A">
@@ -1398,7 +1393,7 @@ DetectLostPackets(pn_space):
 <dt>kLossReductionFactor:</dt>
 <dd style="margin-left: 8">Reduction in congestion window when a new loss event is detected.  The RECOMMENDED value is 0.5.</dd>
 <dt>kPersistentCongestionThreshold:</dt>
-<dd style="margin-left: 8">Period of time for persistent congestion to be established, specified as a PTO multiplier.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP) <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>, before establishing persistent congestion, as TCP does with a Retransmission Timeout (RTO) <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 3, which is approximately equivalent to having two TLPs before an RTO in TCP.</dd>
+<dd style="margin-left: 8">Period of time for persistent congestion to be established, specified as a PTO multiplier.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP) <a href="#RACK" class="xref">[RACK]</a>, before establishing persistent congestion, as TCP does with a Retransmission Timeout (RTO) <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 3, which is approximately equivalent to having two TLPs before an RTO in TCP.</dd>
 </dl>
 <h2 id="rfc.appendix.B.2">
 <a href="#rfc.appendix.B.2">B.2.</a> <a href="#vars-of-interest" id="vars-of-interest">Variables of interest</a>
