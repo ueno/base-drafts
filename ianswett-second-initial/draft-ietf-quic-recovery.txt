@@ -97,11 +97,11 @@ Table of Contents
      5.4.  Retry and Version Negotiation . . . . . . . . . . . . . .  14
      5.5.  Discarding Keys and Packet State  . . . . . . . . . . . .  15
      5.6.  Discussion  . . . . . . . . . . . . . . . . . . . . . . .  15
-   6.  Congestion Control  . . . . . . . . . . . . . . . . . . . . .  15
+   6.  Congestion Control  . . . . . . . . . . . . . . . . . . . . .  16
      6.1.  Explicit Congestion Notification  . . . . . . . . . . . .  16
      6.2.  Slow Start  . . . . . . . . . . . . . . . . . . . . . . .  16
      6.3.  Congestion Avoidance  . . . . . . . . . . . . . . . . . .  16
-     6.4.  Recovery Period . . . . . . . . . . . . . . . . . . . . .  16
+     6.4.  Recovery Period . . . . . . . . . . . . . . . . . . . . .  17
      6.5.  Ignoring Loss of Undecryptable Packets  . . . . . . . . .  17
      6.6.  Probe Timeout . . . . . . . . . . . . . . . . . . . . . .  17
      6.7.  Persistent Congestion . . . . . . . . . . . . . . . . . .  17
@@ -702,7 +702,10 @@ Internet-Draft             QUIC Loss Detection              October 2019
    backoff.
 
    Peers can also use coalesced packets to ensure each datagram elicits
-   at least one acknowledgement.
+   at least one acknowledgement.  For example, clients can coalesce an
+   Initial packet containing a PING and PADDING with 0-RTT data packets
+   and a server can coalesce an Initial packet containing a PING with
+   one or more packets in it's first flight.
 
 5.3.2.  Sending Probe Packets
 
@@ -720,15 +723,15 @@ Internet-Draft             QUIC Loss Detection              October 2019
    timer expiration now would find the sender with no new or previously-
    sent data to send.
 
-   When there is no data to send, the sender SHOULD send a PING or other
-   ack-eliciting frame in a single packet, re-arming the PTO timer.
-
 
 
 Iyengar & Swett          Expires April 26, 2020                [Page 13]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   When there is no data to send, the sender SHOULD send a PING or other
+   ack-eliciting frame in a single packet, re-arming the PTO timer.
 
    Alternatively, instead of sending an ack-eliciting packet, the sender
    MAY mark any packets still in flight as lost.  Doing so avoids
@@ -775,9 +778,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    Initial packet, effectively restarting the connection process and
    resetting congestion control and loss recovery state, including
    resetting any pending timers.  Either packet indicates that the
-   Initial was received but not processed.  Neither packet can be
-   treated as an acknowledgment for the Initial.
-
 
 
 
@@ -785,6 +785,9 @@ Iyengar & Swett          Expires April 26, 2020                [Page 14]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   Initial was received but not processed.  Neither packet can be
+   treated as an acknowledgment for the Initial.
 
    The client MAY however compute an RTT estimate to the server as the
    time period from when the first Initial was sent to when a Retry or a
@@ -828,12 +831,9 @@ Internet-Draft             QUIC Loss Detection              October 2019
    where less than packet per 25ms is delivered, acking every packet is
    beneficial to congestion control and loss recovery.
 
-6.  Congestion Control
 
-   QUIC's congestion control is based on TCP NewReno [RFC6582].  NewReno
-   is a congestion window based congestion control.  QUIC specifies the
-   congestion window in bytes rather than packets due to finer control
-   and the ease of appropriate byte counting [RFC3465].
+
+
 
 
 
@@ -841,6 +841,13 @@ Iyengar & Swett          Expires April 26, 2020                [Page 15]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+6.  Congestion Control
+
+   QUIC's congestion control is based on TCP NewReno [RFC6582].  NewReno
+   is a congestion window based congestion control.  QUIC specifies the
+   congestion window in bytes rather than packets due to finer control
+   and the ease of appropriate byte counting [RFC3465].
 
    QUIC hosts MUST NOT send packets if they would increase
    bytes_in_flight (defined in Appendix B.2) beyond the available
@@ -879,14 +886,7 @@ Internet-Draft             QUIC Loss Detection              October 2019
    NewReno halves the congestion window and sets the slow start
    threshold to the new congestion window.
 
-6.4.  Recovery Period
 
-   Recovery is a period of time beginning with detection of a lost
-   packet or an increase in the ECN-CE counter.  Because QUIC does not
-   retransmit packets, it defines the end of recovery as a packet sent
-   after the start of recovery being acknowledged.  This is slightly
-   different from TCP's definition of recovery, which ends when the lost
-   packet that started recovery is acknowledged.
 
 
 
@@ -897,6 +897,15 @@ Iyengar & Swett          Expires April 26, 2020                [Page 16]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+6.4.  Recovery Period
+
+   Recovery is a period of time beginning with detection of a lost
+   packet or an increase in the ECN-CE counter.  Because QUIC does not
+   retransmit packets, it defines the end of recovery as a packet sent
+   after the start of recovery being acknowledged.  This is slightly
+   different from TCP's definition of recovery, which ends when the lost
+   packet that started recovery is acknowledged.
 
    The recovery period limits congestion window reduction to once per
    round trip.  During recovery, the congestion window remains unchanged
@@ -937,15 +946,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
 
    For example, assume:
 
-   smoothed_rtt = 1 rttvar = 0 max_ack_delay = 0
-   kPersistentCongestionThreshold = 3
-
-   If an ack-eliciting packet is sent at time = 0, the following
-   scenario would illustrate persistent congestion:
-
-
-
-
 
 
 
@@ -953,6 +953,12 @@ Iyengar & Swett          Expires April 26, 2020                [Page 17]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   smoothed_rtt = 1 rttvar = 0 max_ack_delay = 0
+   kPersistentCongestionThreshold = 3
+
+   If an ack-eliciting packet is sent at time = 0, the following
+   scenario would illustrate persistent congestion:
 
                      +-----+------------------------+
                      | t=0 | Send Pkt #1 (App Data) |
@@ -996,12 +1002,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    wrap the congestion controller and control the availability of the
    congestion window, or a pacer might pace out packets handed to it by
    the congestion controller.  Timely delivery of ACK frames is
-   important for efficient loss recovery.  Packets containing only ACK
-   frames should therefore not be paced, to avoid delaying their
-   delivery to the peer.
-
-
-
 
 
 
@@ -1009,6 +1009,10 @@ Iyengar & Swett          Expires April 26, 2020                [Page 18]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   important for efficient loss recovery.  Packets containing only ACK
+   frames should therefore not be paced, to avoid delaying their
+   delivery to the peer.
 
    As an example of a well-known and publicly available implementation
    of a flow pacer, implementers are referred to the Fair Queue packet
@@ -1053,10 +1057,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    Packets that carry only ACK frames can be heuristically identified by
    observing packet size.  Acknowledgement patterns may expose
    information about link characteristics or application behavior.
-   Endpoints can use PADDING frames or bundle acknowledgments with other
-   frames to reduce leaked information.
-
-
 
 
 
@@ -1065,6 +1065,9 @@ Iyengar & Swett          Expires April 26, 2020                [Page 19]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   Endpoints can use PADDING frames or bundle acknowledgments with other
+   frames to reduce leaked information.
 
 7.3.  Misreporting ECN Markings
 
@@ -1111,9 +1114,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
               Requirement Levels", BCP 14, RFC 2119,
               DOI 10.17487/RFC2119, March 1997,
               <https://www.rfc-editor.org/info/rfc2119>.
-
-
-
 
 
 
