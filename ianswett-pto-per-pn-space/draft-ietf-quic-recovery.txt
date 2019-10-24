@@ -637,9 +637,7 @@ Internet-Draft             QUIC Loss Detection              October 2019
    A sender computes its PTO timer every time an ack-eliciting packet is
    sent.  When ack-eliciting packets are in-flight in multiple packet
    number spaces, the timer MUST be set for the packet number space with
-   the earliest timeout.  A sender might choose to optimize this by
-   setting the timer fewer times if it knows that more ack-eliciting
-   packets will be sent within a short period of time.
+   the earliest timeout.
 
    The probe timer is not set if the time threshold Section 5.1.2 loss
    detection timer is set.  The time threshold loss detection timer is
@@ -666,6 +664,8 @@ Internet-Draft             QUIC Loss Detection              October 2019
 
    Since the server could be blocked until more packets are received
    from the client, it is the client's responsibility to send packets to
+   unblock the server until it is certain that the server has finished
+   its address validation (see Section 8 of [QUIC-TRANSPORT]).  That is,
 
 
 
@@ -674,8 +674,6 @@ Iyengar & Swett          Expires April 26, 2020                [Page 12]
 Internet-Draft             QUIC Loss Detection              October 2019
 
 
-   unblock the server until it is certain that the server has finished
-   its address validation (see Section 8 of [QUIC-TRANSPORT]).  That is,
    the client MUST set the probe timer if the client has not received an
    acknowledgement for one of its Handshake or 1-RTT packets.
 
@@ -701,11 +699,10 @@ Internet-Draft             QUIC Loss Detection              October 2019
 
    In addition to sending data in the packet number space for which the
    timer expired, the sender SHOULD coalesce ack-eliciting packets from
-   all other packet number spaces with in-flight data if sending
-   coalesced packets is supported.  If implementations do not send
-   coalesced packets upon timeout when multiple packet number spaces
-   have in-flight data, then they MUST only send a single datagram per
-   probe timeout.
+   other packet number spaces with in-flight data if sending coalesced
+   packets is supported.  If an endpoint has data in multiple packet
+   number spaces in-flight and is unable to send coalesced packets when
+   a PTO expires, it MUST send only a single datagram.
 
    It is possible that the sender has no new or previously-sent data to
    send.  As an example, consider the following sequence of events: new
@@ -721,6 +718,9 @@ Internet-Draft             QUIC Loss Detection              October 2019
    Alternatively, instead of sending an ack-eliciting packet, the sender
    MAY mark any packets still in flight as lost.  Doing so avoids
    sending an additional packet, but increases the risk that loss is
+   declared too aggressively, resulting in an unnecessary rate reduction
+   by the congestion controller.
+
 
 
 
@@ -729,9 +729,6 @@ Iyengar & Swett          Expires April 26, 2020                [Page 13]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
-
-   declared too aggressively, resulting in an unnecessary rate reduction
-   by the congestion controller.
 
    Consecutive PTO periods increase exponentially, and as a result,
    connection recovery latency increases exponentially as packets
@@ -778,6 +775,9 @@ Internet-Draft             QUIC Loss Detection              October 2019
    The client MAY however compute an RTT estimate to the server as the
    time period from when the first Initial was sent to when a Retry or a
    Version Negotiation packet is received.  The client MAY use this
+   value to seed the RTT estimator for a subsequent connection attempt
+   to the server.
+
 
 
 
@@ -785,9 +785,6 @@ Iyengar & Swett          Expires April 26, 2020                [Page 14]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
-
-   value to seed the RTT estimator for a subsequent connection attempt
-   to the server.
 
 5.5.  Discarding Keys and Packet State
 
@@ -834,6 +831,9 @@ Internet-Draft             QUIC Loss Detection              October 2019
 
    QUIC hosts MUST NOT send packets if they would increase
    bytes_in_flight (defined in Appendix B.2) beyond the available
+   congestion window, unless the packet is a probe packet sent after a
+   PTO timer expires, as described in Section 5.2.
+
 
 
 
@@ -841,9 +841,6 @@ Iyengar & Swett          Expires April 26, 2020                [Page 15]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
-
-   congestion window, unless the packet is a probe packet sent after a
-   PTO timer expires, as described in Section 5.2.
 
    Implementations MAY use other congestion control algorithms, such as
    Cubic [RFC8312], and endpoints MAY use different algorithms from one
@@ -889,6 +886,9 @@ Internet-Draft             QUIC Loss Detection              October 2019
    The recovery period limits congestion window reduction to once per
    round trip.  During recovery, the congestion window remains unchanged
    irrespective of new losses or increases in the ECN-CE counter.
+
+
+
 
 
 
