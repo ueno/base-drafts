@@ -701,8 +701,11 @@ Internet-Draft             QUIC Loss Detection              October 2019
 
    In addition to sending data in the packet number space for which the
    timer expired, the sender SHOULD coalesce ack-eliciting packets from
-   all other packet number spaces with inflight data if sending
-   coalesced packets is supported.
+   all other packet number spaces with in-flight data if sending
+   coalesced packets is supported.  If implementations do not send
+   coalesced packets upon timeout when multiple packet number spaces
+   have in-flight data, then they MUST only send a single datagram per
+   probe timeout.
 
    It is possible that the sender has no new or previously-sent data to
    send.  As an example, consider the following sequence of events: new
@@ -718,9 +721,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    Alternatively, instead of sending an ack-eliciting packet, the sender
    MAY mark any packets still in flight as lost.  Doing so avoids
    sending an additional packet, but increases the risk that loss is
-   declared too aggressively, resulting in an unnecessary rate reduction
-   by the congestion controller.
-
 
 
 
@@ -729,6 +729,9 @@ Iyengar & Swett          Expires April 26, 2020                [Page 13]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   declared too aggressively, resulting in an unnecessary rate reduction
+   by the congestion controller.
 
    Consecutive PTO periods increase exponentially, and as a result,
    connection recovery latency increases exponentially as packets
@@ -775,9 +778,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    The client MAY however compute an RTT estimate to the server as the
    time period from when the first Initial was sent to when a Retry or a
    Version Negotiation packet is received.  The client MAY use this
-   value to seed the RTT estimator for a subsequent connection attempt
-   to the server.
-
 
 
 
@@ -785,6 +785,9 @@ Iyengar & Swett          Expires April 26, 2020                [Page 14]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   value to seed the RTT estimator for a subsequent connection attempt
+   to the server.
 
 5.5.  Discarding Keys and Packet State
 
@@ -831,9 +834,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
 
    QUIC hosts MUST NOT send packets if they would increase
    bytes_in_flight (defined in Appendix B.2) beyond the available
-   congestion window, unless the packet is a probe packet sent after a
-   PTO timer expires, as described in Section 5.2.
-
 
 
 
@@ -841,6 +841,9 @@ Iyengar & Swett          Expires April 26, 2020                [Page 15]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   congestion window, unless the packet is a probe packet sent after a
+   PTO timer expires, as described in Section 5.2.
 
    Implementations MAY use other congestion control algorithms, such as
    Cubic [RFC8312], and endpoints MAY use different algorithms from one
@@ -886,9 +889,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    The recovery period limits congestion window reduction to once per
    round trip.  During recovery, the congestion window remains unchanged
    irrespective of new losses or increases in the ECN-CE counter.
-
-
-
 
 
 
@@ -1498,14 +1498,14 @@ A.8.  Setting the Loss Detection Timer
 
    Pseudocode for SetLossDetectionTimer follows:
 
-   // Returns the earliest loss_time and the packet number
-   // space it's from.  Returns 0 if all times are 0.
-   GetEarliestLossTime():
-     return GetEarliestTimeAndSpace(loss_time)
 
-   // Returns the earliest time_of_last_sent_ack_eliciting_packet
-   // and the packet number space it's from.
-   GetEarliestAckElicitingTime():
+
+
+
+
+
+
+
 
 
 
@@ -1513,8 +1513,6 @@ Iyengar & Swett          Expires April 26, 2020                [Page 27]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
-
-     return GetEarliestTimeAndSpace(loss_time)
 
    GetEarliestTimeAndSpace(times):
      time = times[Initial]
@@ -1536,7 +1534,7 @@ Internet-Draft             QUIC Loss Detection              October 2019
             has received 1-RTT ACK
 
    SetLossDetectionTimer():
-     loss_time, _ = GetEarliestLossTime()
+     loss_time, _ = GetEarliestTimeAndSpace(loss_time)
      if (loss_time != 0):
        // Time threshold loss detection.
        loss_detection_timer.update(loss_time)
@@ -1556,8 +1554,10 @@ Internet-Draft             QUIC Loss Detection              October 2019
          max_ack_delay
      timeout = timeout * (2 ^ pto_count)
 
-     sent_time, _ = GetEarliestAckElicitingTime()
+     sent_time, _ = GetEarliestTimeAndSpace(
+       time_of_last_sent_ack_eliciting_packet)
      loss_detection_timer.update(sent_time + timeout)
+
 
 
 

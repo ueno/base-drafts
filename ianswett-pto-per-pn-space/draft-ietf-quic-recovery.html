@@ -821,7 +821,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <a href="#rfc.section.5.3.1">5.3.1.</a> <a href="#sending-probe-packets" id="sending-probe-packets">Sending Probe Packets</a>
 </h3>
 <p id="rfc.section.5.3.1.p.1">When a PTO timer expires, a sender MUST send at least one ack-eliciting packet in the packet number space as a probe, unless there is no data available to send.  An endpoint MAY send up to two full-sized datagrams containing ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single lost datagram.</p>
-<p id="rfc.section.5.3.1.p.2">In addition to sending data in the packet number space for which the timer expired, the sender SHOULD coalesce ack-eliciting packets from all other packet number spaces with inflight data if sending coalesced packets is supported.</p>
+<p id="rfc.section.5.3.1.p.2">In addition to sending data in the packet number space for which the timer expired, the sender SHOULD coalesce ack-eliciting packets from all other packet number spaces with in-flight data if sending coalesced packets is supported.  If implementations do not send coalesced packets upon timeout when multiple packet number spaces have in-flight data, then they MUST only send a single datagram per probe timeout.</p>
 <p id="rfc.section.5.3.1.p.3">It is possible that the sender has no new or previously-sent data to send.  As an example, consider the following sequence of events: new application data is sent in a STREAM frame, deemed lost, then retransmitted in a new packet, and then the original transmission is acknowledged.  In the absence of any new application data, a PTO timer expiration now would find the sender with no new or previously-sent data to send.</p>
 <p id="rfc.section.5.3.1.p.4">When there is no data to send, the sender SHOULD send a PING or other ack-eliciting frame in a single packet, re-arming the PTO timer.</p>
 <p id="rfc.section.5.3.1.p.5">Alternatively, instead of sending an ack-eliciting packet, the sender MAY mark any packets still in flight as lost.  Doing so avoids sending an additional packet, but increases the risk that loss is declared too aggressively, resulting in an unnecessary rate reduction by the congestion controller.</p>
@@ -1259,16 +1259,6 @@ UpdateRtt(ack_delay):
 <p id="rfc.section.A.8.p.2">This algorithm may result in the timer being set in the past, particularly if timers wake up late. Timers set in the past SHOULD fire immediately.</p>
 <p id="rfc.section.A.8.p.3">Pseudocode for SetLossDetectionTimer follows:</p>
 <pre>
-// Returns the earliest loss_time and the packet number
-// space it's from.  Returns 0 if all times are 0.
-GetEarliestLossTime():
-  return GetEarliestTimeAndSpace(loss_time)
-
-// Returns the earliest time_of_last_sent_ack_eliciting_packet
-// and the packet number space it's from.
-GetEarliestAckElicitingTime():
-  return GetEarliestTimeAndSpace(loss_time)
-
 GetEarliestTimeAndSpace(times):
   time = times[Initial]
   space = Initial
@@ -1289,7 +1279,7 @@ PeerNotAwaitingAddressValidation():
          has received 1-RTT ACK
 
 SetLossDetectionTimer():
-  loss_time, _ = GetEarliestLossTime()
+  loss_time, _ = GetEarliestTimeAndSpace(loss_time)
   if (loss_time != 0):
     // Time threshold loss detection.
     loss_detection_timer.update(loss_time)
@@ -1309,7 +1299,8 @@ SetLossDetectionTimer():
       max_ack_delay
   timeout = timeout * (2 ^ pto_count)
 
-  sent_time, _ = GetEarliestAckElicitingTime()
+  sent_time, _ = GetEarliestTimeAndSpace(
+    time_of_last_sent_ack_eliciting_packet)
   loss_detection_timer.update(sent_time + timeout)
 </pre>
 <h2 id="rfc.appendix.A.9">
