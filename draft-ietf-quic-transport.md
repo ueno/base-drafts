@@ -3240,6 +3240,8 @@ containing that information is acknowledged.
 * PING and PADDING frames contain no information, so lost PING or PADDING frames
   do not require repair.
 
+* The HANDSHAKE_DONE frame MUST be retransmitted until it is acknowledged.
+
 Endpoints SHOULD prioritize retransmission of data over sending new data, unless
 priorities specified by the application indicate otherwise (see
 {{stream-prioritization}}).
@@ -5500,8 +5502,6 @@ Reason Phrase:
 The server uses the HANDSHAKE_DONE frame (type=0x1e) to signal confirmation of
 the handshake to the client.  The HANDSHAKE_DONE frame contains no additional
 fields.
-
-This frame MUST be retransmitted until it is acknowledged by the client.
 
 
 ## Extension Frames
