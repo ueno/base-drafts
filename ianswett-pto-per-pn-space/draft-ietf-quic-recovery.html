@@ -380,7 +380,7 @@ ul.toc li {
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-10-24" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-10-25" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -404,12 +404,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: April 26, 2020</td>
+<td class="left">Expires: April 27, 2020</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">October 24, 2019</td>
+<td class="right">October 25, 2019</td>
 </tr>
 
     	
@@ -428,7 +428,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on April 26, 2020.</p>
+<p>This Internet-Draft will expire on April 27, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -1154,7 +1154,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
    for pn_space in [ Initial, Handshake, ApplicationData ]:
      largest_acked_packet[pn_space] = infinite
      time_of_last_sent_ack_eliciting_packet[pn_space] = 0
-     loss_time[pn_space] = 0
+     loss_times[pn_space] = 0
 </pre>
 <h2 id="rfc.appendix.A.5">
 <a href="#rfc.appendix.A.5">A.5.</a> <a href="#on-sending-a-packet" id="on-sending-a-packet">On Sending a Packet</a>
@@ -1279,7 +1279,7 @@ PeerNotAwaitingAddressValidation():
          has received 1-RTT ACK
 
 SetLossDetectionTimer():
-  loss_time, _ = GetEarliestTimeAndSpace(loss_time)
+  loss_time, _ = GetEarliestTimeAndSpace(loss_times)
   if (loss_time != 0):
     // Time threshold loss detection.
     loss_detection_timer.update(loss_time)
@@ -1310,7 +1310,7 @@ SetLossDetectionTimer():
 <p id="rfc.section.A.9.p.2">Pseudocode for OnLossDetectionTimeout follows:</p>
 <pre>
 OnLossDetectionTimeout():
-  loss_time, pn_space = GetEarliestLossTime()
+  loss_time, pn_space = GetEarliestTimeAndSpace(loss_times)
   if (loss_time != 0):
     // Time threshold loss Detection
     DetectLostPackets(pn_space)
@@ -1341,7 +1341,7 @@ OnLossDetectionTimeout():
 <pre>
 DetectLostPackets(pn_space):
   assert(largest_acked_packet[pn_space] != infinite)
-  loss_time[pn_space] = 0
+  loss_times[pn_space] = 0
   lost_packets = {}
   loss_delay = kTimeThreshold * max(latest_rtt, smoothed_rtt)
 
@@ -1363,10 +1363,10 @@ DetectLostPackets(pn_space):
       if (unacked.in_flight):
         lost_packets.insert(unacked)
     else:
-      if (loss_time[pn_space] == 0):
-        loss_time[pn_space] = unacked.time_sent + loss_delay
+      if (loss_times[pn_space] == 0):
+        loss_times[pn_space] = unacked.time_sent + loss_delay
       else:
-        loss_time[pn_space] = min(loss_time[pn_space],
+        loss_times[pn_space] = min(loss_times[pn_space],
                                   unacked.time_sent + loss_delay)
 
   // Inform the congestion controller of lost packets and
