@@ -375,12 +375,12 @@ ul.toc li {
 <link href="#rfc.authors" rel="Chapter">
 
 
-  <meta name="generator" content="xml2rfc version 2.33.0 - https://tools.ietf.org/tools/xml2rfc" />
+  <meta name="generator" content="xml2rfc version 2.34.0 - https://tools.ietf.org/tools/xml2rfc" />
   <link rel="schema.dct" href="http://purl.org/dc/terms/" />
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-10-25" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-10-28" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -404,12 +404,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: April 27, 2020</td>
+<td class="left">Expires: April 30, 2020</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">October 25, 2019</td>
+<td class="right">October 28, 2019</td>
 </tr>
 
     	
@@ -428,7 +428,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on April 27, 2020.</p>
+<p>This Internet-Draft will expire on April 30, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -806,7 +806,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <p id="rfc.section.5.2.1.p.3">The PTO period is the amount of time that a sender ought to wait for an acknowledgement of a sent packet.  This time period includes the estimated network roundtrip-time (smoothed_rtt), the variance in the estimate (4*rttvar), and max_ack_delay, to account for the maximum time by which a receiver might delay sending an acknowledgement.</p>
 <p id="rfc.section.5.2.1.p.4">The PTO value MUST be set to at least kGranularity, to avoid the timer expiring immediately.</p>
 <p id="rfc.section.5.2.1.p.5">When a PTO timer expires, the PTO period MUST be set to twice its current value. This exponential reduction in the sender&#8217;s rate is important because the PTOs might be caused by loss of packets or acknowledgements due to severe congestion.  The life of a connection that is experiencing consecutive PTOs is limited by the endpoint&#8217;s idle timeout.</p>
-<p id="rfc.section.5.2.1.p.6">A sender computes its PTO timer every time an ack-eliciting packet is sent.  When ack-eliciting packets are in-flight in multiple packet number spaces, the timer MUST be set for the packet number space with the earliest timeout.</p>
+<p id="rfc.section.5.2.1.p.6">A sender computes its PTO timer every time an ack-eliciting packet is sent.  When ack-eliciting packets are in-flight in multiple packet number spaces, the timer MUST be set for the packet number space with the earliest timeout.  Even when there are ack-eliciting packets in-flight in multiple packet number spaces, the exponential increase in probe timeout occurs across all spaces to prevent causing excess load on the network.</p>
 <p id="rfc.section.5.2.1.p.7">The probe timer is not set if the time threshold <a href="#time-threshold" class="xref">Section 5.1.2</a> loss detection timer is set.  The time threshold loss detection timer is expected to both expire earlier than the PTO and be less likely to spuriously retransmit data.</p>
 <h2 id="rfc.section.5.3">
 <a href="#rfc.section.5.3">5.3.</a> <a href="#handshakes-and-new-paths" id="handshakes-and-new-paths">Handshakes and New Paths</a>
@@ -821,7 +821,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <a href="#rfc.section.5.3.1">5.3.1.</a> <a href="#sending-probe-packets" id="sending-probe-packets">Sending Probe Packets</a>
 </h3>
 <p id="rfc.section.5.3.1.p.1">When a PTO timer expires, a sender MUST send at least one ack-eliciting packet in the packet number space as a probe, unless there is no data available to send.  An endpoint MAY send up to two full-sized datagrams containing ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single lost datagram.</p>
-<p id="rfc.section.5.3.1.p.2">In addition to sending data in the packet number space for which the timer expired, the sender SHOULD coalesce ack-eliciting packets from other packet number spaces with in-flight data if sending coalesced packets is supported.  If an endpoint has data in multiple packet number spaces in-flight and is unable to send coalesced packets when a PTO expires, it MUST send only a single datagram.</p>
+<p id="rfc.section.5.3.1.p.2">In addition to sending data in the packet number space for which the timer expired, the sender SHOULD send ack-eliciting packets from other packet number spaces with in-flight data, coalescing packets if possible.</p>
 <p id="rfc.section.5.3.1.p.3">It is possible that the sender has no new or previously-sent data to send.  As an example, consider the following sequence of events: new application data is sent in a STREAM frame, deemed lost, then retransmitted in a new packet, and then the original transmission is acknowledged.  In the absence of any new application data, a PTO timer expiration now would find the sender with no new or previously-sent data to send.</p>
 <p id="rfc.section.5.3.1.p.4">When there is no data to send, the sender SHOULD send a PING or other ack-eliciting frame in a single packet, re-arming the PTO timer.</p>
 <p id="rfc.section.5.3.1.p.5">Alternatively, instead of sending an ack-eliciting packet, the sender MAY mark any packets still in flight as lost.  Doing so avoids sending an additional packet, but increases the risk that loss is declared too aggressively, resulting in an unnecessary rate reduction by the congestion controller.</p>
@@ -1134,7 +1134,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <dd style="margin-left: 8">The time the most recent ack-eliciting packet was sent.</dd>
 <dt>largest_acked_packet[kPacketNumberSpace]:</dt>
 <dd style="margin-left: 8">The largest packet number acknowledged in the packet number space so far.</dd>
-<dt>loss_time[kPacketNumberSpace]:</dt>
+<dt>loss_times[kPacketNumberSpace]:</dt>
 <dd style="margin-left: 8">The time at which the next packet in that packet number space will be considered lost based on exceeding the reordering window in time.</dd>
 <dt>sent_packets[kPacketNumberSpace]:</dt>
 <dd style="margin-left: 8">An association of packet numbers in a packet number space to information about them.  Described in detail above in <a href="#tracking-sent-packets" class="xref">Appendix A.1</a>.</dd>
