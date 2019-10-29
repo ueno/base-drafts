@@ -93,11 +93,11 @@ Table of Contents
      5.3.  Handshakes and New Paths  . . . . . . . . . . . . . . . .  12
        5.3.1.  Sending Probe Packets . . . . . . . . . . . . . . . .  13
        5.3.2.  Loss Detection  . . . . . . . . . . . . . . . . . . .  14
-     5.4.  Retry and Version Negotiation . . . . . . . . . . . . . .  14
+     5.4.  Handling Retry Packets  . . . . . . . . . . . . . . . . .  14
      5.5.  Discarding Keys and Packet State  . . . . . . . . . . . .  14
    6.  Congestion Control  . . . . . . . . . . . . . . . . . . . . .  15
      6.1.  Explicit Congestion Notification  . . . . . . . . . . . .  15
-     6.2.  Slow Start  . . . . . . . . . . . . . . . . . . . . . . .  15
+     6.2.  Slow Start  . . . . . . . . . . . . . . . . . . . . . . .  16
      6.3.  Congestion Avoidance  . . . . . . . . . . . . . . . . . .  16
      6.4.  Recovery Period . . . . . . . . . . . . . . . . . . . . .  16
      6.5.  Ignoring Loss of Undecryptable Packets  . . . . . . . . .  16
@@ -755,28 +755,28 @@ Internet-Draft             QUIC Loss Detection              October 2019
    detection proceeds as dictated by packet and time threshold
    mechanisms; see Section 5.1.
 
-5.4.  Retry and Version Negotiation
+5.4.  Handling Retry Packets
 
-   A Retry or Version Negotiation packet causes a client to send another
-   Initial packet, effectively restarting the connection process and
-   resetting congestion control and loss recovery state, including
-   resetting any pending timers.  Either packet indicates that the
-   Initial was received but not processed.  Neither packet can be
-   treated as an acknowledgment for the Initial.
+   A Retry packet causes a client to send another Initial packet,
+   effectively restarting the connection process.  A Retry packet
+   indicates that the Initial was received, but not processed.  A Retry
+   packet MUST NOT be treated as an acknowledgment.
 
-   The client MAY however compute an RTT estimate to the server as the
-   time period from when the first Initial was sent to when a Retry or a
+   Clients that receive a Retry packet reset congestion control and loss
+   recovery state, including resetting any pending timers.  Other
+   connection state, in particular cryptographic handshake messages, is
+   retained; see Section 17.2.5 of [QUIC-TRANSPORT].
+
+   The client MAY compute an RTT estimate to the server as the time
+   period from when the first Initial was sent to when a Retry or a
    Version Negotiation packet is received.  The client MAY use this
-   value to seed the RTT estimator for a subsequent connection attempt
-   to the server.
+   value in place of its default for the initial RTT estimate.
 
 5.5.  Discarding Keys and Packet State
 
    When packet protection keys are discarded (see Section 4.9 of
    [QUIC-TLS]), all packets that were sent with those keys can no longer
    be acknowledged because their acknowledgements cannot be processed
-   anymore.  The sender MUST discard all recovery state associated with
-   those packets and MUST remove them from the count of bytes in flight.
 
 
 
@@ -785,6 +785,9 @@ Iyengar & Swett            Expires May 1, 2020                 [Page 14]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   anymore.  The sender MUST discard all recovery state associated with
+   those packets and MUST remove them from the count of bytes in flight.
 
    Endpoints stop sending and receiving Initial packets once they start
    exchanging Handshake packets (see Section 17.2.2.1 of
@@ -829,11 +832,8 @@ Internet-Draft             QUIC Loss Detection              October 2019
    [RFC8311], endpoints are permitted to experiment with other response
    functions.
 
-6.2.  Slow Start
 
-   QUIC begins every connection in slow start and exits slow start upon
-   loss or upon increase in the ECN-CE counter.  QUIC re-enters slow
-   start anytime the congestion window is less than ssthresh, which only
+
 
 
 
@@ -842,6 +842,11 @@ Iyengar & Swett            Expires May 1, 2020                 [Page 15]
 Internet-Draft             QUIC Loss Detection              October 2019
 
 
+6.2.  Slow Start
+
+   QUIC begins every connection in slow start and exits slow start upon
+   loss or upon increase in the ECN-CE counter.  QUIC re-enters slow
+   start anytime the congestion window is less than ssthresh, which only
    occurs after persistent congestion is declared.  While in slow start,
    QUIC increases the congestion window by the number of bytes
    acknowledged when each acknowledgment is processed.
@@ -885,11 +890,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    flight, since these packets add network load without establishing
    packet loss.  Note that sending probe packets might cause the
    sender's bytes in flight to exceed the congestion window until an
-   acknowledgement is received that establishes loss or delivery of
-   packets.
-
-
-
 
 
 
@@ -897,6 +897,9 @@ Iyengar & Swett            Expires May 1, 2020                 [Page 16]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   acknowledgement is received that establishes loss or delivery of
+   packets.
 
 6.7.  Persistent Congestion
 
@@ -943,9 +946,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    When persistent congestion is established, the sender's congestion
    window MUST be reduced to the minimum congestion window
    (kMinimumWindow).  This response of collapsing the congestion window
-   on persistent congestion is functionally similar to a sender's
-   response on a Retransmission Timeout (RTO) in TCP [RFC5681] after
-   Tail Loss Probes (TLP) [RACK].
 
 
 
@@ -953,6 +953,10 @@ Iyengar & Swett            Expires May 1, 2020                 [Page 17]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   on persistent congestion is functionally similar to a sender's
+   response on a Retransmission Timeout (RTO) in TCP [RFC5681] after
+   Tail Loss Probes (TLP) [RACK].
 
 6.8.  Pacing
 
@@ -997,10 +1001,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
 
    A sender that paces packets (see Section 6.8) might delay sending
    packets and not fully utilize the congestion window due to this
-   delay.  A sender should not consider itself application limited if it
-   would have fully utilized the congestion window without pacing delay.
-
-
 
 
 
@@ -1009,6 +1009,9 @@ Iyengar & Swett            Expires May 1, 2020                 [Page 18]
 
 Internet-Draft             QUIC Loss Detection              October 2019
 
+
+   delay.  A sender should not consider itself application limited if it
+   would have fully utilized the congestion window without pacing delay.
 
    A sender MAY implement alternative mechanisms to update its
    congestion window after periods of under-utilization, such as those
@@ -1054,9 +1057,6 @@ Internet-Draft             QUIC Loss Detection              October 2019
    equivalent to loss [RFC8311], the exact response for each controller
    could be different.  Failure to correctly respond to information
    about ECN markings is therefore difficult to detect.
-
-
-
 
 
 
