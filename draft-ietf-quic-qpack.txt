@@ -122,17 +122,17 @@ Internet-Draft                    QPACK                     October 2019
      4.5.  Header Block Representations  . . . . . . . . . . . . . .  19
        4.5.1.  Header Block Prefix . . . . . . . . . . . . . . . . .  19
        4.5.2.  Indexed Header Field  . . . . . . . . . . . . . . . .  22
-       4.5.3.  Indexed Header Field With Post-Base Index . . . . . .  23
+       4.5.3.  Indexed Header Field With Post-Base Index . . . . . .  22
        4.5.4.  Literal Header Field With Name Reference  . . . . . .  23
        4.5.5.  Literal Header Field With Post-Base Name Reference  .  24
        4.5.6.  Literal Header Field Without Name Reference . . . . .  24
    5.  Configuration . . . . . . . . . . . . . . . . . . . . . . . .  25
    6.  Error Handling  . . . . . . . . . . . . . . . . . . . . . . .  25
-   7.  Security Considerations . . . . . . . . . . . . . . . . . . .  25
+   7.  Security Considerations . . . . . . . . . . . . . . . . . . .  26
    8.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .  26
      8.1.  Settings Registration . . . . . . . . . . . . . . . . . .  26
      8.2.  Stream Type Registration  . . . . . . . . . . . . . . . .  26
-     8.3.  Error Code Registration . . . . . . . . . . . . . . . . .  26
+     8.3.  Error Code Registration . . . . . . . . . . . . . . . . .  27
    9.  References  . . . . . . . . . . . . . . . . . . . . . . . . .  27
      9.1.  Normative References  . . . . . . . . . . . . . . . . . .  27
      9.2.  Informative References  . . . . . . . . . . . . . . . . .  28
@@ -1203,9 +1203,9 @@ Internet-Draft                    QPACK                     October 2019
 
 4.5.2.  Indexed Header Field
 
-   An indexed header field representation identifies an entry in either
-   the static table or the dynamic table and causes that header field to
-   be added to the decoded header list.
+   An indexed header field representation identifies an entry in the
+   static table, or an entry in the dynamic table with an absolute index
+   less than the Base.
 
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
@@ -1214,18 +1214,18 @@ Internet-Draft                    QPACK                     October 2019
 
                            Indexed Header Field
 
-   If the entry is in the static table, or in the dynamic table with an
-   absolute index less than the Base, this representation starts with
-   the '1' 1-bit pattern, followed by the 'T' bit indicating whether the
-   reference is into the static or dynamic table.  The 6-bit prefix
-   integer (see Section 4.1.1) that follows is used to locate the table
-   entry for the header field.  When T=1, the number represents the
-   static table index; when T=0, the number is the relative index of the
-   entry in the dynamic table.
+   This representation starts with the '1' 1-bit pattern, followed by
+   the 'T' bit indicating whether the reference is into the static or
+   dynamic table.  The 6-bit prefix integer (see Section 4.1.1) that
+   follows is used to locate the table entry for the header field.  When
+   T=1, the number represents the static table index; when T=0, the
+   number is the relative index of the entry in the dynamic table.
 
+4.5.3.  Indexed Header Field With Post-Base Index
 
-
-
+   An indexed header field with post-base index representation
+   identifies an entry in the dynamic table with an absolute index
+   greater than or equal to the Base.
 
 
 
@@ -1234,14 +1234,6 @@ Krasic, et al.             Expires May 1, 2020                 [Page 22]
 Internet-Draft                    QPACK                     October 2019
 
 
-4.5.3.  Indexed Header Field With Post-Base Index
-
-   If the entry is in the dynamic table with an absolute index greater
-   than or equal to the Base, the representation starts with the '0001'
-   4-bit pattern, followed by the post-base index (see Section 3.2.6) of
-   the matching header field, represented as an integer with a 4-bit
-   prefix (see Section 4.1.1).
-
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
    | 0 | 0 | 0 | 1 |  Index (4+)   |
@@ -1249,25 +1241,17 @@ Internet-Draft                    QPACK                     October 2019
 
                  Indexed Header Field with Post-Base Index
 
+   This representation starts with the '0001' 4-bit pattern.  This is
+   followed by the post-base index (see Section 3.2.6) of the matching
+   header field, represented as an integer with a 4-bit prefix (see
+   Section 4.1.1).
+
 4.5.4.  Literal Header Field With Name Reference
 
-   A literal header field with name reference represents a header field
-   where the header field name matches the header field name of an entry
-   stored in the static table or the dynamic table.
-
-   If the entry is in the static table, or in the dynamic table with an
-   absolute index less than the Base, this representation starts with
-   the '01' two-bit pattern.
-
-   The following bit, 'N', indicates whether an intermediary is
-   permitted to add this header to the dynamic header table on
-   subsequent hops.  When the 'N' bit is set, the encoded header MUST
-   always be encoded with a literal representation.  In particular, when
-   a peer sends a header field that it received represented as a literal
-   header field with the 'N' bit set, it MUST use a literal
-   representation to forward this header field.  This bit is intended
-   for protecting header field values that are not to be put at risk by
-   compressing them (see Section 7 for more details).
+   A literal header field with name reference representation encodes a
+   header field where the header field name matches the header field
+   name of an entry in the static table, or the header field name of an
+   entry in the dynamic table with an absolute index less than the Base.
 
         0   1   2   3   4   5   6   7
       +---+---+---+---+---+---+---+---+
@@ -1280,8 +1264,24 @@ Internet-Draft                    QPACK                     October 2019
 
                  Literal Header Field With Name Reference
 
+   This representation starts with the '01' two-bit pattern.  The
+   following bit, 'N', indicates whether an intermediary is permitted to
+   add this header to the dynamic header table on subsequent hops.  When
+   the 'N' bit is set, the encoded header MUST always be encoded with a
+   literal representation.  In particular, when a peer sends a header
+   field that it received represented as a literal header field with the
+   'N' bit set, it MUST use a literal representation to forward this
+   header field.  This bit is intended for protecting header field
+   values that are not to be put at risk by compressing them (see
+   Section 7 for more details).
+
    The fourth ('T') bit indicates whether the reference is to the static
    or dynamic table.  The 4-bit prefix integer (see Section 4.1.1) that
+   follows is used to locate the table entry for the header name.  When
+   T=1, the number represents the static table index; when T=0, the
+   number is the relative index of the entry in the dynamic table.
+
+
 
 
 
@@ -1290,30 +1290,16 @@ Krasic, et al.             Expires May 1, 2020                 [Page 23]
 Internet-Draft                    QPACK                     October 2019
 
 
-   follows is used to locate the table entry for the header name.  When
-   T=1, the number represents the static table index; when T=0, the
-   number is the relative index of the entry in the dynamic table.
-
    Only the header field name is taken from the dynamic table entry; the
    header field value is encoded as an 8-bit prefix string literal (see
    Section 4.1.2).
 
 4.5.5.  Literal Header Field With Post-Base Name Reference
 
-   A literal header field with post-base name reference represents a
-   header field where the name matches the header field name of a
-   dynamic table entry with an absolute index greater than or equal to
-   the Base.
-
-   This representation starts with the '0000' four-bit pattern.  The
-   fifth bit is the 'N' bit as described in Section 4.5.4.  This is
-   followed by a post-base index of the dynamic table entry (see
-   Section 3.2.6) encoded as an integer with a 3-bit prefix (see
-   Section 4.1.1).
-
-   Only the header field name is taken from the dynamic table entry; the
-   header field value is encoded as an 8-bit prefix string literal (see
-   Section 4.1.2).
+   A literal header field with post-base name reference representation
+   encodes a header field where the header field name matches the header
+   field name of a dynamic table entry with an absolute index greater
+   than or equal to the Base.
 
         0   1   2   3   4   5   6   7
       +---+---+---+---+---+---+---+---+
@@ -1326,17 +1312,31 @@ Internet-Draft                    QPACK                     October 2019
 
             Literal Header Field With Post-Base Name Reference
 
+   This representation starts with the '0000' four-bit pattern.  The
+   fifth bit is the 'N' bit as described in Section 4.5.4.  This is
+   followed by a post-base index of the dynamic table entry (see
+   Section 3.2.6) encoded as an integer with a 3-bit prefix (see
+   Section 4.1.1).
+
+   Only the header field name is taken from the dynamic table entry; the
+   header field value is encoded as an 8-bit prefix string literal (see
+   Section 4.1.2).
+
 4.5.6.  Literal Header Field Without Name Reference
 
    The literal header field without name reference representation
-   encodes a header field name and header field value as string
+   encodes a header field name and a header field value as string
    literals.
 
-   This representation begins with the '001' three-bit pattern.  The
-   fourth bit is the 'N' bit as described in Section 4.5.4.  The name
-   follows, represented as a 4-bit prefix string literal, then the
-   value, represented as an 8-bit prefix string literal (see
-   Section 4.1.2).
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1358,6 +1358,12 @@ Internet-Draft                    QPACK                     October 2019
       +-------------------------------+
 
                 Literal Header Field Without Name Reference
+
+   This representation begins with the '001' three-bit pattern.  The
+   fourth bit is the 'N' bit as described in Section 4.5.4.  The name
+   follows, represented as a 4-bit prefix string literal, then the
+   value, represented as an 8-bit prefix string literal (see
+   Section 4.1.2).
 
 5.  Configuration
 
@@ -1386,14 +1392,8 @@ Internet-Draft                    QPACK                     October 2019
    HTTP_QPACK_DECODER_STREAM_ERROR (0x202):  The encoder failed to
       interpret a decoder instruction received on the decoder stream.
 
-7.  Security Considerations
 
-   TBD.  Also see Section 7.1 of [RFC7541].
 
-   While the negotiated limit on the dynamic table size accounts for
-   much of the memory that can be consumed by a QPACK implementation,
-   data which cannot be immediately sent due to flow control is not
-   affected by this limit.  Implementations should limit the size of
 
 
 
@@ -1402,6 +1402,14 @@ Krasic, et al.             Expires May 1, 2020                 [Page 25]
 Internet-Draft                    QPACK                     October 2019
 
 
+7.  Security Considerations
+
+   TBD.  Also see Section 7.1 of [RFC7541].
+
+   While the negotiated limit on the dynamic table size accounts for
+   much of the memory that can be consumed by a QPACK implementation,
+   data which cannot be immediately sent due to flow control is not
+   affected by this limit.  Implementations should limit the size of
    unsent data, especially on the decoder stream where flexibility to
    choose what to send is limited.  Possible responses to an excess of
    unsent data might include limiting the ability of the peer to open
@@ -1438,14 +1446,6 @@ Internet-Draft                    QPACK                     October 2019
          | QPACK Decoder Stream | 0x03 | Section 4.2   | Both   |
          +----------------------+------+---------------+--------+
 
-8.3.  Error Code Registration
-
-   This document specifies three error codes.  The entries in the
-   following table are registered in the "HTTP/3 Error Code" registry
-   established in [HTTP3].
-
-
-
 
 
 
@@ -1457,6 +1457,12 @@ Krasic, et al.             Expires May 1, 2020                 [Page 26]
 
 Internet-Draft                    QPACK                     October 2019
 
+
+8.3.  Error Code Registration
+
+   This document specifies three error codes.  The entries in the
+   following table are registered in the "HTTP/3 Error Code" registry
+   established in [HTTP3].
 
    +-----------------------------+-------+--------------+--------------+
    | Name                        | Code  | Description  | Specificatio |
@@ -1498,12 +1504,6 @@ Internet-Draft                    QPACK                     October 2019
               HTTP/2", RFC 7541, DOI 10.17487/RFC7541, May 2015,
               <https://www.rfc-editor.org/info/rfc7541>.
 
-   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
-              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
-              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
-
-
-
 
 
 
@@ -1513,6 +1513,10 @@ Krasic, et al.             Expires May 1, 2020                 [Page 27]
 
 Internet-Draft                    QPACK                     October 2019
 
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
 9.2.  Informative References
 
@@ -1558,10 +1562,6 @@ Appendix A.  Static Table
    | 8    | if-modified-since           |                              |
    |      |                             |                              |
    | 9    | if-none-match               |                              |
-   |      |                             |                              |
-   | 10   | last-modified               |                              |
-   |      |                             |                              |
-   | 11   | link                        |                              |
 
 
 
@@ -1570,6 +1570,10 @@ Krasic, et al.             Expires May 1, 2020                 [Page 28]
 Internet-Draft                    QPACK                     October 2019
 
 
+   |      |                             |                              |
+   | 10   | last-modified               |                              |
+   |      |                             |                              |
+   | 11   | link                        |                              |
    |      |                             |                              |
    | 12   | location                    |                              |
    |      |                             |                              |
@@ -1614,10 +1618,6 @@ Internet-Draft                    QPACK                     October 2019
    | 32   | accept-ranges               | bytes                        |
    |      |                             |                              |
    | 33   | access-control-allow-       | cache-control                |
-   |      | headers                     |                              |
-   |      |                             |                              |
-   | 34   | access-control-allow-       | content-type                 |
-   |      | headers                     |                              |
 
 
 
@@ -1626,6 +1626,10 @@ Krasic, et al.             Expires May 1, 2020                 [Page 29]
 Internet-Draft                    QPACK                     October 2019
 
 
+   |      | headers                     |                              |
+   |      |                             |                              |
+   | 34   | access-control-allow-       | content-type                 |
+   |      | headers                     |                              |
    |      |                             |                              |
    | 35   | access-control-allow-origin | *                            |
    |      |                             |                              |
@@ -1670,10 +1674,6 @@ Internet-Draft                    QPACK                     October 2019
    |      |                             |                              |
    | 55   | range                       | bytes=0-                     |
    |      |                             |                              |
-   | 56   | strict-transport-security   | max-age=31536000             |
-   |      |                             |                              |
-   | 57   | strict-transport-security   | max-age=31536000;            |
-   |      |                             | includesubdomains            |
 
 
 
@@ -1682,6 +1682,10 @@ Krasic, et al.             Expires May 1, 2020                 [Page 30]
 Internet-Draft                    QPACK                     October 2019
 
 
+   | 56   | strict-transport-security   | max-age=31536000             |
+   |      |                             |                              |
+   | 57   | strict-transport-security   | max-age=31536000;            |
+   |      |                             | includesubdomains            |
    |      |                             |                              |
    | 58   | strict-transport-security   | max-age=31536000;            |
    |      |                             | includesubdomains; preload   |
@@ -1726,10 +1730,6 @@ Internet-Draft                    QPACK                     October 2019
    | 76   | access-control-allow-       | get                          |
    |      | methods                     |                              |
    |      |                             |                              |
-   | 77   | access-control-allow-       | get, post, options           |
-   |      | methods                     |                              |
-   |      |                             |                              |
-   | 78   | access-control-allow-       | options                      |
 
 
 
@@ -1738,6 +1738,10 @@ Krasic, et al.             Expires May 1, 2020                 [Page 31]
 Internet-Draft                    QPACK                     October 2019
 
 
+   | 77   | access-control-allow-       | get, post, options           |
+   |      | methods                     |                              |
+   |      |                             |                              |
+   | 78   | access-control-allow-       | options                      |
    |      | methods                     |                              |
    |      |                             |                              |
    | 79   | access-control-expose-      | content-length               |
@@ -1782,10 +1786,6 @@ Internet-Draft                    QPACK                     October 2019
    | 96   | x-forwarded-for             |                              |
    |      |                             |                              |
    | 97   | x-frame-options             | deny                         |
-   |      |                             |                              |
-   | 98   | x-frame-options             | sameorigin                   |
-   +------+-----------------------------+------------------------------+
-
 
 
 
@@ -1794,14 +1794,14 @@ Krasic, et al.             Expires May 1, 2020                 [Page 32]
 Internet-Draft                    QPACK                     October 2019
 
 
+   |      |                             |                              |
+   | 98   | x-frame-options             | sameorigin                   |
+   +------+-----------------------------+------------------------------+
+
 Appendix B.  Sample One Pass Encoding Algorithm
 
    Pseudo-code for single pass encoding, excluding handling of
    duplicates, non-blocking mode, and reference tracking.
-
-
-
-
 
 
 
