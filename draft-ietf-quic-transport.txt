@@ -204,7 +204,7 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    19. Frame Types and Formats . . . . . . . . . . . . . . . . . . . 106
      19.1.  PADDING Frame  . . . . . . . . . . . . . . . . . . . . . 106
      19.2.  PING Frame . . . . . . . . . . . . . . . . . . . . . . . 106
-     19.3.  ACK Frames . . . . . . . . . . . . . . . . . . . . . . . 106
+     19.3.  ACK Frames . . . . . . . . . . . . . . . . . . . . . . . 107
        19.3.1.  ACK Ranges . . . . . . . . . . . . . . . . . . . . . 108
        19.3.2.  ECN Counts . . . . . . . . . . . . . . . . . . . . . 110
      19.4.  RESET_STREAM Frame . . . . . . . . . . . . . . . . . . . 111
@@ -5622,30 +5622,30 @@ Internet-Draft           QUIC Transport Protocol            October 2019
 
 18.  Transport Parameter Encoding
 
-   The format of the transport parameters is the TransportParameters
-   struct from Figure 15.  This is described using the presentation
-   language from Section 3 of [TLS13].
+   The "extension_data" field of the quic_transport_parameters extension
+   defined in [QUIC-TLS] contains the QUIC transport parameters.  They
+   are encoded as a length-prefixed sequence of transport parameters, as
+   shown in Figure 15:
 
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |      Sequence Length (16)     |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                  Transport Parameter 1 (*)                  ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                  Transport Parameter 2 (*)                  ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                  ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                  Transport Parameter N (*)                  ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
+                Figure 15: Sequence of Transport Parameters
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   The Sequence Length field contains the length of the sequence of
+   transport parameters, in bytes.  Each transport parameter is encoded
+   as an (identifier, length, value) tuple, as shown in Figure 16:
 
 
 
@@ -5658,38 +5658,18 @@ Iyengar & Thomson          Expires May 1, 2020                [Page 101]
 Internet-Draft           QUIC Transport Protocol            October 2019
 
 
-      enum {
-         original_connection_id(0),
-         idle_timeout(1),
-         stateless_reset_token(2),
-         max_packet_size(3),
-         initial_max_data(4),
-         initial_max_stream_data_bidi_local(5),
-         initial_max_stream_data_bidi_remote(6),
-         initial_max_stream_data_uni(7),
-         initial_max_streams_bidi(8),
-         initial_max_streams_uni(9),
-         ack_delay_exponent(10),
-         max_ack_delay(11),
-         disable_active_migration(12),
-         preferred_address(13),
-         active_connection_id_limit(14),
-         (65535)
-      } TransportParameterId;
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  Transport Parameter ID (16)  |  Transport Param Length (16)  |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                Transport Parameter Value (*)                ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-      struct {
-         TransportParameterId parameter;
-         opaque value<0..2^16-1>;
-      } TransportParameter;
+                  Figure 16: Transport Parameter Encoding
 
-      TransportParameter TransportParameters<0..2^16-1>;
-
-               Figure 15: Definition of TransportParameters
-
-   The "extension_data" field of the quic_transport_parameters extension
-   defined in [QUIC-TLS] contains a TransportParameters value.  TLS
-   encoding rules are therefore used to describe the encoding of
-   transport parameters.
+   The Transport Param Length field contains the length of the Transport
+   Parameter Value field.
 
    QUIC encodes transport parameters into a sequence of bytes, which are
    then included in the cryptographic handshake.
@@ -5705,14 +5685,6 @@ Internet-Draft           QUIC Transport Protocol            October 2019
 
    This section details the transport parameters defined in this
    document.
-
-
-
-
-Iyengar & Thomson          Expires May 1, 2020                [Page 102]
-
-Internet-Draft           QUIC Transport Protocol            October 2019
-
 
    Many transport parameters listed here have integer values.  Those
    transport parameters that are identified as integers use a variable-
@@ -5734,6 +5706,14 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    stateless_reset_token (0x0002):  A stateless reset token is used in
       verifying a stateless reset; see Section 10.4.  This parameter is
       a sequence of 16 bytes.  This transport parameter MUST NOT be sent
+
+
+
+Iyengar & Thomson          Expires May 1, 2020                [Page 102]
+
+Internet-Draft           QUIC Transport Protocol            October 2019
+
+
       by a client, but MAY be sent by a server.  A server that does not
       send this transport parameter cannot use stateless reset
       (Section 10.4) for the connection ID negotiated during the
@@ -5763,13 +5743,6 @@ Internet-Draft           QUIC Transport Protocol            October 2019
       this applies to streams with the least significant two bits set to
       0x1.
 
-
-
-Iyengar & Thomson          Expires May 1, 2020                [Page 103]
-
-Internet-Draft           QUIC Transport Protocol            October 2019
-
-
    initial_max_stream_data_bidi_remote (0x0006):  This parameter is an
       integer value specifying the initial flow control limit for peer-
       initiated bidirectional streams.  This limit applies to newly
@@ -5787,6 +5760,15 @@ Internet-Draft           QUIC Transport Protocol            October 2019
       streams with an identifier with the least significant two bits set
       to 0x3; in server transport parameters, this applies to streams
       with the least significant two bits set to 0x2.
+
+
+
+
+
+Iyengar & Thomson          Expires May 1, 2020                [Page 103]
+
+Internet-Draft           QUIC Transport Protocol            October 2019
+
 
    initial_max_streams_bidi (0x0008):  The initial maximum bidirectional
       streams parameter is an integer value that contains the initial
@@ -5819,13 +5801,6 @@ Internet-Draft           QUIC Transport Protocol            October 2019
       If this value is absent, a default of 25 milliseconds is assumed.
       Values of 2^14 or greater are invalid.
 
-
-
-Iyengar & Thomson          Expires May 1, 2020                [Page 104]
-
-Internet-Draft           QUIC Transport Protocol            October 2019
-
-
    disable_active_migration (0x000c):  The disable active migration
       transport parameter is included if the endpoint does not support
       active connection migration (Section 9).  Peers of an endpoint
@@ -5837,22 +5812,51 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    preferred_address (0x000d):  The server's preferred address is used
       to effect a change in server address at the end of the handshake,
       as described in Section 9.6.  The format of this transport
-      parameter is the PreferredAddress struct shown in Figure 16.  This
-      transport parameter is only sent by a server.  Servers MAY choose
-      to only send a preferred address of one address family by sending
-      an all-zero address and port (0.0.0.0:0 or ::.0) for the other
-      family.  IP addresses are encoded in network byte order.
+      parameter is shown in Figure 17.  This transport parameter is only
+      sent by a server.  Servers MAY choose to only send a preferred
+      address of one address family by sending an all-zero address and
+      port (0.0.0.0:0 or ::.0) for the other family.  IP addresses are
+      encoded in network byte order.  The CID Length field contains the
+      length of the Connection ID field.
 
-      struct {
-        opaque ipv4Address[4];
-        uint16 ipv4Port;
-        opaque ipv6Address[16];
-        uint16 ipv6Port;
-        opaque connectionId<0..20>;
-        opaque statelessResetToken[16];
-      } PreferredAddress;
 
-                    Figure 16: Preferred Address format
+
+Iyengar & Thomson          Expires May 1, 2020                [Page 104]
+
+Internet-Draft           QUIC Transport Protocol            October 2019
+
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       IPv4 Address (32)                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         IPv4 Port (16)        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                                                               +
+   |                                                               |
+   +                      IPv6 Address (128)                       +
+   |                                                               |
+   +                                                               +
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         IPv6 Port (16)        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | CID Length (8)|
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      Connection ID (*)                      ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                                                               +
+   |                                                               |
+   +                   Stateless Reset Token (128)                 +
+   |                                                               |
+   +                                                               +
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                    Figure 17: Preferred Address format
 
    active_connection_id_limit (0x000e):  The maximum number of
       connection IDs from the peer that an endpoint is willing to store.
@@ -5869,10 +5873,6 @@ Internet-Draft           QUIC Transport Protocol            October 2019
 
    A client MUST NOT include an original connection ID, a stateless
    reset token, or a preferred address.  A server MUST treat receipt of
-   any of these transport parameters as a connection error of type
-   TRANSPORT_PARAMETER_ERROR.
-
-
 
 
 
@@ -5881,6 +5881,9 @@ Iyengar & Thomson          Expires May 1, 2020                [Page 105]
 
 Internet-Draft           QUIC Transport Protocol            October 2019
 
+
+   any of these transport parameters as a connection error of type
+   TRANSPORT_PARAMETER_ERROR.
 
 19.  Frame Types and Formats
 
@@ -5924,12 +5927,9 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    15 to 30 seconds is necessary to prevent the majority of middleboxes
    from losing state for UDP flows.
 
-19.3.  ACK Frames
 
-   Receivers send ACK frames (types 0x02 and 0x03) to inform senders of
-   packets they have received and processed.  The ACK frame contains one
-   or more ACK Ranges.  ACK Ranges identify acknowledged packets.  If
-   the frame type is 0x03, ACK frames also contain the sum of QUIC
+
+
 
 
 
@@ -5938,6 +5938,12 @@ Iyengar & Thomson          Expires May 1, 2020                [Page 106]
 Internet-Draft           QUIC Transport Protocol            October 2019
 
 
+19.3.  ACK Frames
+
+   Receivers send ACK frames (types 0x02 and 0x03) to inform senders of
+   packets they have received and processed.  The ACK frame contains one
+   or more ACK Ranges.  ACK Ranges identify acknowledged packets.  If
+   the frame type is 0x03, ACK frames also contain the sum of QUIC
    packets with associated ECN marks received on the connection up until
    this point.  QUIC implementations MUST properly handle both types
    and, if they have enabled ECN for packets they send, they SHOULD use
@@ -5975,15 +5981,9 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    |                          [ECN Counts]                       ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-                        Figure 17: ACK Frame Format
+                        Figure 18: ACK Frame Format
 
    ACK frames contain the following fields:
-
-   Largest Acknowledged:  A variable-length integer representing the
-      largest packet number the peer is acknowledging; this is usually
-      the largest packet number that the peer has received prior to
-      generating the ACK frame.  Unlike the packet number in the QUIC
-      long or short header, the value in an ACK frame is not truncated.
 
 
 
@@ -5993,6 +5993,12 @@ Iyengar & Thomson          Expires May 1, 2020                [Page 107]
 
 Internet-Draft           QUIC Transport Protocol            October 2019
 
+
+   Largest Acknowledged:  A variable-length integer representing the
+      largest packet number the peer is acknowledging; this is usually
+      the largest packet number that the peer has received prior to
+      generating the ACK frame.  Unlike the packet number in the QUIC
+      long or short header, the value in an ACK frame is not truncated.
 
    ACK Delay:  A variable-length integer representing the time delta in
       microseconds between when this ACK was sent and when the largest
@@ -6039,12 +6045,6 @@ Internet-Draft           QUIC Transport Protocol            October 2019
 
 
 
-
-
-
-
-
-
 Iyengar & Thomson          Expires May 1, 2020                [Page 108]
 
 Internet-Draft           QUIC Transport Protocol            October 2019
@@ -6068,7 +6068,7 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    |                          [ACK Range (i)]                    ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-                           Figure 18: ACK Ranges
+                           Figure 19: ACK Ranges
 
    The fields that form the ACK Ranges are:
 
@@ -6284,7 +6284,7 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    |                        Crypto Data (*)                      ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-                      Figure 19: CRYPTO Frame Format
+                      Figure 20: CRYPTO Frame Format
 
    CRYPTO frames contain the following fields:
 
@@ -6398,7 +6398,7 @@ Internet-Draft           QUIC Transport Protocol            October 2019
    |                        Stream Data (*)                      ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-                      Figure 20: STREAM Frame Format
+                      Figure 21: STREAM Frame Format
 
    STREAM frames contain the following fields:
 

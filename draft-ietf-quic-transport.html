@@ -2772,39 +2772,40 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <h1 id="rfc.section.18">
 <a href="#rfc.section.18">18.</a> <a href="#transport-parameter-encoding" id="transport-parameter-encoding">Transport Parameter Encoding</a>
 </h1>
-<p id="rfc.section.18.p.1">The format of the transport parameters is the TransportParameters struct from <a href="#figure-transport-parameters" class="xref">Figure 15</a>.  This is described using the presentation language from Section 3 of <a href="#TLS13" class="xref">[TLS13]</a>.</p>
+<p id="rfc.section.18.p.1">The <samp>extension_data</samp> field of the quic_transport_parameters extension defined in <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a> contains the QUIC transport parameters. They are encoded as a length-prefixed sequence of transport parameters, as shown in <a href="#transport-parameter-sequence" class="xref">Figure 15</a>:</p>
 <div id="rfc.figure.15"></div>
-<div id="figure-transport-parameters"></div>
+<div id="transport-parameter-sequence"></div>
 <pre>
-   enum {
-      original_connection_id(0),
-      idle_timeout(1),
-      stateless_reset_token(2),
-      max_packet_size(3),
-      initial_max_data(4),
-      initial_max_stream_data_bidi_local(5),
-      initial_max_stream_data_bidi_remote(6),
-      initial_max_stream_data_uni(7),
-      initial_max_streams_bidi(8),
-      initial_max_streams_uni(9),
-      ack_delay_exponent(10),
-      max_ack_delay(11),
-      disable_active_migration(12),
-      preferred_address(13),
-      active_connection_id_limit(14),
-      (65535)
-   } TransportParameterId;
-
-   struct {
-      TransportParameterId parameter;
-      opaque value&lt;0..2^16-1&gt;;
-   } TransportParameter;
-
-   TransportParameter TransportParameters&lt;0..2^16-1&gt;;
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|      Sequence Length (16)     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                  Transport Parameter 1 (*)                  ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                  Transport Parameter 2 (*)                  ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                               ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                  Transport Parameter N (*)                  ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p class="figure">Figure 15: Definition of TransportParameters</p>
-<p id="rfc.section.18.p.2">The <samp>extension_data</samp> field of the quic_transport_parameters extension defined in <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a> contains a TransportParameters value.  TLS encoding rules are therefore used to describe the encoding of transport parameters.</p>
-<p id="rfc.section.18.p.3">QUIC encodes transport parameters into a sequence of bytes, which are then included in the cryptographic handshake.</p>
+<p class="figure">Figure 15: Sequence of Transport Parameters</p>
+<p id="rfc.section.18.p.2">The Sequence Length field contains the length of the sequence of transport parameters, in bytes. Each transport parameter is encoded as an (identifier, length, value) tuple, as shown in <a href="#transport-parameter-encoding-fig" class="xref">Figure 16</a>:</p>
+<div id="rfc.figure.16"></div>
+<div id="transport-parameter-encoding-fig"></div>
+<pre>
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Transport Parameter ID (16)  |  Transport Param Length (16)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                Transport Parameter Value (*)                ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+</pre>
+<p class="figure">Figure 16: Transport Parameter Encoding</p>
+<p id="rfc.section.18.p.3">The Transport Param Length field contains the length of the Transport Parameter Value field.</p>
+<p id="rfc.section.18.p.4">QUIC encodes transport parameters into a sequence of bytes, which are then included in the cryptographic handshake.</p>
 <h2 id="rfc.section.18.1">
 <a href="#rfc.section.18.1">18.1.</a> <a href="#transport-parameter-grease" id="transport-parameter-grease">Reserved Transport Parameters</a>
 </h2>
@@ -2845,21 +2846,42 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <dt>disable_active_migration (0x000c):</dt>
 <dd style="margin-left: 8">The disable active migration transport parameter is included if the endpoint does not support active connection migration (<a href="#migration" class="xref">Section 9</a>). Peers of an endpoint that sets this transport parameter MUST NOT send any packets, including probing packets (<a href="#probing" class="xref">Section 9.1</a>), from a local address or port other than that used to perform the handshake.  This parameter is a zero-length value.</dd>
 <dt>preferred_address (0x000d):</dt>
-<dd style="margin-left: 8">The server&#8217;s preferred address is used to effect a change in server address at the end of the handshake, as described in <a href="#preferred-address" class="xref">Section 9.6</a>.  The format of this transport parameter is the PreferredAddress struct shown in <a href="#fig-preferred-address" class="xref">Figure 16</a>.  This transport parameter is only sent by a server.  Servers MAY choose to only send a preferred address of one address family by sending an all-zero address and port (0.0.0.0:0 or ::.0) for the other family.  IP addresses are encoded in network byte order.</dd>
+<dd style="margin-left: 8">The server&#8217;s preferred address is used to effect a change in server address at the end of the handshake, as described in <a href="#preferred-address" class="xref">Section 9.6</a>.  The format of this transport parameter is shown in <a href="#fig-preferred-address" class="xref">Figure 17</a>.  This transport parameter is only sent by a server. Servers MAY choose to only send a preferred address of one address family by sending an all-zero address and port (0.0.0.0:0 or ::.0) for the other family. IP addresses are encoded in network byte order. The CID Length field contains the length of the Connection ID field.</dd>
 </dl>
-<div id="rfc.figure.16"></div>
+<div id="rfc.figure.17"></div>
 <div id="fig-preferred-address"></div>
 <pre>
-   struct {
-     opaque ipv4Address[4];
-     uint16 ipv4Port;
-     opaque ipv6Address[16];
-     uint16 ipv6Port;
-     opaque connectionId&lt;0..20&gt;;
-     opaque statelessResetToken[16];
-   } PreferredAddress;
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       IPv4 Address (32)                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|         IPv4 Port (16)        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                                                               +
+|                                                               |
++                      IPv6 Address (128)                       +
+|                                                               |
++                                                               +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|         IPv6 Port (16)        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| CID Length (8)|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      Connection ID (*)                      ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                                                               +
+|                                                               |
++                   Stateless Reset Token (128)                 +
+|                                                               |
++                                                               +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p class="figure">Figure 16: Preferred Address format</p>
+<p class="figure">Figure 17: Preferred Address format</p>
 <p></p>
 
 <dl>
@@ -2892,7 +2914,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 <p id="rfc.section.19.3.p.3">It is expected that a sender will reuse the same packet number across different packet number spaces.  ACK frames only acknowledge the packet numbers that were transmitted by the sender in the same packet number space of the packet that the ACK was received in.</p>
 <p id="rfc.section.19.3.p.4">Version Negotiation and Retry packets cannot be acknowledged because they do not contain a packet number.  Rather than relying on ACK frames, these packets are implicitly acknowledged by the next Initial packet sent by the client.</p>
 <p id="rfc.section.19.3.p.5">An ACK frame is as follows:</p>
-<div id="rfc.figure.17"></div>
+<div id="rfc.figure.18"></div>
 <div id="ack-format"></div>
 <pre>
  0                   1                   2                   3
@@ -2911,7 +2933,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 |                          [ECN Counts]                       ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p class="figure">Figure 17: ACK Frame Format</p>
+<p class="figure">Figure 18: ACK Frame Format</p>
 <p id="rfc.section.19.3.p.6">ACK frames contain the following fields:</p>
 <p></p>
 
@@ -2934,7 +2956,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 </h3>
 <p id="rfc.section.19.3.1.p.1">The ACK Ranges field consists of alternating Gap and ACK Range values in descending packet number order.  The number of Gap and ACK Range values is determined by the ACK Range Count field; one of each value is present for each value in the ACK Range Count field.</p>
 <p id="rfc.section.19.3.1.p.2">ACK Ranges are structured as follows:</p>
-<div id="rfc.figure.18"></div>
+<div id="rfc.figure.19"></div>
 <div id="ack-range-format"></div>
 <pre>
  0                   1                   2                   3
@@ -2955,7 +2977,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 |                          [ACK Range (i)]                    ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p class="figure">Figure 18: ACK Ranges</p>
+<p class="figure">Figure 19: ACK Ranges</p>
 <p id="rfc.section.19.3.1.p.3">The fields that form the ACK Ranges are:</p>
 <p></p>
 
@@ -3064,7 +3086,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 </h2>
 <p id="rfc.section.19.6.p.1">The CRYPTO frame (type=0x06) is used to transmit cryptographic handshake messages. It can be sent in all packet types except 0-RTT. The CRYPTO frame offers the cryptographic protocol an in-order stream of bytes.  CRYPTO frames are functionally identical to STREAM frames, except that they do not bear a stream identifier; they are not flow controlled; and they do not carry markers for optional offset, optional length, and the end of the stream.</p>
 <p id="rfc.section.19.6.p.2">The CRYPTO frame is as follows:</p>
-<div id="rfc.figure.19"></div>
+<div id="rfc.figure.20"></div>
 <div id="crypto-format"></div>
 <pre>
  0                   1                   2                   3
@@ -3077,7 +3099,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 |                        Crypto Data (*)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p class="figure">Figure 19: CRYPTO Frame Format</p>
+<p class="figure">Figure 20: CRYPTO Frame Format</p>
 <p id="rfc.section.19.6.p.3">CRYPTO frames contain the following fields:</p>
 <p></p>
 
@@ -3129,7 +3151,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 </ul>
 <p id="rfc.section.19.8.p.3">An endpoint that receives a STREAM frame for a send-only stream MUST terminate the connection with error STREAM_STATE_ERROR.</p>
 <p id="rfc.section.19.8.p.4">The STREAM frames are as follows:</p>
-<div id="rfc.figure.20"></div>
+<div id="rfc.figure.21"></div>
 <div id="stream-format"></div>
 <pre>
  0                   1                   2                   3
@@ -3144,7 +3166,7 @@ Initial+Token[1]: CRYPTO[CH] -&gt;
 |                        Stream Data (*)                      ...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 </pre>
-<p class="figure">Figure 20: STREAM Frame Format</p>
+<p class="figure">Figure 21: STREAM Frame Format</p>
 <p id="rfc.section.19.8.p.5">STREAM frames contain the following fields:</p>
 <p></p>
 
