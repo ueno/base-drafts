@@ -83,17 +83,17 @@ Table of Contents
        2.1.1.  Reference Tracking  . . . . . . . . . . . . . . . . .   5
        2.1.2.  Limits on Dynamic Table Insertions  . . . . . . . . .   6
        2.1.3.  Blocked Streams . . . . . . . . . . . . . . . . . . .   7
-       2.1.4.  Known Received Count  . . . . . . . . . . . . . . . .   7
+       2.1.4.  Known Received Count  . . . . . . . . . . . . . . . .   8
      2.2.  Decoder . . . . . . . . . . . . . . . . . . . . . . . . .   8
        2.2.1.  Blocked Decoding  . . . . . . . . . . . . . . . . . .   8
        2.2.2.  State Synchronization . . . . . . . . . . . . . . . .   9
        2.2.3.  Invalid References  . . . . . . . . . . . . . . . . .  10
    3.  Header Tables . . . . . . . . . . . . . . . . . . . . . . . .  10
      3.1.  Static Table  . . . . . . . . . . . . . . . . . . . . . .  10
-     3.2.  Dynamic Table . . . . . . . . . . . . . . . . . . . . . .  10
+     3.2.  Dynamic Table . . . . . . . . . . . . . . . . . . . . . .  11
        3.2.1.  Dynamic Table Size  . . . . . . . . . . . . . . . . .  11
        3.2.2.  Dynamic Table Capacity and Eviction . . . . . . . . .  11
-       3.2.3.  Maximum Dynamic Table Capacity  . . . . . . . . . . .  11
+       3.2.3.  Maximum Dynamic Table Capacity  . . . . . . . . . . .  12
        3.2.4.  Absolute Indexing . . . . . . . . . . . . . . . . . .  12
        3.2.5.  Relative Indexing . . . . . . . . . . . . . . . . . .  12
        3.2.6.  Post-Base Indexing  . . . . . . . . . . . . . . . . .  13
@@ -288,17 +288,21 @@ Internet-Draft                    QPACK                     October 2019
 
 2.1.2.  Limits on Dynamic Table Insertions
 
+   Inserting entries into the dynamic table might not be possible if the
+   table contains entries which cannot be evicted.
+
    A dynamic table entry cannot be evicted immediately after insertion,
    even if it has never been referenced.  Once the insertion of a
    dynamic table entry has been acknowledged and there are no
    outstanding unacknowledged references to the entry, the entry becomes
    evictable.
 
-   An encoder MUST NOT insert an entry into the dynamic table (or
-   duplicate an existing entry) unless all entries that would be evicted
-   are evictable.  In order to avoid this, an encoder that uses the
-   dynamic table has to keep track of whether each entry is currently
-   evictable or not.
+   If the dynamic table does not contain enough room for a new entry
+   without evicting other entries, and the entries which would be
+   evicted are not evictable, the encoder MUST NOT insert that entry
+   into the dynamic table (including duplicates of existing entries).
+   In order to avoid this, an encoder that uses the dynamic table has to
+   keep track of whether each entry is currently evictable or not.
 
 2.1.2.1.  Avoiding Prohibited Insertions
 
@@ -320,6 +324,20 @@ Internet-Draft                    QPACK                     October 2019
    index, the number of unacknowledged references to those entries will
    eventually become zero, allowing them to be evicted.
 
+
+
+
+
+
+
+
+
+
+Krasic, et al.             Expires May 2, 2020                  [Page 6]
+
+Internet-Draft                    QPACK                     October 2019
+
+
       +----------+---------------------------------+--------+
       | Draining |          Referenceable          | Unused |
       | Entries  |             Entries             | Space  |
@@ -330,13 +348,6 @@ Internet-Draft                    QPACK                     October 2019
      Point
 
                  Figure 1: Draining Dynamic Table Entries
-
-
-
-Krasic, et al.             Expires May 2, 2020                  [Page 6]
-
-Internet-Draft                    QPACK                     October 2019
-
 
 2.1.3.  Blocked Streams
 
@@ -375,6 +386,14 @@ Internet-Draft                    QPACK                     October 2019
    can avoid the risk of blocking by only referencing dynamic table
    entries which have been acknowledged, but this could mean using
    literals.  Since literals make the header block larger, this can
+
+
+
+Krasic, et al.             Expires May 2, 2020                  [Page 7]
+
+Internet-Draft                    QPACK                     October 2019
+
+
    result in the encoder becoming blocked on congestion or flow control
    limits.
 
@@ -386,13 +405,6 @@ Internet-Draft                    QPACK                     October 2019
    table entries can be referenced without potentially blocking a
    stream.  The decoder tracks the Known Received Count in order to be
    able to send Insert Count Increment instructions (see Section 4.4.3).
-
-
-
-Krasic, et al.             Expires May 2, 2020                  [Page 7]
-
-Internet-Draft                    QPACK                     October 2019
-
 
    If a header block was potentially blocking, the encoder infers from
    receiving a Header Acknowledgement instruction (Section 4.4.1) that
@@ -430,6 +442,14 @@ Internet-Draft                    QPACK                     October 2019
 
    While blocked, header block data SHOULD remain in the blocked
    stream's flow control window.  A stream becomes unblocked when the
+
+
+
+Krasic, et al.             Expires May 2, 2020                  [Page 8]
+
+Internet-Draft                    QPACK                     October 2019
+
+
    Insert Count becomes greater than or equal to the Required Insert
    Count for all header blocks the decoder has started reading from the
    stream.
@@ -441,14 +461,6 @@ Internet-Draft                    QPACK                     October 2019
    Section 2.2.3).  If it encounters a larger value than expected, it
    MAY treat this as a connection error of type
    HTTP_QPACK_DECOMPRESSION_FAILED.
-
-
-
-
-Krasic, et al.             Expires May 2, 2020                  [Page 8]
-
-Internet-Draft                    QPACK                     October 2019
-
 
 2.2.2.  State Synchronization
 
@@ -484,6 +496,16 @@ Internet-Draft                    QPACK                     October 2019
    Received Count has zero references, then it is considered evictable
    (see Section 2.1.2).
 
+
+
+
+
+
+Krasic, et al.             Expires May 2, 2020                  [Page 9]
+
+Internet-Draft                    QPACK                     October 2019
+
+
 2.2.2.3.  New Table Entries
 
    After receiving new table entries on the encoder stream, the decoder
@@ -497,14 +519,6 @@ Internet-Draft                    QPACK                     October 2019
    Section 4.4.1).  However, delaying too long may lead to compression
    inefficiencies if the encoder waits for an entry to be acknowledged
    before using it.
-
-
-
-
-Krasic, et al.             Expires May 2, 2020                  [Page 9]
-
-Internet-Draft                    QPACK                     October 2019
-
 
 2.2.3.  Invalid References
 
@@ -540,6 +554,14 @@ Internet-Draft                    QPACK                     October 2019
    When the decoder encounters an invalid static table index in a header
    block representation it MUST treat this as a connection error of type
    "HTTP_QPACK_DECOMPRESSION_FAILED".  If this index is received on the
+
+
+
+Krasic, et al.             Expires May 2, 2020                 [Page 10]
+
+Internet-Draft                    QPACK                     October 2019
+
+
    encoder stream, this MUST be treated as a connection error of type
    "HTTP_QPACK_ENCODER_STREAM_ERROR".
 
@@ -553,14 +575,6 @@ Internet-Draft                    QPACK                     October 2019
    The dynamic table can contain duplicate entries (i.e., entries with
    the same name and same value).  Therefore, duplicate entries MUST NOT
    be treated as an error by the decoder.
-
-
-
-
-Krasic, et al.             Expires May 2, 2020                 [Page 10]
-
-Internet-Draft                    QPACK                     October 2019
-
 
    Dynamic table entries can have empty values.
 
@@ -597,6 +611,13 @@ Internet-Draft                    QPACK                     October 2019
    or value if the referenced entry is evicted from the dynamic table
    prior to inserting the new entry.
 
+
+
+Krasic, et al.             Expires May 2, 2020                 [Page 11]
+
+Internet-Draft                    QPACK                     October 2019
+
+
    Whenever the dynamic table capacity is reduced by the encoder (see
    Section 4.3.1), entries are evicted from the end of the dynamic table
    until the size of the dynamic table is less than or equal to the new
@@ -610,14 +631,6 @@ Internet-Draft                    QPACK                     October 2019
    the maximum value the encoder is permitted to set for the dynamic
    table capacity.  In HTTP/3, this limit is determined by the value of
    SETTINGS_QPACK_MAX_TABLE_CAPACITY sent by the decoder (see
-
-
-
-Krasic, et al.             Expires May 2, 2020                 [Page 11]
-
-Internet-Draft                    QPACK                     October 2019
-
-
    Section 5).  The encoder MUST not set a dynamic table capacity that
    exceeds this maximum, but it can choose to use a lower dynamic table
    capacity (see Section 4.3.1).
@@ -653,19 +666,6 @@ Internet-Draft                    QPACK                     October 2019
    from the absolute index.  Determining which entry has a relative
    index of "0" depends on the context of the reference.
 
-   In encoder instructions (see Section 4.3), a relative index of "0"
-   refers to the most recently inserted value in the dynamic table.
-   Note that this means the entry referenced by a given relative index
-   will change while interpreting instructions on the encoder stream.
-
-
-
-
-
-
-
-
-
 
 
 
@@ -673,6 +673,11 @@ Krasic, et al.             Expires May 2, 2020                 [Page 12]
 
 Internet-Draft                    QPACK                     October 2019
 
+
+   In encoder instructions (see Section 4.3), a relative index of "0"
+   refers to the most recently inserted value in the dynamic table.
+   Note that this means the entry referenced by a given relative index
+   will change while interpreting instructions on the encoder stream.
 
          +-----+---------------+-------+
          | n-1 |      ...      |   d   |  Absolute Index
@@ -716,12 +721,7 @@ Internet-Draft                    QPACK                     October 2019
 
    Post-Base indices are used in header block instructions for entries
    with absolute indices greater than or equal to Base, starting at 0
-   for the entry with absolute index equal to Base, and increasing in
-   the same direction as the absolute index.
 
-   Post-Base indices allow an encoder to process a header block in a
-   single pass and include references to entries added while processing
-   this (or other) header blocks.
 
 
 
@@ -729,6 +729,13 @@ Krasic, et al.             Expires May 2, 2020                 [Page 13]
 
 Internet-Draft                    QPACK                     October 2019
 
+
+   for the entry with absolute index equal to Base, and increasing in
+   the same direction as the absolute index.
+
+   Post-Base indices allow an encoder to process a header block in a
+   single pass and include references to entries added while processing
+   this (or other) header blocks.
 
                   Base
                    |
@@ -771,13 +778,6 @@ Internet-Draft                    QPACK                     October 2019
    data.  When Huffman encoding is enabled, the Huffman table from
    Appendix B of [RFC7541] is used without modification.
 
-   This document expands the definition of string literals and permits
-   them to begin other than on a byte boundary.  An "N-bit prefix string
-   literal" begins with the same Huffman flag, followed by the length
-   encoded as an (N-1)-bit prefix integer.  The prefix size, N, can have
-   a value between 2 and 8 inclusive.  The remainder of the string
-   literal is unmodified.
-
 
 
 
@@ -785,6 +785,13 @@ Krasic, et al.             Expires May 2, 2020                 [Page 14]
 
 Internet-Draft                    QPACK                     October 2019
 
+
+   This document expands the definition of string literals and permits
+   them to begin other than on a byte boundary.  An "N-bit prefix string
+   literal" begins with the same Huffman flag, followed by the length
+   encoded as an (N-1)-bit prefix integer.  The prefix size, N, can have
+   a value between 2 and 8 inclusive.  The remainder of the string
+   literal is unmodified.
 
    A string literal without a prefix length noted is an 8-bit prefix
    string literal and follows the definitions in [RFC7541] without
@@ -827,13 +834,6 @@ Internet-Draft                    QPACK                     October 2019
    the capacity of the dynamic table and add dynamic table entries.
    Instructions adding table entries can use existing entries to avoid
    transmitting redundant information.  The name can be transmitted as a
-   reference to an existing entry in the static or the dynamic table or
-   as a string literal.  For entries which already exist in the dynamic
-   table, the full entry can also be used by reference, creating a
-   duplicate entry.
-
-   This section specifies the following encoder instructions.
-
 
 
 
@@ -841,6 +841,13 @@ Krasic, et al.             Expires May 2, 2020                 [Page 15]
 
 Internet-Draft                    QPACK                     October 2019
 
+
+   reference to an existing entry in the static or the dynamic table or
+   as a string literal.  For entries which already exist in the dynamic
+   table, the full entry can also be used by reference, creating a
+   duplicate entry.
+
+   This section specifies the following encoder instructions.
 
 4.3.1.  Set Dynamic Table Capacity
 
@@ -883,13 +890,6 @@ Internet-Draft                    QPACK                     October 2019
 
    The header name reference is followed by the header field value
    represented as a string literal (see Section 4.1.2).
-
-
-
-
-
-
-
 
 
 
