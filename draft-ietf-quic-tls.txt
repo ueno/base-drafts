@@ -792,12 +792,18 @@ Internet-Draft          Using TLS to Secure QUIC            October 2019
 
 4.3.  ClientHello Size
 
-   QUIC requires that the first Initial packet from a client contain an
-   entire cryptographic handshake message, which for TLS is the
-   ClientHello.  Though a packet larger than 1200 bytes might be
-   supported by the path, a client improves the likelihood that a packet
-   is accepted if it ensures that the first ClientHello message is small
-   enough to stay within this limit.
+   The first Initial packet from a client contains the start or all of
+   its first cryptographic handshake message, which for TLS is the
+   ClientHello.  Servers might need to parse the entire ClientHello
+   (e.g., to access extensions such as Server Name Identification (SNI)
+   or Application Layer Protocol Negotiation (ALPN)) in order to decide
+   whether to accept the new incoming QUIC connection.  If the
+   ClientHello spans multiple Initial packets, such servers would need
+   to buffer the first received fragments, which could consume excessive
+   resources if the client's address has not yet been validated.  To
+   avoid this, servers MAY use the Retry feature (see Section 8.1 of
+   [QUIC-TRANSPORT]) to only buffer partial ClientHello messages from
+   clients with a validated address.
 
    QUIC packet and framing add at least 36 bytes of overhead to the
    ClientHello message.  That overhead increases if the client chooses a
@@ -815,11 +821,9 @@ Internet-Draft          Using TLS to Secure QUIC            October 2019
 
    For servers, in addition to connection IDs and tokens, the size of
    TLS session tickets can have an effect on a client's ability to
-   connect.  Minimizing the size of these values increases the
-   probability that they can be successfully used by a client.
-
-   A client is not required to fit the ClientHello that it sends in
-   response to a HelloRetryRequest message into a single UDP datagram.
+   connect efficiently.  Minimizing the size of these values increases
+   the probability that clients can use them and still fit their
+   ClientHello message in their first Initial packet.
 
    The TLS implementation does not need to ensure that the ClientHello
    is sufficiently large.  QUIC PADDING frames are added to increase the
@@ -831,10 +835,6 @@ Internet-Draft          Using TLS to Secure QUIC            October 2019
    protocol that is in use.  TLS provides server authentication and
    permits the server to request client authentication.
 
-   A client MUST authenticate the identity of the server.  This
-   typically involves verification that the identity of the server is
-
-
 
 
 Thomson & Turner           Expires May 3, 2020                 [Page 15]
@@ -842,6 +842,8 @@ Thomson & Turner           Expires May 3, 2020                 [Page 15]
 Internet-Draft          Using TLS to Secure QUIC            October 2019
 
 
+   A client MUST authenticate the identity of the server.  This
+   typically involves verification that the identity of the server is
    included in a certificate and that the certificate is issued by a
    trusted entity (see for example [RFC2818]).
 
@@ -887,8 +889,6 @@ Internet-Draft          Using TLS to Secure QUIC            October 2019
    a TLS HelloRetryRequest.  When rejecting 0-RTT, a server MUST NOT
    process any 0-RTT packets, even if it could.  When 0-RTT was
    rejected, a client SHOULD treat receipt of an acknowledgement for a
-   0-RTT packet as a connection error of type PROTOCOL_VIOLATION, if it
-   is able to detect the condition.
 
 
 
@@ -897,6 +897,9 @@ Thomson & Turner           Expires May 3, 2020                 [Page 16]
 
 Internet-Draft          Using TLS to Secure QUIC            October 2019
 
+
+   0-RTT packet as a connection error of type PROTOCOL_VIOLATION, if it
+   is able to detect the condition.
 
    When 0-RTT is rejected, all connection characteristics that the
    client assumed might be incorrect.  This includes the choice of
@@ -942,9 +945,6 @@ Internet-Draft          Using TLS to Secure QUIC            October 2019
    implementations SHOULD instead use the Retry feature (see Section 8.1
    of [QUIC-TRANSPORT]).  HelloRetryRequest is still used to request key
    shares.
-
-
-
 
 
 
