@@ -226,7 +226,7 @@ Iyengar & Thomson          Expires May 7, 2020                  [Page 4]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
-     19.15. NEW_CONNECTION_ID Frame  . . . . . . . . . . . . . . . . 119
+     19.15. NEW_CONNECTION_ID Frame  . . . . . . . . . . . . . . . . 120
      19.16. RETIRE_CONNECTION_ID Frame . . . . . . . . . . . . . . . 121
      19.17. PATH_CHALLENGE Frame . . . . . . . . . . . . . . . . . . 122
      19.18. PATH_RESPONSE Frame  . . . . . . . . . . . . . . . . . . 123
@@ -240,12 +240,12 @@ Internet-Draft           QUIC Transport Protocol           November 2019
      21.3.  Optimistic ACK Attack  . . . . . . . . . . . . . . . . . 127
      21.4.  Slowloris Attacks  . . . . . . . . . . . . . . . . . . . 128
      21.5.  Stream Fragmentation and Reassembly Attacks  . . . . . . 128
-     21.6.  Stream Commitment Attack . . . . . . . . . . . . . . . . 128
+     21.6.  Stream Commitment Attack . . . . . . . . . . . . . . . . 129
      21.7.  Peer Denial of Service . . . . . . . . . . . . . . . . . 129
-     21.8.  Explicit Congestion Notification Attacks . . . . . . . . 129
+     21.8.  Explicit Congestion Notification Attacks . . . . . . . . 130
      21.9.  Stateless Reset Oracle . . . . . . . . . . . . . . . . . 130
      21.10. Version Downgrade  . . . . . . . . . . . . . . . . . . . 130
-     21.11. Targeted Attacks by Routing  . . . . . . . . . . . . . . 130
+     21.11. Targeted Attacks by Routing  . . . . . . . . . . . . . . 131
    22. IANA Considerations . . . . . . . . . . . . . . . . . . . . . 131
      22.1.  QUIC Transport Parameter Registry  . . . . . . . . . . . 131
      22.2.  QUIC Frame Type Registry . . . . . . . . . . . . . . . . 132
@@ -6119,8 +6119,7 @@ Internet-Draft           QUIC Transport Protocol           November 2019
       largest = previous_smallest - gap - 2
 
    If any computed packet number is negative, an endpoint MUST generate
-   a connection error of type FRAME_ENCODING_ERROR indicating an error
-   in an ACK frame.
+   a connection error of type FRAME_ENCODING_ERROR.
 
 19.3.2.  ECN Counts
 
@@ -6152,8 +6151,9 @@ Internet-Draft           QUIC Transport Protocol           November 2019
       number of packets received with the ECT(1) codepoint in the packet
       number space of the ACK frame.
 
-
-
+   CE Count:  A variable-length integer representing the total number of
+      packets received with the CE codepoint in the packet number space
+      of the ACK frame.
 
 
 
@@ -6161,10 +6161,6 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 110]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
-
-   CE Count:  A variable-length integer representing the total number of
-      packets received with the CE codepoint in the packet number space
-      of the ACK frame.
 
    ECN counts are maintained separately for each packet number space.
 
@@ -6211,6 +6207,10 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    incoming data is being discarded on receipt at application request.
    STOP_SENDING requests that a peer cease transmission on a stream.
 
+   A STOP_SENDING frame can be sent for streams in the Recv or Size
+   Known states (see Section 3.1).  Receiving a STOP_SENDING frame for a
+   locally-initiated stream that has not yet been created MUST be
+
 
 
 Iyengar & Thomson          Expires May 7, 2020                [Page 111]
@@ -6218,9 +6218,6 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 111]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
-   A STOP_SENDING frame can be sent for streams in the Recv or Size
-   Known states (see Section 3.1).  Receiving a STOP_SENDING frame for a
-   locally-initiated stream that has not yet been created MUST be
    treated as a connection error of type STREAM_STATE_ERROR.  An
    endpoint that receives a STOP_SENDING frame for a receive-only stream
    MUST terminate the connection with error STREAM_STATE_ERROR.
@@ -6256,24 +6253,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    The CRYPTO frame is as follows:
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-Iyengar & Thomson          Expires May 7, 2020                [Page 112]
-
-Internet-Draft           QUIC Transport Protocol           November 2019
-
-
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -6288,6 +6267,13 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    CRYPTO frames contain the following fields:
 
+
+
+Iyengar & Thomson          Expires May 7, 2020                [Page 112]
+
+Internet-Draft           QUIC Transport Protocol           November 2019
+
+
    Offset:  A variable-length integer specifying the byte offset in the
       stream for the data in this CRYPTO frame.
 
@@ -6300,6 +6286,11 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    encryption level, each of which starts at an offset of 0.  This
    implies that each encryption level is treated as a separate CRYPTO
    stream of data.
+
+   The largest offset delivered on a stream - the sum of the offset and
+   data length - cannot exceed 2^62-1.  Receipt of a frame that exceeds
+   this limit MUST be treated as a connection error of type
+   FRAME_ENCODING_ERROR.
 
    Unlike STREAM frames, which include a Stream ID indicating to which
    stream the data belongs, the CRYPTO frame carries data for a single
@@ -6322,14 +6313,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    |                            Token (*)                        ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-
-
-
-Iyengar & Thomson          Expires May 7, 2020                [Page 113]
-
-Internet-Draft           QUIC Transport Protocol           November 2019
-
-
    NEW_TOKEN frames contain the following fields:
 
    Token Length:  A variable-length integer specifying the length of the
@@ -6339,6 +6322,13 @@ Internet-Draft           QUIC Transport Protocol           November 2019
       packet.  The token MUST NOT be empty.  An endpoint MUST treat
       receipt of a NEW_TOKEN frame with an empty Token field as a
       connection error of type FRAME_ENCODING_ERROR.
+
+
+
+Iyengar & Thomson          Expires May 7, 2020                [Page 113]
+
+Internet-Draft           QUIC Transport Protocol           November 2019
+
 
    An endpoint might receive multiple NEW_TOKEN frames that contain the
    same token value.  Endpoints are responsible for discarding duplicate
@@ -6376,6 +6366,16 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    terminate the connection with error STREAM_STATE_ERROR.
 
    The STREAM frames are as follows:
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6424,7 +6424,8 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    delivered on a stream - the sum of the offset and data length -
    cannot exceed 2^62-1, as it is not possible to provide flow control
    credit for that data.  Receipt of a frame that exceeds this limit
-   will be treated as a connection error of type FLOW_CONTROL_ERROR.
+   MUST be treated as a connection error of type FRAME_ENCODING_ERROR or
+   FLOW_CONTROL_ERROR.
 
 19.9.  MAX_DATA Frame
 
@@ -6433,7 +6434,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    as a whole.
 
    The MAX_DATA frame is as follows:
-
 
 
 
@@ -6536,16 +6536,16 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    Maximum Streams:  A count of the cumulative number of streams of the
       corresponding type that can be opened over the lifetime of the
-      connection.
+      connection.  Stream IDs cannot exceed 2^62-1, as it is not
+      possible to encode stream IDs larger than this value.  Receipt of
+      a frame that permits opening of a stream larger than this limit
+      MUST be treated as a FRAME_ENCODING_ERROR.
 
    Loss or reordering can cause a MAX_STREAMS frame to be received which
    states a lower stream limit than an endpoint has previously received.
    MAX_STREAMS frames which do not increase the stream limit MUST be
    ignored.
 
-   An endpoint MUST NOT open more streams than permitted by the current
-   stream limit set by its peer.  For instance, a server that receives a
-   unidirectional stream limit of 3 is permitted to open stream 3, 7,
 
 
 
@@ -6554,6 +6554,9 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 117]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
+   An endpoint MUST NOT open more streams than permitted by the current
+   stream limit set by its peer.  For instance, a server that receives a
+   unidirectional stream limit of 3 is permitted to open stream 3, 7,
    and 11, but not stream 15.  An endpoint MUST terminate a connection
    with a STREAM_LIMIT_ERROR error if a peer opens more streams than was
    permitted.
@@ -6594,13 +6597,10 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    The STREAM_DATA_BLOCKED frame is as follows:
 
-    0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                        Stream ID (i)                        ...
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                    Stream Data Limit (i)                    ...
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+
 
 
 
@@ -6609,6 +6609,14 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 118]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                        Stream ID (i)                        ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                    Stream Data Limit (i)                    ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
    STREAM_DATA_BLOCKED frames contain the following fields:
 
@@ -6642,18 +6650,10 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    STREAMS_BLOCKED frames contain the following fields:
 
    Stream Limit:  A variable-length integer indicating the stream limit
-      at the time the frame was sent.
-
-19.15.  NEW_CONNECTION_ID Frame
-
-   An endpoint sends a NEW_CONNECTION_ID frame (type=0x18) to provide
-   its peer with alternative connection IDs that can be used to break
-   linkability when migrating connections (see Section 9.5).
-
-   The NEW_CONNECTION_ID frame is as follows:
-
-
-
+      at the time the frame was sent.  Stream IDs cannot exceed 2^62-1,
+      as it is not possible to encode stream IDs larger than this value.
+      Receipt of a frame that encodes a larger stream ID MUST be treated
+      as a STREAM_LIMIT_ERROR or a FRAME_ENCODING_ERROR.
 
 
 
@@ -6665,6 +6665,14 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 119]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+19.15.  NEW_CONNECTION_ID Frame
+
+   An endpoint sends a NEW_CONNECTION_ID frame (type=0x18) to provide
+   its peer with alternative connection IDs that can be used to break
+   linkability when migrating connections (see Section 9.5).
+
+   The NEW_CONNECTION_ID frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -6697,21 +6705,13 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Length:  An 8-bit unsigned integer containing the length of the
       connection ID.  Values less than 1 and greater than 20 are invalid
       and MUST be treated as a connection error of type
-      PROTOCOL_VIOLATION.
+      FRAME_ENCODING_ERROR.
 
    Connection ID:  A connection ID of the specified length.
 
    Stateless Reset Token:  A 128-bit value that will be used for a
       stateless reset when the associated connection ID is used (see
       Section 10.4).
-
-   An endpoint MUST NOT send this frame if it currently requires that
-   its peer send packets with a zero-length Destination Connection ID.
-   Changing the length of a connection ID to or from zero-length makes
-   it difficult to identify when the value of the connection ID changed.
-   An endpoint that is sending packets with a zero-length Destination
-   Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a
-   connection error of type PROTOCOL_VIOLATION.
 
 
 
@@ -6721,6 +6721,14 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 120]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   An endpoint MUST NOT send this frame if it currently requires that
+   its peer send packets with a zero-length Destination Connection ID.
+   Changing the length of a connection ID to or from zero-length makes
+   it difficult to identify when the value of the connection ID changed.
+   An endpoint that is sending packets with a zero-length Destination
+   Connection ID MUST treat receipt of a NEW_CONNECTION_ID frame as a
+   connection error of type PROTOCOL_VIOLATION.
 
    Transmission errors, timeouts and retransmissions might cause the
    same NEW_CONNECTION_ID frame to be received multiple times.  Receipt
@@ -6743,7 +6751,7 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    The Retire Prior To field MUST be less than or equal to the Sequence
    Number field.  Receiving a value greater than the Sequence Number
-   MUST be treated as a connection error of type PROTOCOL_VIOLATION.
+   MUST be treated as a connection error of type FRAME_ENCODING_ERROR.
 
    Once a sender indicates a Retire Prior To value, smaller values sent
    in subsequent NEW_CONNECTION_ID frames have no effect.  A receiver
@@ -6763,6 +6771,13 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Retiring a connection ID invalidates the stateless reset token
    associated with that connection ID.
 
+
+
+Iyengar & Thomson          Expires May 7, 2020                [Page 121]
+
+Internet-Draft           QUIC Transport Protocol           November 2019
+
+
    The RETIRE_CONNECTION_ID frame is as follows:
 
     0                   1                   2                   3
@@ -6770,13 +6785,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                      Sequence Number (i)                    ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-
-Iyengar & Thomson          Expires May 7, 2020                [Page 121]
-
-Internet-Draft           QUIC Transport Protocol           November 2019
-
 
    RETIRE_CONNECTION_ID frames contain the following fields:
 
@@ -6790,7 +6798,7 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    The sequence number specified in a RETIRE_CONNECTION_ID frame MUST
    NOT refer to the Destination Connection ID field of the packet in
    which the frame is contained.  The peer MAY treat this as a
-   connection error of type PROTOCOL_VIOLATION.
+   connection error of type FRAME_ENCODING_ERROR.
 
    An endpoint cannot send this frame if it was provided with a zero-
    length connection ID by its peer.  An endpoint that provides a zero-
@@ -6817,14 +6825,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    Data:  This 8-byte field contains arbitrary data.
 
-   A PATH_CHALLENGE frame containing 8 bytes that are hard to guess is
-   sufficient to ensure that it is easier to receive the packet than it
-   is to guess the value correctly.
-
-   The recipient of this frame MUST generate a PATH_RESPONSE frame
-   (Section 19.18) containing the same Data.
-
-
 
 
 
@@ -6833,6 +6833,13 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 122]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   A PATH_CHALLENGE frame containing 8 bytes that are hard to guess is
+   sufficient to ensure that it is easier to receive the packet than it
+   is to guess the value correctly.
+
+   The recipient of this frame MUST generate a PATH_RESPONSE frame
+   (Section 19.18) containing the same Data.
 
 19.18.  PATH_RESPONSE Frame
 
@@ -6875,13 +6882,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Error Code:  A variable length integer error code which indicates the
       reason for closing this connection.  A CONNECTION_CLOSE frame of
       type 0x1c uses codes from the space defined in Section 20.  A
-      CONNECTION_CLOSE frame of type 0x1d uses codes from the
-      application protocol error code space; see Section 20.1
-
-   Frame Type:  A variable-length integer encoding the type of frame
-      that triggered the error.  A value of 0 (equivalent to the mention
-      of the PADDING frame) is used when the frame type is unknown.  The
-
 
 
 
@@ -6890,6 +6890,12 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 123]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
+      CONNECTION_CLOSE frame of type 0x1d uses codes from the
+      application protocol error code space; see Section 20.1
+
+   Frame Type:  A variable-length integer encoding the type of frame
+      that triggered the error.  A value of 0 (equivalent to the mention
+      of the PADDING frame) is used when the frame type is unknown.  The
       application-specific variant of CONNECTION_CLOSE (type 0x1d) does
       not include this field.
 
@@ -6933,18 +6939,16 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    used in a CONNECTION_CLOSE frame.  These errors apply to the entire
    connection.
 
-   NO_ERROR (0x0):  An endpoint uses this with CONNECTION_CLOSE to
-      signal that the connection is being closed abruptly in the absence
-      of any error.
-
-
-
 
 
 Iyengar & Thomson          Expires May 7, 2020                [Page 124]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   NO_ERROR (0x0):  An endpoint uses this with CONNECTION_CLOSE to
+      signal that the connection is being closed abruptly in the absence
+      of any error.
 
    INTERNAL_ERROR (0x1):  The endpoint encountered an internal error and
       cannot continue with the connection.
@@ -6990,10 +6994,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    CRYPTO_ERROR (0x1XX):  The cryptographic handshake failed.  A range
       of 256 values is reserved for carrying error codes specific to the
       cryptographic handshake that is used.  Codes for errors occurring
-      when TLS is used for the crypto handshake are described in
-      Section 4.8 of [QUIC-TLS].
-
-   See Section 22.3 for details of registering new error codes.
 
 
 
@@ -7001,6 +7001,11 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 125]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+      when TLS is used for the crypto handshake are described in
+      Section 4.8 of [QUIC-TLS].
+
+   See Section 22.3 for details of registering new error codes.
 
    In defining these error codes, several principles are applied.  Error
    conditions that might require specific action on the part of a
@@ -7044,12 +7049,7 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    IDs, which are required to match those set by a peer.  Except for an
    Initial and stateless reset packets, an endpoint only accepts packets
    that include a destination connection that matches a connection ID
-   the endpoint previously chose.  This is the only protection offered
-   for Version Negotiation packets.
 
-   The destination connection ID in an Initial packet is selected by a
-   client to be unpredictable, which serves an additional purpose.  The
-   packets that carry the cryptographic handshake are protected with a
 
 
 
@@ -7058,6 +7058,12 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 126]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
+   the endpoint previously chose.  This is the only protection offered
+   for Version Negotiation packets.
+
+   The destination connection ID in an Initial packet is selected by a
+   client to be unpredictable, which serves an additional purpose.  The
+   packets that carry the cryptographic handshake are protected with a
    key that is derived from this connection ID and salt specific to the
    QUIC version.  This allows endpoints to use the same process for
    authenticating packets that they receive as they use after the
@@ -7099,12 +7105,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    a congestion controller to permit sending at rates beyond what the
    network supports.  An endpoint MAY skip packet numbers when sending
    packets to detect this behavior.  An endpoint can then immediately
-   close the connection with a connection error of type
-   PROTOCOL_VIOLATION (see Section 10.3).
-
-
-
-
 
 
 
@@ -7113,6 +7113,9 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 127]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   close the connection with a connection error of type
+   PROTOCOL_VIOLATION (see Section 10.3).
 
 21.4.  Slowloris Attacks
 
@@ -7155,12 +7158,9 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    delaying reassembly of STREAM frames, implementing heuristics based
    on the age and duration of reassembly holes, or some combination.
 
-21.6.  Stream Commitment Attack
 
-   An adversarial endpoint can open lots of streams, exhausting state on
-   an endpoint.  The adversarial endpoint could repeat the process on a
-   large number of connections, in a manner similar to SYN flooding
-   attacks in TCP.
+
+
 
 
 
@@ -7169,6 +7169,13 @@ Iyengar & Thomson          Expires May 7, 2020                [Page 128]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+21.6.  Stream Commitment Attack
+
+   An adversarial endpoint can open lots of streams, exhausting state on
+   an endpoint.  The adversarial endpoint could repeat the process on a
+   large number of connections, in a manner similar to SYN flooding
+   attacks in TCP.
 
    Normally, clients will open streams sequentially, as explained in
    Section 2.1.  However, when several streams are initiated at short
@@ -7207,6 +7214,18 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    an attack.  Endpoints MAY respond to this condition with a connection
    error, or by dropping packets.
 
+
+
+
+
+
+
+
+Iyengar & Thomson          Expires May 7, 2020                [Page 129]
+
+Internet-Draft           QUIC Transport Protocol           November 2019
+
+
 21.8.  Explicit Congestion Notification Attacks
 
    An on-path attacker could manipulate the value of ECN codepoints in
@@ -7218,14 +7237,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    discarded by a receiver, an off-path attacker will need to race the
    duplicate packet against the original to be successful in this
    attack.  Therefore, QUIC endpoints ignore the ECN codepoint field on
-
-
-
-Iyengar & Thomson          Expires May 7, 2020                [Page 129]
-
-Internet-Draft           QUIC Transport Protocol           November 2019
-
-
    an IP packet unless at least one QUIC packet in that IP packet is
    successfully processed; see Section 13.4.
 
@@ -7263,6 +7274,14 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    endpoints.  However, this document does not specify how this
    negotiation will be performed between this version and subsequent
    future versions.  In particular, Version Negotiation packets do not
+
+
+
+Iyengar & Thomson          Expires May 7, 2020                [Page 130]
+
+Internet-Draft           QUIC Transport Protocol           November 2019
+
+
    contain any mechanism to prevent version downgrade attacks.  Future
    versions of QUIC that use Version Negotiation packets MUST define a
    mechanism that is robust against version downgrade attacks.
@@ -7274,14 +7293,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    controlled fields, such as the initial Destination Connection ID used
    on Initial and 0-RTT packets SHOULD NOT be used by themselves to make
    routing decisions.  Ideally, routing decisions are made independently
-
-
-
-Iyengar & Thomson          Expires May 7, 2020                [Page 130]
-
-Internet-Draft           QUIC Transport Protocol           November 2019
-
-
    of client-selected values; a Source Connection ID can be selected to
    route later packets to the same server.
 
@@ -7316,17 +7327,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    architecturally dubious).
 
    The initial contents of this registry are shown in Table 6.
-
-
-
-
-
-
-
-
-
-
-
 
 
 
