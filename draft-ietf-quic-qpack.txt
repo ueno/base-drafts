@@ -404,20 +404,18 @@ Internet-Draft                    QPACK                    November 2019
    tracks the Known Received Count in order to identify which dynamic
    table entries can be referenced without potentially blocking a
    stream.  The decoder tracks the Known Received Count in order to be
-   able to send Insert Count Increment instructions (see Section 4.4.3).
+   able to send Insert Count Increment instructions.
 
-   If a header block was potentially blocking, the encoder infers from
-   receiving a Header Acknowledgement instruction (Section 4.4.1) that
-   the decoder has received all dynamic table state necessary to process
-   that header block.  If the Required Insert Count of the acknowledged
-   header block is greater than the current Known Received Count, the
-   encoder updates the Known Received Count to the value of the Required
-   Insert Count of the acknowledged header block.
+   A Header Acknowledgement instruction (Section 4.4.1) implies that the
+   decoder has received all dynamic table state necessary to process
+   corresponding the header block.  If the Required Insert Count of the
+   acknowledged header block is greater than the current Known Received
+   Count, Known Received Count is updated to the value of the Required
+   Insert Count.
 
-   To acknowledge dynamic table entries which are not referenced by
-   header blocks, for example because the encoder or the decoder have
-   chosen not to risk blocked streams, the decoder sends an Insert Count
-   Increment instruction (see Section 4.4.3).
+   An Insert Count Increment instruction Section 4.4.3 increases the
+   Known Received Count by its Increment parameter.  See Section 2.2.2.3
+   for guidance.
 
 2.2.  Decoder
 
@@ -442,6 +440,8 @@ Internet-Draft                    QPACK                    November 2019
 
    While blocked, header block data SHOULD remain in the blocked
    stream's flow control window.  A stream becomes unblocked when the
+   Insert Count becomes greater than or equal to the Required Insert
+
 
 
 
@@ -450,7 +450,6 @@ Krasic, et al.             Expires May 8, 2020                  [Page 8]
 Internet-Draft                    QPACK                    November 2019
 
 
-   Insert Count becomes greater than or equal to the Required Insert
    Count for all header blocks the decoder has started reading from the
    stream.
 
@@ -495,6 +494,7 @@ Internet-Draft                    QPACK                    November 2019
    table.  When an entry with absolute index lower than the Known
    Received Count has zero references, then it is considered evictable
    (see Section 2.1.2).
+
 
 
 
@@ -990,6 +990,9 @@ Internet-Draft                    QPACK                    November 2019
    Insert Count has already been acknowledged, that MUST be treated as a
    connection error of type "HTTP_QPACK_DECODER_STREAM_ERROR".
 
+   The Header Acknowledgement instruction might increase the Known
+   Received Count, see Section 2.1.4.
+
 4.4.2.  Stream Cancellation
 
    When a stream is reset or reading is abandoned, the decoder emits a
@@ -998,9 +1001,6 @@ Internet-Draft                    QPACK                    November 2019
    affected stream encoded as a 6-bit prefix integer.
 
    This instruction is used as described in Section 2.2.2.
-
-
-
 
 
 
@@ -1021,12 +1021,11 @@ Internet-Draft                    QPACK                    November 2019
 
    The Insert Count Increment instruction begins with the '00' two-bit
    pattern, followed by the Increment encoded as a 6-bit prefix integer.
-   The value of the Increment is the total number of dynamic table
-   insertions and duplications processed by the decoder since the last
-   time it sent a Header Acknowledgement instruction that increased the
-   Known Received Count (see Section 2.1.4) or an Insert Count Increment
-   instruction.  The encoder uses this value to update the Known
-   Received Count, as described in Section 2.2.2.
+   This instruction increases the Known Received Count (see
+   Section 2.1.4) by the value of the Increment parameter.  The decoder
+   should send an Increment value that increases the Known Received
+   Count to the total number of dynamic table insertions and
+   duplications processed so far.
 
      0   1   2   3   4   5   6   7
    +---+---+---+---+---+---+---+---+
@@ -1058,6 +1057,7 @@ Internet-Draft                    QPACK                    November 2019
    encoding described in Section 4.5.1.1).  The Base is encoded as a
    sign bit ('S') and a Delta Base value with a 7-bit prefix (see
    Section 4.5.1.2).
+
 
 
 
