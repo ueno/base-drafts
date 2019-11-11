@@ -1466,11 +1466,10 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    An endpoint can cause its peer to retire connection IDs by sending a
    NEW_CONNECTION_ID frame with an increased Retire Prior To field.
    Upon receipt, the peer MUST retire the corresponding connection IDs
-   and send corresponding RETIRE_CONNECTION_ID frames.  Failing to
-   retire the connection IDs within approximately one PTO can cause
-   packets to be delayed, lost, or cause the original endpoint to send a
-   stateless reset in response to a connection ID it can no longer route
-   correctly.
+   using RETIRE_CONNECTION_ID frames.  Failure to retire the connection
+   IDs within approximately one PTO can cause packets to be delayed,
+   lost, or cause the original endpoint to send a stateless reset in
+   response to a connection ID it can no longer route correctly.
 
    An endpoint MAY discard a connection ID for which retirement has been
    requested once an interval of no less than 3 PTO has elapsed since an
@@ -1506,6 +1505,7 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Packets that are matched to an existing connection are discarded if
    the packets are inconsistent with the state of that connection.  For
    example, packets are discarded if they indicate a different protocol
+
 
 
 
@@ -6742,16 +6742,12 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    for different connection IDs, the endpoint MAY treat that receipt as
    a connection error of type PROTOCOL_VIOLATION.
 
-   The Retire Prior To field is a request for the peer to retire all
-   connection IDs with a sequence number less than the specified value.
-   This includes the initial and preferred_address transport parameter
-   connection IDs.  The peer SHOULD retire the corresponding connection
-   IDs and send the corresponding RETIRE_CONNECTION_ID frames in a
-   timely manner.
-
-   The Retire Prior To field MUST be less than or equal to the Sequence
-   Number field.  Receiving a value greater than the Sequence Number
-   MUST be treated as a connection error of type FRAME_ENCODING_ERROR.
+   The Retire Prior To field counts connection IDs established during
+   connection setup and the preferred_address transport parameter (see
+   Section 5.1.2).  The Retire Prior To field MUST be less than or equal
+   to the Sequence Number field.  Receiving a value greater than the
+   Sequence Number MUST be treated as a connection error of type
+   FRAME_ENCODING_ERROR.
 
    Once a sender indicates a Retire Prior To value, smaller values sent
    in subsequent NEW_CONNECTION_ID frames have no effect.  A receiver
@@ -6771,14 +6767,16 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Retiring a connection ID invalidates the stateless reset token
    associated with that connection ID.
 
+   The RETIRE_CONNECTION_ID frame is as follows:
+
+
+
 
 
 Iyengar & Thomson         Expires May 14, 2020                [Page 121]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
-
-   The RETIRE_CONNECTION_ID frame is as follows:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -6825,7 +6823,9 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    Data:  This 8-byte field contains arbitrary data.
 
-
+   A PATH_CHALLENGE frame containing 8 bytes that are hard to guess is
+   sufficient to ensure that it is easier to receive the packet than it
+   is to guess the value correctly.
 
 
 
@@ -6833,10 +6833,6 @@ Iyengar & Thomson         Expires May 14, 2020                [Page 122]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
-
-   A PATH_CHALLENGE frame containing 8 bytes that are hard to guess is
-   sufficient to ensure that it is easier to receive the packet than it
-   is to guess the value correctly.
 
    The recipient of this frame MUST generate a PATH_RESPONSE frame
    (Section 19.18) containing the same Data.
@@ -6882,6 +6878,10 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Error Code:  A variable length integer error code which indicates the
       reason for closing this connection.  A CONNECTION_CLOSE frame of
       type 0x1c uses codes from the space defined in Section 20.  A
+      CONNECTION_CLOSE frame of type 0x1d uses codes from the
+      application protocol error code space; see Section 20.1
+
+
 
 
 
@@ -6889,9 +6889,6 @@ Iyengar & Thomson         Expires May 14, 2020                [Page 123]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
-
-      CONNECTION_CLOSE frame of type 0x1d uses codes from the
-      application protocol error code space; see Section 20.1
 
    Frame Type:  A variable-length integer encoding the type of frame
       that triggered the error.  A value of 0 (equivalent to the mention
@@ -6938,6 +6935,9 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    This section lists the defined QUIC transport error codes that may be
    used in a CONNECTION_CLOSE frame.  These errors apply to the entire
    connection.
+
+
+
 
 
 
