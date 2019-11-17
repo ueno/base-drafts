@@ -653,7 +653,7 @@ ul.toc li {
 <h1 id="rfc.section.3">
 <a href="#rfc.section.3">3.</a> <a href="#design-of-the-quic-transmission-machinery" id="design-of-the-quic-transmission-machinery">Design of the QUIC Transmission Machinery</a>
 </h1>
-<p id="rfc.section.3.p.1">All transmissions in QUIC are sent with a packet-level header, which indicates the encryption level and includes a packet sequence number (referred to below as a packet number).  The encryption level indicates the packet number space, as described in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  Packet numbers never repeat within a packet number space for the lifetime of a connection.  Packet numbers monotonically increase within a space, preventing ambiguity.</p>
+<p id="rfc.section.3.p.1">All transmissions in QUIC are sent with a packet-level header, which indicates the encryption level and includes a packet sequence number (referred to below as a packet number).  The encryption level indicates the packet number space, as described in <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  Packet numbers never repeat within a packet number space for the lifetime of a connection.  Packet numbers are sent in monotonically increasing order within a space, preventing ambiguity.</p>
 <p id="rfc.section.3.p.2">This design obviates the need for disambiguating between transmissions and retransmissions and eliminates significant complexity from QUIC&#8217;s interpretation of TCP loss detection mechanisms.</p>
 <p id="rfc.section.3.p.3">QUIC packets can contain multiple frames of different types. The recovery mechanisms ensure that data and frames that need reliable delivery are acknowledged or declared lost and sent in new packets as necessary. The types of frames contained in a packet affect recovery and congestion control logic:</p>
 <p></p>
@@ -681,7 +681,7 @@ ul.toc li {
 <h3 id="rfc.section.3.1.3">
 <a href="#rfc.section.3.1.3">3.1.3.</a> <a href="#clearer-loss-epoch" id="clearer-loss-epoch">Clearer Loss Epoch</a>
 </h3>
-<p id="rfc.section.3.1.3.p.1">QUIC starts a loss epoch when a packet is lost and ends one when any packet sent after the epoch starts is acknowledged.  TCP waits for the gap in the sequence number space to be filled, and so if a segment is lost multiple times in a row, the loss epoch may not end for several round trips. Because both should reduce their congestion windows only once per epoch, QUIC will do it correctly once for every round trip that experiences loss, while TCP may only do it once across multiple round trips.</p>
+<p id="rfc.section.3.1.3.p.1">QUIC starts a loss epoch when a packet is lost and ends one when any packet sent after the epoch starts is acknowledged.  TCP waits for the gap in the sequence number space to be filled, and so if a segment is lost multiple times in a row, the loss epoch may not end for several round trips. Because both should reduce their congestion windows only once per epoch, QUIC will do it once for every round trip that experiences loss, while TCP may only do it once across multiple round trips.</p>
 <h3 id="rfc.section.3.1.4">
 <a href="#rfc.section.3.1.4">3.1.4.</a> <a href="#no-reneging" id="no-reneging">No Reneging</a>
 </h3>
@@ -697,7 +697,7 @@ ul.toc li {
 <h1 id="rfc.section.4">
 <a href="#rfc.section.4">4.</a> <a href="#compute-rtt" id="compute-rtt">Estimating the Round-Trip Time</a>
 </h1>
-<p id="rfc.section.4.p.1">At a high level, an endpoint measures the time from when a packet was sent to when it is acknowledged as a round-trip time (RTT) sample.  The endpoint uses RTT samples and peer-reported host delays (see Section 13.2 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>) to generate a statistical description of the connection&#8217;s RTT. An endpoint computes the following three values: the minimum value observed over the lifetime of the connection (min_rtt), an exponentially-weighted moving average (smoothed_rtt), and the variance in the observed RTT samples (rttvar).</p>
+<p id="rfc.section.4.p.1">At a high level, an endpoint measures the time from when a packet was sent to when it is acknowledged as a round-trip time (RTT) sample.  The endpoint uses RTT samples and peer-reported ACK delays (see Section 13.2 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>) to generate a statistical description of the connection&#8217;s RTT. An endpoint computes the following three values: the minimum value observed over the lifetime of the connection (min_rtt), an exponentially-weighted moving average (smoothed_rtt), and the variance in the observed RTT samples (rttvar).</p>
 <h2 id="rfc.section.4.1">
 <a href="#rfc.section.4.1">4.1.</a> <a href="#latest-rtt" id="latest-rtt">Generating RTT samples</a>
 </h2>
@@ -712,7 +712,7 @@ ul.toc li {
 <pre>
 latest_rtt = ack_time - send_time_of_largest_acked
 </pre>
-<p id="rfc.section.4.1.p.4">An RTT sample is generated using only the largest acknowledged packet in the received ACK frame.  This is because a peer reports host delays for only the largest acknowledged packet in an ACK frame.  While the reported host delay is not used by the RTT sample measurement, it is used to adjust the RTT sample in subsequent computations of smoothed_rtt and rttvar <a href="#smoothed-rtt" class="xref">Section 4.3</a>.</p>
+<p id="rfc.section.4.1.p.4">An RTT sample is generated using only the largest acknowledged packet in the received ACK frame.  This is because a peer reports ACK delays for only the largest acknowledged packet in an ACK frame.  While the reported ACK delay is not used by the RTT sample measurement, it is used to adjust the RTT sample in subsequent computations of smoothed_rtt and rttvar <a href="#smoothed-rtt" class="xref">Section 4.3</a>.</p>
 <p id="rfc.section.4.1.p.5">To avoid generating multiple RTT samples using the same packet, an ACK frame SHOULD NOT be used to update RTT estimates if it does not newly acknowledge the largest acknowledged packet.</p>
 <p id="rfc.section.4.1.p.6">An RTT sample MUST NOT be generated on receiving an ACK frame that does not newly acknowledge at least one ack-eliciting packet.  A peer does not send an ACK frame on receiving only non-ack-eliciting packets, so an ACK frame that is subsequently sent can include an arbitrarily large Ack Delay field.  Ignoring such ACK frames avoids complications in subsequent smoothed_rtt and rttvar computations.</p>
 <p id="rfc.section.4.1.p.7">A sender might generate multiple RTT samples per RTT when multiple ACK frames are received within an RTT.  As suggested in <a href="#RFC6298" class="xref">[RFC6298]</a>, doing so might result in inadequate history in smoothed_rtt and rttvar.  Ensuring that RTT estimates retain sufficient history is an open research question.</p>
@@ -720,12 +720,12 @@ latest_rtt = ack_time - send_time_of_largest_acked
 <a href="#rfc.section.4.2">4.2.</a> <a href="#min-rtt" id="min-rtt">Estimating min_rtt</a>
 </h2>
 <p id="rfc.section.4.2.p.1">min_rtt is the minimum RTT observed over the lifetime of the connection.  min_rtt is set to the latest_rtt on the first sample in a connection, and to the lesser of min_rtt and latest_rtt on subsequent samples.</p>
-<p id="rfc.section.4.2.p.2">An endpoint uses only locally observed times in computing the min_rtt and does not adjust for host delays reported by the peer.  Doing so allows the endpoint to set a lower bound for the smoothed_rtt based entirely on what it observes (see <a href="#smoothed-rtt" class="xref">Section 4.3</a>), and limits potential underestimation due to erroneously-reported delays by the peer.</p>
+<p id="rfc.section.4.2.p.2">An endpoint uses only locally observed times in computing the min_rtt and does not adjust for ACK delays reported by the peer.  Doing so allows the endpoint to set a lower bound for the smoothed_rtt based entirely on what it observes (see <a href="#smoothed-rtt" class="xref">Section 4.3</a>), and limits potential underestimation due to erroneously-reported delays by the peer.</p>
 <h2 id="rfc.section.4.3">
 <a href="#rfc.section.4.3">4.3.</a> <a href="#smoothed-rtt" id="smoothed-rtt">Estimating smoothed_rtt and rttvar</a>
 </h2>
 <p id="rfc.section.4.3.p.1">smoothed_rtt is an exponentially-weighted moving average of an endpoint&#8217;s RTT samples, and rttvar is the endpoint&#8217;s estimated variance in the RTT samples.</p>
-<p id="rfc.section.4.3.p.2">The calculation of smoothed_rtt uses path latency after adjusting RTT samples for host delays.  For packets sent in the ApplicationData packet number space, a peer limits any delay in sending an acknowledgement for an ack-eliciting packet to no greater than the value it advertised in the max_ack_delay transport parameter.  Consequently, when a peer reports an Ack Delay that is greater than its max_ack_delay, the delay is attributed to reasons out of the peer&#8217;s control, such as scheduler latency at the peer or loss of previous ACK frames.  Any delays beyond the peer&#8217;s max_ack_delay are therefore considered effectively part of path delay and incorporated into the smoothed_rtt estimate.</p>
+<p id="rfc.section.4.3.p.2">The calculation of smoothed_rtt uses path latency after adjusting RTT samples for ACK delays.  For packets sent in the ApplicationData packet number space, a peer limits any delay in sending an acknowledgement for an ack-eliciting packet to no greater than the value it advertised in the max_ack_delay transport parameter.  Consequently, when a peer reports an Ack Delay that is greater than its max_ack_delay, the delay is attributed to reasons out of the peer&#8217;s control, such as scheduler latency at the peer or loss of previous ACK frames.  Any delays beyond the peer&#8217;s max_ack_delay are therefore considered effectively part of path delay and incorporated into the smoothed_rtt estimate.</p>
 <p id="rfc.section.4.3.p.3">When adjusting an RTT sample using peer-reported acknowledgement delays, an endpoint:</p>
 <p></p>
 
@@ -766,7 +766,7 @@ rttvar = 3/4 * rttvar + 1/4 * rttvar_sample
 <li>The packet is unacknowledged, in-flight, and was sent prior to an acknowledged packet.</li>
 <li>Either its packet number is kPacketThreshold smaller than an acknowledged packet (<a href="#packet-threshold" class="xref">Section 5.1.1</a>), or it was sent long enough in the past (<a href="#time-threshold" class="xref">Section 5.1.2</a>).</li>
 </ul>
-<p id="rfc.section.5.1.p.4">The acknowledgement indicates that a packet sent later was delivered, while the packet and time thresholds provide some tolerance for packet reordering.</p>
+<p id="rfc.section.5.1.p.4">The acknowledgement indicates that a packet sent later was delivered, and the packet and time thresholds provide some tolerance for packet reordering.</p>
 <p id="rfc.section.5.1.p.5">Spuriously declaring packets as lost leads to unnecessary retransmissions and may result in degraded performance due to the actions of the congestion controller upon detecting loss.  Implementations that detect spurious retransmissions and increase the reordering threshold in packets or time MAY choose to start with smaller initial reordering thresholds to minimize recovery latency.</p>
 <h3 id="rfc.section.5.1.1">
 <a href="#rfc.section.5.1.1">5.1.1.</a> <a href="#packet-threshold" id="packet-threshold">Packet Threshold</a>
@@ -813,7 +813,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <a href="#rfc.section.5.3">5.3.</a> <a href="#handshakes-and-new-paths" id="handshakes-and-new-paths">Handshakes and New Paths</a>
 </h2>
 <p id="rfc.section.5.3.p.1">The initial probe timeout for a new connection or new path SHOULD be set to twice the initial RTT.  Resumed connections over the same network SHOULD use the previous connection&#8217;s final smoothed RTT value as the resumed connection&#8217;s initial RTT.  If no previous RTT is available, the initial RTT SHOULD be set to 500ms, resulting in a 1 second initial timeout as recommended in <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
-<p id="rfc.section.5.3.p.2">A connection MAY use the delay between sending a PATH_CHALLENGE and receiving a PATH_RESPONSE to seed initial_rtt for a new path, but the delay SHOULD NOT be considered an RTT sample.</p>
+<p id="rfc.section.5.3.p.2">A connection MAY use the delay between sending a PATH_CHALLENGE and receiving a PATH_RESPONSE to seed the initial RTT for a new path, but the delay SHOULD NOT be considered an RTT sample.</p>
 <p id="rfc.section.5.3.p.3">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited to three times the amount of data received, as specified in Section 8.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>. If no data can be sent, then the PTO alarm MUST NOT be armed until datagrams have been received from the client.</p>
 <p id="rfc.section.5.3.p.4">Since the server could be blocked until more packets are received from the client, it is the client&#8217;s responsibility to send packets to unblock the server until it is certain that the server has finished its address validation (see Section 8 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>).  That is, the client MUST set the probe timer if the client has not received an acknowledgement for one of its Handshake or 1-RTT packets.</p>
 <p id="rfc.section.5.3.p.5">Prior to handshake completion, when few to none RTT samples have been generated, it is possible that the probe timer expiration is due to an incorrect RTT estimate at the client. To allow the client to improve its RTT estimate, the new packet that it sends MUST be ack-eliciting.  If Handshake keys are available to the client, it MUST send a Handshake packet, and otherwise it MUST send an Initial packet in a UDP datagram of at least 1200 bytes.</p>
@@ -861,7 +861,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <h2 id="rfc.section.6.2">
 <a href="#rfc.section.6.2">6.2.</a> <a href="#slow-start" id="slow-start">Slow Start</a>
 </h2>
-<p id="rfc.section.6.2.p.1">QUIC begins every connection in slow start and exits slow start upon loss or upon increase in the ECN-CE counter. QUIC re-enters slow start anytime the congestion window is less than ssthresh, which only occurs after persistent congestion is declared. While in slow start, QUIC increases the congestion window by the number of bytes acknowledged when each acknowledgment is processed.</p>
+<p id="rfc.section.6.2.p.1">QUIC begins every connection in slow start and exits slow start upon loss or upon increase in the ECN-CE counter. QUIC re-enters slow start any time the congestion window is less than ssthresh, which only occurs after persistent congestion is declared. While in slow start, QUIC increases the congestion window by the number of bytes acknowledged when each acknowledgment is processed.</p>
 <h2 id="rfc.section.6.3">
 <a href="#rfc.section.6.3">6.3.</a> <a href="#congestion-avoidance" id="congestion-avoidance">Congestion Avoidance</a>
 </h2>
@@ -914,7 +914,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 </tr>
 </tbody>
 </table>
-<p id="rfc.section.6.7.p.5">The first three packets are determined to be lost when the ACK of packet 4 is received at t=8.  The congestion period is calculated as the time between the oldest and newest lost packets: (3 - 0) = 3.  The duration for persistent congestion is equal to: (1 * kPersistentCongestionThreshold) = 3.  Because the threshold was reached and because none of the packets between the oldest and the newest packets are acknowledged, the network is considered to have experienced persistent congestion.</p>
+<p id="rfc.section.6.7.p.5">The first three packets are determined to be lost when the acknowlegement of packet 4 is received at t=8.  The congestion period is calculated as the time between the oldest and newest lost packets: (3 - 0) = 3.  The duration for persistent congestion is equal to: (1 * kPersistentCongestionThreshold) = 3.  Because the threshold was reached and because none of the packets between the oldest and the newest packets are acknowledged, the network is considered to have experienced persistent congestion.</p>
 <p id="rfc.section.6.7.p.6">When persistent congestion is established, the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a> after Tail Loss Probes (TLP) <a href="#RACK" class="xref">[RACK]</a>.</p>
 <h2 id="rfc.section.6.8">
 <a href="#rfc.section.6.8">6.8.</a> <a href="#pacing" id="pacing">Pacing</a>
@@ -1122,7 +1122,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <dt>min_rtt:</dt>
 <dd style="margin-left: 8">The minimum RTT seen in the connection, ignoring ack delay.</dd>
 <dt>max_ack_delay:</dt>
-<dd style="margin-left: 8">The maximum amount of time by which the receiver intends to delay acknowledgments for packets in the ApplicationData packet number space. The actual ack_delay in a received ACK frame may be larger due to late timers, reordering, or lost ACKs.</dd>
+<dd style="margin-left: 8">The maximum amount of time by which the receiver intends to delay acknowledgments for packets in the ApplicationData packet number space. The actual ack_delay in a received ACK frame may be larger due to late timers, reordering, or lost ACK frames.</dd>
 <dt>loss_detection_timer:</dt>
 <dd style="margin-left: 8">Multi-modal timer used for loss detection.</dd>
 <dt>pto_count:</dt>

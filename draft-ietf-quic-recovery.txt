@@ -238,8 +238,8 @@ Internet-Draft             QUIC Loss Detection             November 2019
    (referred to below as a packet number).  The encryption level
    indicates the packet number space, as described in [QUIC-TRANSPORT].
    Packet numbers never repeat within a packet number space for the
-   lifetime of a connection.  Packet numbers monotonically increase
-   within a space, preventing ambiguity.
+   lifetime of a connection.  Packet numbers are sent in monotonically
+   increasing order within a space, preventing ambiguity.
 
    This design obviates the need for disambiguating between
    transmissions and retransmissions and eliminates significant
@@ -325,9 +325,9 @@ Internet-Draft             QUIC Loss Detection             November 2019
    the gap in the sequence number space to be filled, and so if a
    segment is lost multiple times in a row, the loss epoch may not end
    for several round trips.  Because both should reduce their congestion
-   windows only once per epoch, QUIC will do it correctly once for every
-   round trip that experiences loss, while TCP may only do it once
-   across multiple round trips.
+   windows only once per epoch, QUIC will do it once for every round
+   trip that experiences loss, while TCP may only do it once across
+   multiple round trips.
 
 
 
@@ -363,7 +363,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
    At a high level, an endpoint measures the time from when a packet was
    sent to when it is acknowledged as a round-trip time (RTT) sample.
-   The endpoint uses RTT samples and peer-reported host delays (see
+   The endpoint uses RTT samples and peer-reported ACK delays (see
    Section 13.2 of [QUIC-TRANSPORT]) to generate a statistical
    description of the connection's RTT.  An endpoint computes the
    following three values: the minimum value observed over the lifetime
@@ -395,11 +395,11 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
 
    An RTT sample is generated using only the largest acknowledged packet
-   in the received ACK frame.  This is because a peer reports host
-   delays for only the largest acknowledged packet in an ACK frame.
-   While the reported host delay is not used by the RTT sample
-   measurement, it is used to adjust the RTT sample in subsequent
-   computations of smoothed_rtt and rttvar Section 4.3.
+   in the received ACK frame.  This is because a peer reports ACK delays
+   for only the largest acknowledged packet in an ACK frame.  While the
+   reported ACK delay is not used by the RTT sample measurement, it is
+   used to adjust the RTT sample in subsequent computations of
+   smoothed_rtt and rttvar Section 4.3.
 
    To avoid generating multiple RTT samples using the same packet, an
    ACK frame SHOULD NOT be used to update RTT estimates if it does not
@@ -426,7 +426,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
    subsequent samples.
 
    An endpoint uses only locally observed times in computing the min_rtt
-   and does not adjust for host delays reported by the peer.  Doing so
+   and does not adjust for ACK delays reported by the peer.  Doing so
    allows the endpoint to set a lower bound for the smoothed_rtt based
    entirely on what it observes (see Section 4.3), and limits potential
    underestimation due to erroneously-reported delays by the peer.
@@ -438,7 +438,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
    variance in the RTT samples.
 
    The calculation of smoothed_rtt uses path latency after adjusting RTT
-   samples for host delays.  For packets sent in the ApplicationData
+   samples for ACK delays.  For packets sent in the ApplicationData
    packet number space, a peer limits any delay in sending an
    acknowledgement for an ack-eliciting packet to no greater than the
    value it advertised in the max_ack_delay transport parameter.
@@ -523,8 +523,8 @@ Internet-Draft             QUIC Loss Detection             November 2019
       the past (Section 5.1.2).
 
    The acknowledgement indicates that a packet sent later was delivered,
-   while the packet and time thresholds provide some tolerance for
-   packet reordering.
+   and the packet and time thresholds provide some tolerance for packet
+   reordering.
 
    Spuriously declaring packets as lost leads to unnecessary
    retransmissions and may result in degraded performance due to the
@@ -675,8 +675,8 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
 
    A connection MAY use the delay between sending a PATH_CHALLENGE and
-   receiving a PATH_RESPONSE to seed initial_rtt for a new path, but the
-   delay SHOULD NOT be considered an RTT sample.
+   receiving a PATH_RESPONSE to seed the initial RTT for a new path, but
+   the delay SHOULD NOT be considered an RTT sample.
 
    Until the server has validated the client's address on the path, the
    amount of data it can send is limited to three times the amount of
@@ -868,9 +868,9 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
    QUIC begins every connection in slow start and exits slow start upon
    loss or upon increase in the ECN-CE counter.  QUIC re-enters slow
-   start anytime the congestion window is less than ssthresh, which only
-   occurs after persistent congestion is declared.  While in slow start,
-   QUIC increases the congestion window by the number of bytes
+   start any time the congestion window is less than ssthresh, which
+   only occurs after persistent congestion is declared.  While in slow
+   start, QUIC increases the congestion window by the number of bytes
    acknowledged when each acknowledgment is processed.
 
 6.3.  Congestion Avoidance
@@ -966,11 +966,11 @@ Internet-Draft             QUIC Loss Detection             November 2019
                      | t=8 | Recv ACK of Pkt #4     |
                      +-----+------------------------+
 
-   The first three packets are determined to be lost when the ACK of
-   packet 4 is received at t=8.  The congestion period is calculated as
-   the time between the oldest and newest lost packets: (3 - 0) = 3.
-   The duration for persistent congestion is equal to: (1 *
-   kPersistentCongestionThreshold) = 3.  Because the threshold was
+   The first three packets are determined to be lost when the
+   acknowlegement of packet 4 is received at t=8.  The congestion period
+   is calculated as the time between the oldest and newest lost packets:
+   (3 - 0) = 3.  The duration for persistent congestion is equal to: (1
+   * kPersistentCongestionThreshold) = 3.  Because the threshold was
    reached and because none of the packets between the oldest and the
    newest packets are acknowledged, the network is considered to have
    experienced persistent congestion.
@@ -1315,7 +1315,7 @@ A.3.  Variables of interest
       intends to delay acknowledgments for packets in the
       ApplicationData packet number space.  The actual ack_delay in a
       received ACK frame may be larger due to late timers, reordering,
-      or lost ACKs.
+      or lost ACK frames.
 
    loss_detection_timer:  Multi-modal timer used for loss detection.
 
