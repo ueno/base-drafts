@@ -123,13 +123,13 @@ Internet-Draft             QUIC Loss Detection             November 2019
      9.2.  Informative References  . . . . . . . . . . . . . . . . .  21
      9.3.  URIs  . . . . . . . . . . . . . . . . . . . . . . . . . .  22
    Appendix A.  Loss Recovery Pseudocode . . . . . . . . . . . . . .  22
-     A.1.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  22
+     A.1.  Tracking Sent Packets . . . . . . . . . . . . . . . . . .  23
        A.1.1.  Sent Packet Fields  . . . . . . . . . . . . . . . . .  23
      A.2.  Constants of interest . . . . . . . . . . . . . . . . . .  23
      A.3.  Variables of interest . . . . . . . . . . . . . . . . . .  24
      A.4.  Initialization  . . . . . . . . . . . . . . . . . . . . .  25
      A.5.  On Sending a Packet . . . . . . . . . . . . . . . . . . .  25
-     A.6.  On Receiving an Acknowledgment  . . . . . . . . . . . . .  25
+     A.6.  On Receiving an Acknowledgment  . . . . . . . . . . . . .  26
      A.7.  On Packet Acknowledgment  . . . . . . . . . . . . . . . .  27
      A.8.  Setting the Loss Detection Timer  . . . . . . . . . . . .  27
      A.9.  On Timeout  . . . . . . . . . . . . . . . . . . . . . . .  29
@@ -236,8 +236,8 @@ Internet-Draft             QUIC Loss Detection             November 2019
    (referred to below as a packet number).  The encryption level
    indicates the packet number space, as described in [QUIC-TRANSPORT].
    Packet numbers never repeat within a packet number space for the
-   lifetime of a connection.  Packet numbers monotonically increase
-   within a space, preventing ambiguity.
+   lifetime of a connection.  Packet numbers are sent in monotonically
+   increasing order within a space, preventing ambiguity.
 
    This design obviates the need for disambiguating between
    transmissions and retransmissions and eliminates significant
@@ -325,9 +325,9 @@ Internet-Draft             QUIC Loss Detection             November 2019
    the gap in the sequence number space to be filled, and so if a
    segment is lost multiple times in a row, the loss epoch may not end
    for several round trips.  Because both should reduce their congestion
-   windows only once per epoch, QUIC will do it correctly once for every
-   round trip that experiences loss, while TCP may only do it once
-   across multiple round trips.
+   windows only once per epoch, QUIC will do it once for every round
+   trip that experiences loss, while TCP may only do it once across
+   multiple round trips.
 
 
 
@@ -363,7 +363,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
    At a high level, an endpoint measures the time from when a packet was
    sent to when it is acknowledged as a round-trip time (RTT) sample.
-   The endpoint uses RTT samples and peer-reported host delays (see
+   The endpoint uses RTT samples and peer-reported ACK delays (see
    Section 13.2 of [QUIC-TRANSPORT]) to generate a statistical
    description of the connection's RTT.  An endpoint computes the
    following three values: the minimum value observed over the lifetime
@@ -395,11 +395,11 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
 
    An RTT sample is generated using only the largest acknowledged packet
-   in the received ACK frame.  This is because a peer reports host
-   delays for only the largest acknowledged packet in an ACK frame.
-   While the reported host delay is not used by the RTT sample
-   measurement, it is used to adjust the RTT sample in subsequent
-   computations of smoothed_rtt and rttvar Section 4.3.
+   in the received ACK frame.  This is because a peer reports ACK delays
+   for only the largest acknowledged packet in an ACK frame.  While the
+   reported ACK delay is not used by the RTT sample measurement, it is
+   used to adjust the RTT sample in subsequent computations of
+   smoothed_rtt and rttvar Section 4.3.
 
    To avoid generating multiple RTT samples for a single packet, an ACK
    frame SHOULD NOT be used to update RTT estimates if it does not newly
@@ -426,7 +426,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
    subsequent samples.
 
    An endpoint uses only locally observed times in computing the min_rtt
-   and does not adjust for host delays reported by the peer.  Doing so
+   and does not adjust for ACK delays reported by the peer.  Doing so
    allows the endpoint to set a lower bound for the smoothed_rtt based
    entirely on what it observes (see Section 4.3), and limits potential
    underestimation due to erroneously-reported delays by the peer.
@@ -438,7 +438,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
    variance in the RTT samples.
 
    The calculation of smoothed_rtt uses path latency after adjusting RTT
-   samples for host delays.  For packets sent in the ApplicationData
+   samples for ACK delays.  For packets sent in the ApplicationData
    packet number space, a peer limits any delay in sending an
    acknowledgement for an ack-eliciting packet to no greater than the
    value it advertised in the max_ack_delay transport parameter.
@@ -526,8 +526,8 @@ Internet-Draft             QUIC Loss Detection             November 2019
       the past (Section 5.1.2).
 
    The acknowledgement indicates that a packet sent later was delivered,
-   while the packet and time thresholds provide some tolerance for
-   packet reordering.
+   and the packet and time thresholds provide some tolerance for packet
+   reordering.
 
    Spuriously declaring packets as lost leads to unnecessary
    retransmissions and may result in degraded performance due to the
@@ -562,7 +562,7 @@ Iyengar & Swett           Expires May 21, 2020                 [Page 10]
 Internet-Draft             QUIC Loss Detection             November 2019
 
 
-   kTimeThreshold * max(smoothed_rtt, latest_rtt, kGranularity)
+   max(kTimeThreshold * max(smoothed_rtt, latest_rtt), kGranularity)
 
    If packets sent prior to the largest acknowledged packet cannot yet
    be declared lost, then a timer SHOULD be set for the remaining time.
@@ -675,8 +675,9 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
 
    A connection MAY use the delay between sending a PATH_CHALLENGE and
-   receiving a PATH_RESPONSE to seed initial_rtt for a new path, but the
-   delay SHOULD NOT be considered an RTT sample.
+   receiving a PATH_RESPONSE to set the initial RTT (see kInitialRtt in
+   Appendix A.2) for a new path, but the delay SHOULD NOT be considered
+   an RTT sample.
 
    Until the server has validated the client's address on the path, the
    amount of data it can send is limited to three times the amount of
@@ -699,9 +700,9 @@ Internet-Draft             QUIC Loss Detection             November 2019
    send a Handshake packet, and otherwise it MUST send an Initial packet
    in a UDP datagram of at least 1200 bytes.
 
-   Initial packets and Handshake packets might never be acknowledged, so
-   they are removed from bytes in flight when the Initial and Handshake
-   keys are discarded.
+   Initial packets and Handshake packets could never be acknowledged,
+   but they are removed from bytes in flight when the Initial and
+   Handshake keys are discarded.
 
 5.3.1.  Sending Probe Packets
 
@@ -720,8 +721,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
    When the PTO timer expires, and there is new or previously sent
    unacknowledged data, it MUST be sent.
 
-   It is possible the sender has no new or previously-sent data to send.
-   As an example, consider the following sequence of events: new
+
 
 
 
@@ -730,6 +730,8 @@ Iyengar & Swett           Expires May 21, 2020                 [Page 13]
 Internet-Draft             QUIC Loss Detection             November 2019
 
 
+   It is possible the sender has no new or previously-sent data to send.
+   As an example, consider the following sequence of events: new
    application data is sent in a STREAM frame, deemed lost, then
    retransmitted in a new packet, and then the original transmission is
    acknowledged.  When there is no data to send, the sender SHOULD send
@@ -774,8 +776,6 @@ Internet-Draft             QUIC Loss Detection             November 2019
    acknowledgement is received that newly acknowledges packets, loss
    detection proceeds as dictated by packet and time threshold
    mechanisms; see Section 5.1.
-
-
 
 
 
@@ -857,20 +857,19 @@ Internet-Draft             QUIC Loss Detection             November 2019
 
 6.1.  Explicit Congestion Notification
 
-   If a path has been verified to support ECN, QUIC treats a Congestion
-   Experienced codepoint in the IP header as a signal of congestion.
-   This document specifies an endpoint's response when its peer receives
-   packets with the Congestion Experienced codepoint.  As discussed in
-   [RFC8311], endpoints are permitted to experiment with other response
-   functions.
+   If a path has been verified to support ECN [RFC3168] [RFC8311], QUIC
+   treats a Congestion Experienced(CE) codepoint in the IP header as a
+   signal of congestion.  This document specifies an endpoint's response
+   when its peer receives packets with the Congestion Experienced
+   codepoint.
 
 6.2.  Slow Start
 
    QUIC begins every connection in slow start and exits slow start upon
    loss or upon increase in the ECN-CE counter.  QUIC re-enters slow
-   start anytime the congestion window is less than ssthresh, which only
-   occurs after persistent congestion is declared.  While in slow start,
-   QUIC increases the congestion window by the number of bytes
+   start any time the congestion window is less than ssthresh, which
+   only occurs after persistent congestion is declared.  While in slow
+   start, QUIC increases the congestion window by the number of bytes
    acknowledged when each acknowledgment is processed.
 
 6.3.  Congestion Avoidance
@@ -890,6 +889,7 @@ Internet-Draft             QUIC Loss Detection             November 2019
    after the start of recovery being acknowledged.  This is slightly
    different from TCP's definition of recovery, which ends when the lost
    packet that started recovery is acknowledged.
+
 
 
 
@@ -966,11 +966,11 @@ Internet-Draft             QUIC Loss Detection             November 2019
                      | t=8 | Recv ACK of Pkt #4     |
                      +-----+------------------------+
 
-   The first three packets are determined to be lost when the ACK of
-   packet 4 is received at t=8.  The congestion period is calculated as
-   the time between the oldest and newest lost packets: (3 - 0) = 3.
-   The duration for persistent congestion is equal to: (1 *
-   kPersistentCongestionThreshold) = 3.  Because the threshold was
+   The first three packets are determined to be lost when the
+   acknowlegement of packet 4 is received at t=8.  The congestion period
+   is calculated as the time between the oldest and newest lost packets:
+   (3 - 0) = 3.  The duration for persistent congestion is equal to: (1
+   * kPersistentCongestionThreshold) = 3.  Because the threshold was
    reached and because none of the packets between the oldest and the
    newest packets are acknowledged, the network is considered to have
    experienced persistent congestion.
@@ -1074,9 +1074,9 @@ Internet-Draft             QUIC Loss Detection             November 2019
    result in congestion and loss.
 
    A sender MAY attempt to detect suppression of reports by marking
-   occasional packets that they send with ECN-CE.  If a packet marked
-   with ECN-CE is not reported as having been marked when the packet is
-   acknowledged, the sender SHOULD then disable ECN for that path.
+   occasional packets that they send with ECN-CE.  If a packet sent with
+   ECN-CE is not reported as having been CE marked when the packet is
+   acknowledged, then the sender SHOULD disable ECN for that path.
 
    Reporting additional ECN-CE markings will cause a sender to reduce
    their sending rate, which is similar in effect to advertising reduced
@@ -1126,11 +1126,6 @@ Internet-Draft             QUIC Loss Detection             November 2019
               2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
               May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
-   [RFC8311]  Black, D., "Relaxing Restrictions on Explicit Congestion
-              Notification (ECN) Experimentation", RFC 8311,
-              DOI 10.17487/RFC8311, January 2018,
-              <https://www.rfc-editor.org/info/rfc8311>.
-
 9.2.  Informative References
 
    [FACK]     Mathis, M. and J. Mahdavi, "Forward Acknowledgement:
@@ -1140,6 +1135,11 @@ Internet-Draft             QUIC Loss Detection             November 2019
    [RACK]     Cheng, Y., Cardwell, N., Dukkipati, N., and P. Jha, "RACK:
               a time-based fast loss detection algorithm for TCP",
               draft-ietf-tcpm-rack-05 (work in progress), April 2019.
+
+   [RFC3168]  Ramakrishnan, K., Floyd, S., and D. Black, "The Addition
+              of Explicit Congestion Notification (ECN) to IP",
+              RFC 3168, DOI 10.17487/RFC3168, September 2001,
+              <https://www.rfc-editor.org/info/rfc3168>.
 
    [RFC3465]  Allman, M., "TCP Congestion Control with Appropriate Byte
               Counting (ABC)", RFC 3465, DOI 10.17487/RFC3465, February
@@ -1199,6 +1199,11 @@ Internet-Draft             QUIC Loss Detection             November 2019
               DOI 10.17487/RFC7661, October 2015,
               <https://www.rfc-editor.org/info/rfc7661>.
 
+   [RFC8311]  Black, D., "Relaxing Restrictions on Explicit Congestion
+              Notification (ECN) Experimentation", RFC 8311,
+              DOI 10.17487/RFC8311, January 2018,
+              <https://www.rfc-editor.org/info/rfc8311>.
+
    [RFC8312]  Rhee, I., Xu, L., Ha, S., Zimmermann, A., Eggert, L., and
               R. Scheffenegger, "CUBIC for Fast Long-Distance Networks",
               RFC 8312, DOI 10.17487/RFC8312, February 2018,
@@ -1217,13 +1222,8 @@ Appendix A.  Loss Recovery Pseudocode
    We now describe an example implementation of the loss detection
    mechanisms described in Section 5.
 
-A.1.  Tracking Sent Packets
 
-   To correctly implement congestion control, a QUIC sender tracks every
-   ack-eliciting packet until the packet is acknowledged or lost.  It is
-   expected that implementations will be able to access this information
-   by packet number and crypto context and store the per-packet fields
-   (Appendix A.1.1) for loss recovery and congestion control.
+
 
 
 
@@ -1233,6 +1233,14 @@ Iyengar & Swett           Expires May 21, 2020                 [Page 22]
 
 Internet-Draft             QUIC Loss Detection             November 2019
 
+
+A.1.  Tracking Sent Packets
+
+   To correctly implement congestion control, a QUIC sender tracks every
+   ack-eliciting packet until the packet is acknowledged or lost.  It is
+   expected that implementations will be able to access this information
+   by packet number and crypto context and store the per-packet fields
+   (Appendix A.1.1) for loss recovery and congestion control.
 
    After a packet is declared lost, the endpoint can track it for an
    amount of time comparable to the maximum expected packet reordering,
@@ -1273,14 +1281,6 @@ A.2.  Constants of interest
       loss detection considers a packet lost.  Specified as an RTT
       multiplier.  The RECOMMENDED value is 9/8.
 
-   kGranularity:  Timer granularity.  This is a system-dependent value.
-      However, implementations SHOULD use a value no smaller than 1ms.
-
-   kInitialRtt:  The RTT used before an RTT sample is taken.  The
-      RECOMMENDED value is 500ms.
-
-   kPacketNumberSpace:  An enum to enumerate the three packet number
-      spaces.
 
 
 
@@ -1289,6 +1289,15 @@ Iyengar & Swett           Expires May 21, 2020                 [Page 23]
 
 Internet-Draft             QUIC Loss Detection             November 2019
 
+
+   kGranularity:  Timer granularity.  This is a system-dependent value.
+      However, implementations SHOULD use a value no smaller than 1ms.
+
+   kInitialRtt:  The RTT used before an RTT sample is taken.  The
+      RECOMMENDED value is 500ms.
+
+   kPacketNumberSpace:  An enum to enumerate the three packet number
+      spaces.
 
      enum kPacketNumberSpace {
        Initial,
@@ -1315,7 +1324,7 @@ A.3.  Variables of interest
       intends to delay acknowledgments for packets in the
       ApplicationData packet number space.  The actual ack_delay in a
       received ACK frame may be larger due to late timers, reordering,
-      or lost ACKs.
+      or lost ACK frames.
 
    loss_detection_timer:  Multi-modal timer used for loss detection.
 
@@ -1328,15 +1337,6 @@ A.3.  Variables of interest
    largest_acked_packet[kPacketNumberSpace]:  The largest packet number
       acknowledged in the packet number space so far.
 
-   loss_time[kPacketNumberSpace]:  The time at which the next packet in
-      that packet number space will be considered lost based on
-      exceeding the reordering window in time.
-
-   sent_packets[kPacketNumberSpace]:  An association of packet numbers
-      in a packet number space to information about them.  Described in
-      detail above in Appendix A.1.
-
-
 
 
 
@@ -1345,6 +1345,14 @@ Iyengar & Swett           Expires May 21, 2020                 [Page 24]
 
 Internet-Draft             QUIC Loss Detection             November 2019
 
+
+   loss_time[kPacketNumberSpace]:  The time at which the next packet in
+      that packet number space will be considered lost based on
+      exceeding the reordering window in time.
+
+   sent_packets[kPacketNumberSpace]:  An association of packet numbers
+      in a packet number space to information about them.  Described in
+      detail above in Appendix A.1.
 
 A.4.  Initialization
 
@@ -1386,14 +1394,6 @@ A.5.  On Sending a Packet
         sent_packets[pn_space][packet_number].size = sent_bytes
         SetLossDetectionTimer()
 
-A.6.  On Receiving an Acknowledgment
-
-   When an ACK frame is received, it may newly acknowledge any number of
-   packets.
-
-   Pseudocode for OnAckReceived and UpdateRtt follow:
-
-   OnAckReceived(ack, pn_space):
 
 
 
@@ -1402,6 +1402,14 @@ Iyengar & Swett           Expires May 21, 2020                 [Page 25]
 Internet-Draft             QUIC Loss Detection             November 2019
 
 
+A.6.  On Receiving an Acknowledgment
+
+   When an ACK frame is received, it may newly acknowledge any number of
+   packets.
+
+   Pseudocode for OnAckReceived and UpdateRtt follow:
+
+   OnAckReceived(ack, pn_space):
      if (largest_acked_packet[pn_space] == infinite):
        largest_acked_packet[pn_space] = ack.largest_acked
      else:
@@ -1442,14 +1450,6 @@ Internet-Draft             QUIC Loss Detection             November 2019
      // First RTT sample.
      if (smoothed_rtt == 0):
        min_rtt = latest_rtt
-       smoothed_rtt = latest_rtt
-       rttvar = latest_rtt / 2
-       return
-
-     // min_rtt ignores ack delay.
-     min_rtt = min(min_rtt, latest_rtt)
-     // Limit ack_delay by max_ack_delay
-     ack_delay = min(ack_delay, max_ack_delay)
 
 
 
@@ -1458,6 +1458,14 @@ Iyengar & Swett           Expires May 21, 2020                 [Page 26]
 Internet-Draft             QUIC Loss Detection             November 2019
 
 
+       smoothed_rtt = latest_rtt
+       rttvar = latest_rtt / 2
+       return
+
+     // min_rtt ignores ack delay.
+     min_rtt = min(min_rtt, latest_rtt)
+     // Limit ack_delay by max_ack_delay
+     ack_delay = min(ack_delay, max_ack_delay)
      // Adjust for ack delay if plausible.
      adjusted_rtt = latest_rtt
      if (latest_rtt > min_rtt + ack_delay):
@@ -1497,14 +1505,6 @@ A.8.  Setting the Loss Detection Timer
    fire immediately.
 
    Pseudocode for SetLossDetectionTimer follows:
-
-
-
-
-
-
-
-
 
 
 
@@ -1803,9 +1803,9 @@ Internet-Draft             QUIC Loss Detection             November 2019
         if (InCongestionRecovery(acked_packet.time_sent)):
           // Do not increase congestion window in recovery period.
           return
-        if (IsAppLimited()):
+        if (IsAppOrFlowControlLimited()):
           // Do not increase congestion_window if application
-          // limited.
+          // limited or flow control limited.
           return
         if (congestion_window < ssthresh):
           // Slow start.
