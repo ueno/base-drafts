@@ -305,9 +305,8 @@ ul.toc li {
 <link href="#rfc.section.5.3" rel="Chapter" title="5.3 Handshakes and New Paths">
 <link href="#rfc.section.5.3.1" rel="Chapter" title="5.3.1 Sending Probe Packets">
 <link href="#rfc.section.5.3.2" rel="Chapter" title="5.3.2 Loss Detection">
-<link href="#rfc.section.5.4" rel="Chapter" title="5.4 Retry and Version Negotiation">
+<link href="#rfc.section.5.4" rel="Chapter" title="5.4 Handling Retry Packets">
 <link href="#rfc.section.5.5" rel="Chapter" title="5.5 Discarding Keys and Packet State">
-<link href="#rfc.section.5.6" rel="Chapter" title="5.6 Discussion">
 <link href="#rfc.section.6" rel="Chapter" title="6 Congestion Control">
 <link href="#rfc.section.6.1" rel="Chapter" title="6.1 Explicit Congestion Notification">
 <link href="#rfc.section.6.2" rel="Chapter" title="6.2 Slow Start">
@@ -375,12 +374,12 @@ ul.toc li {
 <link href="#rfc.authors" rel="Chapter">
 
 
-  <meta name="generator" content="xml2rfc version 2.34.0 - https://tools.ietf.org/tools/xml2rfc" />
+  <meta name="generator" content="xml2rfc version 2.35.0 - https://tools.ietf.org/tools/xml2rfc" />
   <link rel="schema.dct" href="http://purl.org/dc/terms/" />
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-11-02" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-11-18" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -404,12 +403,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: May 5, 2020</td>
+<td class="left">Expires: May 21, 2020</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">November 02, 2019</td>
+<td class="right">November 18, 2019</td>
 </tr>
 
     	
@@ -428,7 +427,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on May 5, 2020.</p>
+<p>This Internet-Draft will expire on May 21, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -484,11 +483,9 @@ ul.toc li {
 </li>
 <li>5.3.2.   <a href="#rfc.section.5.3.2">Loss Detection</a>
 </li>
-</ul><li>5.4.   <a href="#rfc.section.5.4">Retry and Version Negotiation</a>
+</ul><li>5.4.   <a href="#rfc.section.5.4">Handling Retry Packets</a>
 </li>
 <li>5.5.   <a href="#rfc.section.5.5">Discarding Keys and Packet State</a>
-</li>
-<li>5.6.   <a href="#rfc.section.5.6">Discussion</a>
 </li>
 </ul><li>6.   <a href="#rfc.section.6">Congestion Control</a>
 </li>
@@ -642,7 +639,7 @@ ul.toc li {
 <dt>In-flight:</dt>
 <dd style="margin-left: 8">Packets are considered in-flight when they have been sent and are not ACK-only, and they are not acknowledged, declared lost, or abandoned along with old keys.</dd>
 <dt>Ack-eliciting Frames:</dt>
-<dd style="margin-left: 8">All frames besides ACK or PADDING are considered ack-eliciting.</dd>
+<dd style="margin-left: 8">All frames other than ACK, PADDING, and CONNECTION_CLOSE are considered ack-eliciting.</dd>
 <dt>Ack-eliciting Packets:</dt>
 <dd style="margin-left: 8">Packets that contain ack-eliciting frames elicit an ACK from the receiver within the maximum ack delay and are called ack-eliciting packets.</dd>
 <dt>Crypto Packets:</dt>
@@ -661,7 +658,7 @@ ul.toc li {
 <ul>
 <li>All packets are acknowledged, though packets that contain no ack-eliciting frames are only acknowledged along with ack-eliciting packets.</li>
 <li>Long header packets that contain CRYPTO frames are critical to the performance of the QUIC handshake and use shorter timers for acknowledgement.</li>
-<li>Packets that contain only ACK frames do not count toward congestion control limits and are not considered in-flight.</li>
+<li>Packets containing frames besides ACK or CONNECTION_CLOSE frames count toward congestion control limits and are considered in-flight.</li>
 <li>PADDING frames cause packets to contribute toward bytes in flight without directly causing an acknowledgment to be sent.</li>
 </ul>
 <h2 id="rfc.section.3.1">
@@ -793,7 +790,7 @@ kTimeThreshold * max(smoothed_rtt, latest_rtt, kGranularity)
 <h2 id="rfc.section.5.2">
 <a href="#rfc.section.5.2">5.2.</a> <a href="#pto" id="pto">Probe Timeout</a>
 </h2>
-<p id="rfc.section.5.2.p.1">A Probe Timeout (PTO) triggers sending one or two probe datagrams when ack-eliciting packets are not acknowledged within the expected period of time or the handshake has not been completed.  A PTO enables a connection to recover from loss of tail packets or acknowledgements. The PTO algorithm used in QUIC implements the reliability functions of Tail Loss Probe <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>, RTO <a href="#RFC5681" class="xref">[RFC5681]</a> and F-RTO algorithms for TCP <a href="#RFC5682" class="xref">[RFC5682]</a>, and the timeout computation is based on TCP&#8217;s retransmission timeout period <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
+<p id="rfc.section.5.2.p.1">A Probe Timeout (PTO) triggers sending one or two probe datagrams when ack-eliciting packets are not acknowledged within the expected period of time or the handshake has not been completed.  A PTO enables a connection to recover from loss of tail packets or acknowledgements. The PTO algorithm used in QUIC implements the reliability functions of Tail Loss Probe <a href="#RACK" class="xref">[RACK]</a>, RTO <a href="#RFC5681" class="xref">[RFC5681]</a> and F-RTO algorithms for TCP <a href="#RFC5682" class="xref">[RFC5682]</a>, and the timeout computation is based on TCP&#8217;s retransmission timeout period <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
 <h3 id="rfc.section.5.2.1">
 <a href="#rfc.section.5.2.1">5.2.1.</a> <a href="#computing-pto" id="computing-pto">Computing PTO</a>
 </h3>
@@ -812,7 +809,7 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 </h2>
 <p id="rfc.section.5.3.p.1">The initial probe timeout for a new connection or new path SHOULD be set to twice the initial RTT.  Resumed connections over the same network SHOULD use the previous connection&#8217;s final smoothed RTT value as the resumed connection&#8217;s initial RTT.  If no previous RTT is available, the initial RTT SHOULD be set to 500ms, resulting in a 1 second initial timeout as recommended in <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
 <p id="rfc.section.5.3.p.2">A connection MAY use the delay between sending a PATH_CHALLENGE and receiving a PATH_RESPONSE to seed initial_rtt for a new path, but the delay SHOULD NOT be considered an RTT sample.</p>
-<p id="rfc.section.5.3.p.3">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited, as specified in Section 8.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  Data at Initial encryption MUST be retransmitted before Handshake data and data at Handshake encryption MUST be retransmitted before any ApplicationData data.  If no data can be sent, then the PTO alarm MUST NOT be armed until data has been received from the client.</p>
+<p id="rfc.section.5.3.p.3">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited to three times the amount of data received, as specified in Section 8.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>. If no data can be sent, then the PTO alarm MUST NOT be armed.</p>
 <p id="rfc.section.5.3.p.4">Since the server could be blocked until more packets are received from the client, it is the client&#8217;s responsibility to send packets to unblock the server until it is certain that the server has finished its address validation (see Section 8 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>).  That is, the client MUST set the probe timer if the client has not received an acknowledgement for one of its Handshake or 1-RTT packets.</p>
 <p id="rfc.section.5.3.p.5">Prior to handshake completion, when few to none RTT samples have been generated, it is possible that the probe timer expiration is due to an incorrect RTT estimate at the client. To allow the client to improve its RTT estimate, the new packet that it sends MUST be ack-eliciting.  If Handshake keys are available to the client, it MUST send a Handshake packet, and otherwise it MUST send an Initial packet in a UDP datagram of at least 1200 bytes.</p>
 <p id="rfc.section.5.3.p.6">Initial packets and Handshake packets may never be acknowledged, but they are removed from bytes in flight when the Initial and Handshake keys are discarded.</p>
@@ -820,11 +817,11 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <a href="#rfc.section.5.3.1">5.3.1.</a> <a href="#sending-probe-packets" id="sending-probe-packets">Sending Probe Packets</a>
 </h3>
 <p id="rfc.section.5.3.1.p.1">When a PTO timer expires, a sender MUST send at least one ack-eliciting packet as a probe, unless there is no data available to send.  An endpoint MAY send up to two full-sized datagrams containing ack-eliciting packets, to avoid an expensive consecutive PTO expiration due to a single lost datagram.</p>
-<p id="rfc.section.5.3.1.p.2">It is possible that the sender has no new or previously-sent data to send.  As an example, consider the following sequence of events: new application data is sent in a STREAM frame, deemed lost, then retransmitted in a new packet, and then the original transmission is acknowledged.  In the absence of any new application data, a PTO timer expiration now would find the sender with no new or previously-sent data to send.</p>
-<p id="rfc.section.5.3.1.p.3">When there is no data to send, the sender SHOULD send a PING or other ack-eliciting frame in a single packet, re-arming the PTO timer.</p>
+<p id="rfc.section.5.3.1.p.2">When the PTO timer expires, and there is new or previously sent unacknowledged data, it MUST be sent.  Data that was previously sent with Initial encryption MUST be sent before Handshake data and data previously sent at Handshake encryption MUST be sent before any ApplicationData data.</p>
+<p id="rfc.section.5.3.1.p.3">It is possible the sender has no new or previously-sent data to send.  As an example, consider the following sequence of events: new application data is sent in a STREAM frame, deemed lost, then retransmitted in a new packet, and then the original transmission is acknowledged.  When there is no data to send, the sender SHOULD send a PING or other ack-eliciting frame in a single packet, re-arming the PTO timer.</p>
 <p id="rfc.section.5.3.1.p.4">Alternatively, instead of sending an ack-eliciting packet, the sender MAY mark any packets still in flight as lost.  Doing so avoids sending an additional packet, but increases the risk that loss is declared too aggressively, resulting in an unnecessary rate reduction by the congestion controller.</p>
 <p id="rfc.section.5.3.1.p.5">Consecutive PTO periods increase exponentially, and as a result, connection recovery latency increases exponentially as packets continue to be dropped in the network.  Sending two packets on PTO expiration increases resilience to packet drops, thus reducing the probability of consecutive PTO events.</p>
-<p id="rfc.section.5.3.1.p.6">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternate strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
+<p id="rfc.section.5.3.1.p.6">Probe packets sent on a PTO MUST be ack-eliciting.  A probe packet SHOULD carry new data when possible.  A probe packet MAY carry retransmitted unacknowledged data when new data is unavailable, when flow control does not permit new data to be sent, or to opportunistically reduce loss recovery delay.  Implementations MAY use alternative strategies for determining the content of probe packets, including sending new or retransmitted data based on the application&#8217;s priorities.</p>
 <p id="rfc.section.5.3.1.p.7">When the PTO timer expires multiple times and new data cannot be sent, implementations must choose between sending the same payload every time or sending different payloads.  Sending the same payload may be simpler and ensures the highest priority frames arrive first.  Sending different payloads each time reduces the chances of spurious retransmission.</p>
 <h3 id="rfc.section.5.3.2">
 <a href="#rfc.section.5.3.2">5.3.2.</a> <a href="#pto-loss" id="pto-loss">Loss Detection</a>
@@ -832,10 +829,11 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <p id="rfc.section.5.3.2.p.1">Delivery or loss of packets in flight is established when an ACK frame is received that newly acknowledges one or more packets.</p>
 <p id="rfc.section.5.3.2.p.2">A PTO timer expiration event does not indicate packet loss and MUST NOT cause prior unacknowledged packets to be marked as lost. When an acknowledgement is received that newly acknowledges packets, loss detection proceeds as dictated by packet and time threshold mechanisms; see <a href="#ack-loss-detection" class="xref">Section 5.1</a>.</p>
 <h2 id="rfc.section.5.4">
-<a href="#rfc.section.5.4">5.4.</a> <a href="#retry-and-version-negotiation" id="retry-and-version-negotiation">Retry and Version Negotiation</a>
+<a href="#rfc.section.5.4">5.4.</a> <a href="#handling-retry-packets" id="handling-retry-packets">Handling Retry Packets</a>
 </h2>
-<p id="rfc.section.5.4.p.1">A Retry or Version Negotiation packet causes a client to send another Initial packet, effectively restarting the connection process and resetting congestion control and loss recovery state, including resetting any pending timers.  Either packet indicates that the Initial was received but not processed.  Neither packet can be treated as an acknowledgment for the Initial.</p>
-<p id="rfc.section.5.4.p.2">The client MAY however compute an RTT estimate to the server as the time period from when the first Initial was sent to when a Retry or a Version Negotiation packet is received.  The client MAY use this value to seed the RTT estimator for a subsequent connection attempt to the server.</p>
+<p id="rfc.section.5.4.p.1">A Retry packet causes a client to send another Initial packet, effectively restarting the connection process.  A Retry packet indicates that the Initial was received, but not processed.  A Retry packet cannot be treated as an acknowledgment, because it does not indicate that a packet was processed or specify the packet number.</p>
+<p id="rfc.section.5.4.p.2">Clients that receive a Retry packet reset congestion control and loss recovery state, including resetting any pending timers.  Other connection state, in particular cryptographic handshake messages, is retained; see Section 17.2.5 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.</p>
+<p id="rfc.section.5.4.p.3">The client MAY compute an RTT estimate to the server as the time period from when the first Initial was sent to when a Retry or a Version Negotiation packet is received.  The client MAY use this value in place of its default for the initial RTT estimate.</p>
 <h2 id="rfc.section.5.5">
 <a href="#rfc.section.5.5">5.5.</a> <a href="#discarding-packets" id="discarding-packets">Discarding Keys and Packet State</a>
 </h2>
@@ -844,11 +842,6 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <p id="rfc.section.5.5.p.3">When 0-RTT is rejected, recovery state for all in-flight 0-RTT packets is discarded.</p>
 <p id="rfc.section.5.5.p.4">If a server accepts 0-RTT, but does not buffer 0-RTT packets that arrive before Initial packets, early 0-RTT packets will be declared lost, but that is expected to be infrequent.</p>
 <p id="rfc.section.5.5.p.5">It is expected that keys are discarded after packets encrypted with them would be acknowledged or declared lost.  Initial secrets however might be destroyed sooner, as soon as handshake keys are available (see Section 4.9.1 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).</p>
-<h2 id="rfc.section.5.6">
-<a href="#rfc.section.5.6">5.6.</a> <a href="#discussion" id="discussion">Discussion</a>
-</h2>
-<p id="rfc.section.5.6.p.1">The majority of constants were derived from best common practices among widely deployed TCP implementations on the internet.  Exceptions follow.</p>
-<p id="rfc.section.5.6.p.2">A shorter delayed ack time of 25ms was chosen because longer delayed acks can delay loss recovery and for the small number of connections where less than packet per 25ms is delivered, acking every packet is beneficial to congestion control and loss recovery.</p>
 <h1 id="rfc.section.6">
 <a href="#rfc.section.6">6.</a> <a href="#congestion-control" id="congestion-control">Congestion Control</a>
 </h1>
@@ -916,21 +909,21 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 </tbody>
 </table>
 <p id="rfc.section.6.7.p.5">The first three packets are determined to be lost when the ACK of packet 4 is received at t=8.  The congestion period is calculated as the time between the oldest and newest lost packets: (3 - 0) = 3.  The duration for persistent congestion is equal to: (1 * kPersistentCongestionThreshold) = 3.  Because the threshold was reached and because none of the packets between the oldest and the newest packets are acknowledged, the network is considered to have experienced persistent congestion.</p>
-<p id="rfc.section.6.7.p.6">When persistent congestion is established, the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a> after Tail Loss Probes (TLP) <a href="#TLP" class="xref">[TLP]</a>.</p>
+<p id="rfc.section.6.7.p.6">When persistent congestion is established, the sender&#8217;s congestion window MUST be reduced to the minimum congestion window (kMinimumWindow).  This response of collapsing the congestion window on persistent congestion is functionally similar to a sender&#8217;s response on a Retransmission Timeout (RTO) in TCP <a href="#RFC5681" class="xref">[RFC5681]</a> after Tail Loss Probes (TLP) <a href="#RACK" class="xref">[RACK]</a>.</p>
 <h2 id="rfc.section.6.8">
 <a href="#rfc.section.6.8">6.8.</a> <a href="#pacing" id="pacing">Pacing</a>
 </h2>
 <p id="rfc.section.6.8.p.1">This document does not specify a pacer, but it is RECOMMENDED that a sender pace sending of all in-flight packets based on input from the congestion controller. For example, a pacer might distribute the congestion window over the smoothed RTT when used with a window-based controller, and a pacer might use the rate estimate of a rate-based controller.</p>
 <p id="rfc.section.6.8.p.2">An implementation should take care to architect its congestion controller to work well with a pacer.  For instance, a pacer might wrap the congestion controller and control the availability of the congestion window, or a pacer might pace out packets handed to it by the congestion controller. Timely delivery of ACK frames is important for efficient loss recovery. Packets containing only ACK frames should therefore not be paced, to avoid delaying their delivery to the peer.</p>
-<p id="rfc.section.6.8.p.3">As an example of a well-known and publicly available implementation of a flow pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc) in Linux (3.11 onwards).</p>
+<p id="rfc.section.6.8.p.3">Sending multiple packets into the network without any delay between them creates a packet burst that might cause short-term congestion and losses.  Implementations MUST either use pacing or limit such bursts to the initial congestion window, which is recommended to be the minimum of 10 * max_datagram_size and max(2* max_datagram_size, 14720)), where max_datagram_size is the current maximum size of a datagram for the connection, not including UDP or IP overhead.</p>
+<p id="rfc.section.6.8.p.4">As an example of a well-known and publicly available implementation of a flow pacer, implementers are referred to the Fair Queue packet scheduler (fq qdisc) in Linux (3.11 onwards).</p>
 <h2 id="rfc.section.6.9">
 <a href="#rfc.section.6.9">6.9.</a> <a href="#under-utilizing-the-congestion-window" id="under-utilizing-the-congestion-window">Under-utilizing the Congestion Window</a>
 </h2>
 <p id="rfc.section.6.9.p.1">When bytes in flight is smaller than the congestion window and sending is not pacing limited, the congestion window is under-utilized.  When this occurs, the congestion window SHOULD NOT be increased in either slow start or congestion avoidance. This can happen due to insufficient application data or flow control credit.</p>
 <p id="rfc.section.6.9.p.2">A sender MAY use the pipeACK method described in section 4.3 of <a href="#RFC7661" class="xref">[RFC7661]</a> to determine if the congestion window is sufficiently utilized.</p>
 <p id="rfc.section.6.9.p.3">A sender that paces packets (see <a href="#pacing" class="xref">Section 6.8</a>) might delay sending packets and not fully utilize the congestion window due to this delay. A sender should not consider itself application limited if it would have fully utilized the congestion window without pacing delay.</p>
-<p id="rfc.section.6.9.p.4">Sending multiple packets into the network without any delay between them creates a packet burst that might cause short-term congestion and losses.  Implementations SHOULD either use pacing or reduce their congestion window to limit such bursts to minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14720)), the same as the recommended initial congestion window.</p>
-<p id="rfc.section.6.9.p.5">A sender MAY implement alternate mechanisms to update its congestion window after periods of under-utilization, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
+<p id="rfc.section.6.9.p.4">A sender MAY implement alternative mechanisms to update its congestion window after periods of under-utilization, such as those proposed for TCP in <a href="#RFC7661" class="xref">[RFC7661]</a>.</p>
 <h1 id="rfc.section.7">
 <a href="#rfc.section.7">7.</a> <a href="#security-considerations" id="security-considerations">Security Considerations</a>
 </h1>
@@ -1051,11 +1044,6 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <td class="reference"><b id="RFC8312">[RFC8312]</b></td>
 <td class="top">
 <a>Rhee, I.</a>, <a>Xu, L.</a>, <a>Ha, S.</a>, <a>Zimmermann, A.</a>, <a>Eggert, L.</a> and <a>R. Scheffenegger</a>, "<a href="https://tools.ietf.org/html/rfc8312">CUBIC for Fast Long-Distance Networks</a>", RFC 8312, DOI 10.17487/RFC8312, February 2018.</td>
-</tr>
-<tr>
-<td class="reference"><b id="TLP">[TLP]</b></td>
-<td class="top">
-<a>Dukkipati, N.</a>, <a>Cardwell, N.</a>, <a>Cheng, Y.</a> and <a>M. Mathis</a>, "<a href="https://tools.ietf.org/html/draft-dukkipati-tcpm-tcp-loss-probe-01">Tail Loss Probe (TLP): An Algorithm for Fast Recovery of Tail Losses</a>", Internet-Draft draft-dukkipati-tcpm-tcp-loss-probe-01, February 2013.</td>
 </tr>
 </tbody></table>
 <h1 id="rfc.appendix.A">
@@ -1389,16 +1377,14 @@ DetectLostPackets(pn_space):
 <p></p>
 
 <dl>
-<dt>kMaxDatagramSize:</dt>
-<dd style="margin-left: 8">The sender&#8217;s maximum payload size. Does not include UDP or IP overhead.  The max packet size is used for calculating initial and minimum congestion windows. The RECOMMENDED value is 1200 bytes.</dd>
 <dt>kInitialWindow:</dt>
-<dd style="margin-left: 8">Default limit on the initial amount of data in flight, in bytes.  Taken from <a href="#RFC6928" class="xref">[RFC6928]</a>, but increased slightly to account for the smaller 8 byte overhead of UDP vs 20 bytes for TCP.  The RECOMMENDED value is the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14720)).</dd>
+<dd style="margin-left: 8">Default limit on the initial amount of data in flight, in bytes.  Taken from <a href="#RFC6928" class="xref">[RFC6928]</a>, but increased slightly to account for the smaller 8 byte overhead of UDP vs 20 bytes for TCP.  The RECOMMENDED value is the minimum of 10 * max_datagram_size and max(2 * max_datagram_size, 14720)).</dd>
 <dt>kMinimumWindow:</dt>
-<dd style="margin-left: 8">Minimum congestion window in bytes. The RECOMMENDED value is 2 * kMaxDatagramSize.</dd>
+<dd style="margin-left: 8">Minimum congestion window in bytes. The RECOMMENDED value is 2 * max_datagram_size.</dd>
 <dt>kLossReductionFactor:</dt>
 <dd style="margin-left: 8">Reduction in congestion window when a new loss event is detected.  The RECOMMENDED value is 0.5.</dd>
 <dt>kPersistentCongestionThreshold:</dt>
-<dd style="margin-left: 8">Period of time for persistent congestion to be established, specified as a PTO multiplier.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP) <a href="#TLP" class="xref">[TLP]</a> <a href="#RACK" class="xref">[RACK]</a>, before establishing persistent congestion, as TCP does with a Retransmission Timeout (RTO) <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 3, which is approximately equivalent to having two TLPs before an RTO in TCP.</dd>
+<dd style="margin-left: 8">Period of time for persistent congestion to be established, specified as a PTO multiplier.  The rationale for this threshold is to enable a sender to use initial PTOs for aggressive probing, as TCP does with Tail Loss Probe (TLP) <a href="#RACK" class="xref">[RACK]</a>, before establishing persistent congestion, as TCP does with a Retransmission Timeout (RTO) <a href="#RFC5681" class="xref">[RFC5681]</a>.  The RECOMMENDED value for kPersistentCongestionThreshold is 3, which is approximately equivalent to having two TLPs before an RTO in TCP.</dd>
 </dl>
 <h2 id="rfc.appendix.B.2">
 <a href="#rfc.appendix.B.2">B.2.</a> <a href="#vars-of-interest" id="vars-of-interest">Variables of interest</a>
@@ -1407,6 +1393,8 @@ DetectLostPackets(pn_space):
 <p></p>
 
 <dl>
+<dt>max_datagram_size:</dt>
+<dd style="margin-left: 8">The sender&#8217;s current maximum payload size. Does not include UDP or IP overhead.  The max datagram size is used for congestion window computations. An endpoint sets the value of this variable based on its PMTU (see Section 14.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>), with a minimum value of 1200 bytes.</dd>
 <dt>ecn_ce_counters[kPacketNumberSpace]:</dt>
 <dd style="margin-left: 8">The highest value reported for the ECN-CE counter in the packet number space by the peer in an ACK frame. This value is used to detect increases in the reported ECN-CE counter.</dd>
 <dt>bytes_in_flight:</dt>
@@ -1461,7 +1449,7 @@ DetectLostPackets(pn_space):
        congestion_window += acked_packet.size
      else:
        // Congestion avoidance.
-       congestion_window += kMaxDatagramSize * acked_packet.size
+       congestion_window += max_datagram_size * acked_packet.size
            / congestion_window
 </pre>
 <h2 id="rfc.appendix.B.6">
@@ -1607,7 +1595,7 @@ DetectLostPackets(pn_space):
 <li>Reduce congestion window after idle, unless pacing is used (#2007, #2023)</li>
 <li>Disable RTT calculation for packets that don&#8217;t elicit acknowledgment (#2060, #2078)</li>
 <li>Limit ack_delay by max_ack_delay (#2060, #2099)</li>
-<li>Initial keys are discarded once Handshake are avaialble (#1951, #2045)</li>
+<li>Initial keys are discarded once Handshake keys are available (#1951, #2045)</li>
 <li>Reorder ECN and loss detection in pseudocode (#2142)</li>
 <li>Only cancel loss detection timer if ack-eliciting packets are in flight (#2093, #2117)</li>
 </ul>
