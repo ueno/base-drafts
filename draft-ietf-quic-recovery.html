@@ -828,7 +828,7 @@ table.left {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Iyengar &amp; Swett</td>
-<td class="center">Expires 22 May 2020</td>
+<td class="center">Expires 23 May 2020</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -841,12 +841,12 @@ table.left {
 <dd class="internet-draft">draft-ietf-quic-recovery-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2019-11-19" class="published">19 November 2019</time>
+<time datetime="2019-11-20" class="published">20 November 2019</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2020-05-22">22 May 2020</time></dd>
+<dd class="expires"><time datetime="2020-05-23">23 May 2020</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -898,7 +898,7 @@ code and issues list for this draft can be found at
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 22 May 2020.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 23 May 2020.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1241,11 +1241,11 @@ code and issues list for this draft can be found at
 of transport and security experience, and implements mechanisms that make it
 attractive as a modern general-purpose transport.  The QUIC protocol is
 described in <span>[<a href="#QUIC-TRANSPORT" class="xref">QUIC-TRANSPORT</a>]</span>.<a href="#section-1-1" class="pilcrow">¶</a></p>
-<p id="section-1-2">QUIC implements the spirit of existing TCP loss recovery mechanisms, described
-in RFCs, various Internet-drafts, and also those prevalent in the Linux TCP
-implementation.  This document describes QUIC congestion control and loss
-recovery, and where applicable, attributes the TCP equivalent in RFCs,
-Internet-drafts, academic papers, and/or TCP implementations.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-2">QUIC implements the spirit of existing TCP congestion control and loss recovery
+mechanisms, described in RFCs, various Internet-drafts, and also those prevalent
+in the Linux TCP implementation.  This document describes QUIC congestion
+control and loss recovery, and where applicable, attributes the TCP equivalent
+in RFCs, Internet-drafts, academic papers, and/or TCP implementations.<a href="#section-1-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="conventions-and-definitions">
@@ -1279,16 +1279,11 @@ ack-eliciting.<a href="#section-2-3.6" class="pilcrow">¶</a>
   Packets that contain ack-eliciting frames elicit an ACK from the receiver
 within the maximum ack delay and are called ack-eliciting packets.<a href="#section-2-3.8" class="pilcrow">¶</a>
 </dd>
-<dt id="section-2-3.9">Crypto Packets:</dt>
+<dt id="section-2-3.9">Out-of-order Packets:</dt>
         <dd id="section-2-3.10">
-  Packets containing CRYPTO data sent in Initial or Handshake
-packets.<a href="#section-2-3.10" class="pilcrow">¶</a>
-</dd>
-<dt id="section-2-3.11">Out-of-order Packets:</dt>
-        <dd id="section-2-3.12">
   Packets that do not increase the largest received packet number for its
 packet number space by exactly one. Packets arrive out of order
-when earlier packets are lost or delayed.<a href="#section-2-3.12" class="pilcrow">¶</a>
+when earlier packets are lost or delayed.<a href="#section-2-3.10" class="pilcrow">¶</a>
 </dd>
 </dl>
 </section>
@@ -1462,7 +1457,7 @@ received ACK frame.  This is because a peer reports ACK delays for only the
 largest acknowledged packet in an ACK frame.  While the reported ACK delay is
 not used by the RTT sample measurement, it is used to adjust the RTT sample in
 subsequent computations of smoothed_rtt and rttvar <a href="#smoothed-rtt" class="xref">Section 4.3</a>.<a href="#section-4.1-5" class="pilcrow">¶</a></p>
-<p id="section-4.1-6">To avoid generating multiple RTT samples using the same packet, an ACK frame
+<p id="section-4.1-6">To avoid generating multiple RTT samples for a single packet, an ACK frame
 SHOULD NOT be used to update RTT estimates if it does not newly acknowledge the
 largest acknowledged packet.<a href="#section-4.1-6" class="pilcrow">¶</a></p>
 <p id="section-4.1-7">An RTT sample MUST NOT be generated on receiving an ACK frame that does not
@@ -1553,8 +1548,9 @@ rttvar = 3/4 * rttvar + 1/4 * rttvar_sample
       <h2 id="name-loss-detection">
 <a href="#section-5" class="section-number selfRef">5. </a><a href="#name-loss-detection" class="section-name selfRef">Loss Detection</a>
       </h2>
-<p id="section-5-1">QUIC senders use both ack information and timeouts to detect lost packets, and
-this section provides a description of these algorithms.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<p id="section-5-1">QUIC senders use acknowledgements to detect lost packets, and a probe
+time out <a href="#pto" class="xref">Section 5.2</a> to ensure acknowledgements are received. This section
+provides a description of these algorithms.<a href="#section-5-1" class="pilcrow">¶</a></p>
 <p id="section-5-2">If a packet is lost, the QUIC transport needs to recover from that loss, such
 as by retransmitting the data, sending an updated frame, or abandoning the
 frame.  For more information, see Section 13.3 of <span>[<a href="#QUIC-TRANSPORT" class="xref">QUIC-TRANSPORT</a>]</span>.<a href="#section-5-2" class="pilcrow">¶</a></p>
@@ -1603,11 +1599,10 @@ as TCP-NCR <span>[<a href="#RFC4653" class="xref">RFC4653</a>]</span>, to improv
           <h4 id="name-time-threshold">
 <a href="#section-5.1.2" class="section-number selfRef">5.1.2. </a><a href="#name-time-threshold" class="section-name selfRef">Time Threshold</a>
           </h4>
-<p id="section-5.1.2-1">Once a later packet packet within the same packet number space has been
-acknowledged, an endpoint SHOULD declare an earlier packet lost if it was sent
-a threshold amount of time in the past. To avoid declaring packets as lost too
-early, this time threshold MUST be set to at least kGranularity.  The time
-threshold is:<a href="#section-5.1.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.1.2-1">Once a later packet within the same packet number space has been acknowledged,
+an endpoint SHOULD declare an earlier packet lost if it was sent a threshold
+amount of time in the past. To avoid declaring packets as lost too early, this
+time threshold MUST be set to at least kGranularity.  The time threshold is:<a href="#section-5.1.2-1" class="pilcrow">¶</a></p>
 <div class="artwork art-text alignLeft" id="section-5.1.2-2">
 <pre>
 max(kTimeThreshold * max(smoothed_rtt, latest_rtt), kGranularity)
@@ -1682,12 +1677,12 @@ from sending a 1-RTT packet on a PTO before before it has the keys to process
 a 1-RTT packet.<a href="#section-5.2.1-6" class="pilcrow">¶</a></p>
 <p id="section-5.2.1-7">When a PTO timer expires, the PTO period MUST be set to twice its current
 value. This exponential reduction in the sender's rate is important because
-the PTOs might be caused by loss of packets or acknowledgements due to severe
-congestion.  Even when there are ack-eliciting packets in-flight in multiple
-packet number spaces, the exponential increase in probe timeout occurs across
-all spaces to prevent excess load on the network.  For example, a timeout in
-the Initial packet number space doubles the length of the timeout in the
-Handshake packet number space.<a href="#section-5.2.1-7" class="pilcrow">¶</a></p>
+consecutive PTOs might be caused by loss of packets or acknowledgements due to
+severe congestion.  Even when there are ack-eliciting packets in-flight in
+multiple packet number spaces, the exponential increase in probe timeout
+occurs across all spaces to prevent excess load on the network.  For example,
+a timeout in the Initial packet number space doubles the length of the timeout
+in the Handshake packet number space.<a href="#section-5.2.1-7" class="pilcrow">¶</a></p>
 <p id="section-5.2.1-8">The life of a connection that is experiencing consecutive PTOs is limited by
 the endpoint's idle timeout.<a href="#section-5.2.1-8" class="pilcrow">¶</a></p>
 <p id="section-5.2.1-9">The probe timer is not set if the time threshold <a href="#time-threshold" class="xref">Section 5.1.2</a> loss
@@ -1731,7 +1726,7 @@ estimate, the new packet that it sends MUST be ack-eliciting.  If Handshake
 keys are available to the client, it MUST send a Handshake packet, and
 otherwise it MUST send an Initial packet in a UDP datagram of at least 1200
 bytes.<a href="#section-5.3-5" class="pilcrow">¶</a></p>
-<p id="section-5.3-6">Initial packets and Handshake packets could never be acknowledged, but they are
+<p id="section-5.3-6">Initial packets and Handshake packets could be never acknowledged, but they are
 removed from bytes in flight when the Initial and Handshake keys are discarded.<a href="#section-5.3-6" class="pilcrow">¶</a></p>
 <div id="sending-probe-packets">
 <section id="section-5.3.1">
@@ -1747,9 +1742,7 @@ to a single lost datagram or transmit data from multiple packet number spaces.<a
 expired, the sender SHOULD send ack-eliciting packets from other packet
 number spaces with in-flight data, coalescing packets if possible.<a href="#section-5.3.1-2" class="pilcrow">¶</a></p>
 <p id="section-5.3.1-3">When the PTO timer expires, and there is new or previously sent unacknowledged
-data, it MUST be sent.  Data that was previously sent with Initial encryption
-MUST be sent before Handshake data and data previously sent at Handshake
-encryption MUST be sent before any ApplicationData data.<a href="#section-5.3.1-3" class="pilcrow">¶</a></p>
+data, it MUST be sent.<a href="#section-5.3.1-3" class="pilcrow">¶</a></p>
 <p id="section-5.3.1-4">It is possible the sender has no new or previously-sent data to send.
 As an example, consider the following sequence of events: new application data
 is sent in a STREAM frame, deemed lost, then retransmitted in a new packet,
@@ -2122,10 +2115,10 @@ detect.<a href="#section-7.3-4" class="pilcrow">¶</a></p>
 <dl class="references">
 <dt id="QUIC-TLS">[QUIC-TLS]</dt>
         <dd>
-<span class="refAuthor">Thomson, M., Ed.</span><span class="refAuthor"> and S. Turner, Ed.</span>, <span class="refTitle">"Using TLS to Secure QUIC"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-tls-latest</span>, <time datetime="2019-11-19">19 November 2019</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-tls-latest">https://tools.ietf.org/html/draft-ietf-quic-tls-latest</a>&gt;</span>. </dd>
+<span class="refAuthor">Thomson, M., Ed.</span><span class="refAuthor"> and S. Turner, Ed.</span>, <span class="refTitle">"Using TLS to Secure QUIC"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-tls-latest</span>, <time datetime="2019-11-20">20 November 2019</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-tls-latest">https://tools.ietf.org/html/draft-ietf-quic-tls-latest</a>&gt;</span>. </dd>
 <dt id="QUIC-TRANSPORT">[QUIC-TRANSPORT]</dt>
         <dd>
-<span class="refAuthor">Iyengar, J., Ed.</span><span class="refAuthor"> and M. Thomson, Ed.</span>, <span class="refTitle">"QUIC: A UDP-Based Multiplexed and Secure Transport"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-transport-latest</span>, <time datetime="2019-11-19">19 November 2019</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-transport-latest">https://tools.ietf.org/html/draft-ietf-quic-transport-latest</a>&gt;</span>. </dd>
+<span class="refAuthor">Iyengar, J., Ed.</span><span class="refAuthor"> and M. Thomson, Ed.</span>, <span class="refTitle">"QUIC: A UDP-Based Multiplexed and Secure Transport"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-transport-latest</span>, <time datetime="2019-11-20">20 November 2019</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-transport-latest">https://tools.ietf.org/html/draft-ietf-quic-transport-latest</a>&gt;</span>. </dd>
 <dt id="RFC2119">[RFC2119]</dt>
         <dd>
 <span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
