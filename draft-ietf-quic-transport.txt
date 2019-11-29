@@ -129,10 +129,10 @@ Internet-Draft           QUIC Transport Protocol           November 2019
      8.4.  Path Validation Responses . . . . . . . . . . . . . . . .  45
      8.5.  Successful Path Validation  . . . . . . . . . . . . . . .  46
      8.6.  Failed Path Validation  . . . . . . . . . . . . . . . . .  46
-   9.  Connection Migration  . . . . . . . . . . . . . . . . . . . .  46
-     9.1.  Probing a New Path  . . . . . . . . . . . . . . . . . . .  47
+   9.  Connection Migration  . . . . . . . . . . . . . . . . . . . .  47
+     9.1.  Probing a New Path  . . . . . . . . . . . . . . . . . . .  48
      9.2.  Initiating Connection Migration . . . . . . . . . . . . .  48
-     9.3.  Responding to Connection Migration  . . . . . . . . . . .  48
+     9.3.  Responding to Connection Migration  . . . . . . . . . . .  49
        9.3.1.  Peer Address Spoofing . . . . . . . . . . . . . . . .  49
        9.3.2.  On-Path Address Spoofing  . . . . . . . . . . . . . .  50
        9.3.3.  Off-Path Packet Forwarding  . . . . . . . . . . . . .  50
@@ -2338,14 +2338,14 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    different connections; validating the port is therefore unlikely to
    be successful.
 
-   If the client has a token received in a NEW_TOKEN frame on a previous
-   connection to what it believes to be the same server, it SHOULD
-   include that value in the Token field of its Initial packet.
+   A token received in a NEW_TOKEN frame is applicable to any server
+   that the connection is considered authoritative for (e.g., server
+   names included in the certificate).  When connecting to a server for
+   which the client retains an applicable and unused token, it SHOULD
+   include that token in the Token field of its Initial packet.
    Including a token might allow the server to validate the client
-   address without an additional round trip.
-
-   A token allows a server to correlate activity between the connection
-   where the token was issued and any connection where it is used.
+   address without an additional round trip.  A client MUST NOT include
+   a token that is not applicable to the server that it is connecting
 
 
 
@@ -2354,6 +2354,12 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 42]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
+   to, unless the client has the knowledge that the server that issued
+   the token and the server the client is connecting to are jointly
+   managing the tokens.
+
+   A token allows a server to correlate activity between the connection
+   where the token was issued and any connection where it is used.
    Clients that want to break continuity of identity with a server MAY
    discard tokens provided using the NEW_TOKEN frame.  A token obtained
    in a Retry packet MUST be used immediately during the connection
@@ -2396,12 +2402,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    In a stateless design, a server can use encrypted and authenticated
    tokens to pass information to clients that the server can later
-   recover and use to validate a client address.  Tokens are not
-   integrated into the cryptographic handshake and so they are not
-   authenticated.  For instance, a client might be able to reuse a
-   token.  To avoid attacks that exploit this property, a server can
-   limit its use of tokens to only the information needed to validate
-   client addresses.
 
 
 
@@ -2409,6 +2409,13 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 43]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   recover and use to validate a client address.  Tokens are not
+   integrated into the cryptographic handshake and so they are not
+   authenticated.  For instance, a client might be able to reuse a
+   token.  To avoid attacks that exploit this property, a server can
+   limit its use of tokens to only the information needed to validate
+   client addresses.
 
    Attackers could replay tokens to use servers as amplifiers in DDoS
    attacks.  To protect against such attacks, servers SHOULD ensure that
@@ -2451,13 +2458,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Importantly, it validates that the packets received from the
    migrating endpoint do not carry a spoofed source address.
 
-   Path validation can be used at any time by either endpoint.  For
-   instance, an endpoint might check that a peer is still in possession
-   of its address after a period of quiescence.
-
-   Path validation is not designed as a NAT traversal mechanism.  Though
-   the mechanism described here might be effective for the creation of
-   NAT bindings that support NAT traversal, the expectation is that one
 
 
 
@@ -2466,6 +2466,13 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 44]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
+   Path validation can be used at any time by either endpoint.  For
+   instance, an endpoint might check that a peer is still in possession
+   of its address after a period of quiescence.
+
+   Path validation is not designed as a NAT traversal mechanism.  Though
+   the mechanism described here might be effective for the creation of
+   NAT bindings that support NAT traversal, the expectation is that one
    or other peer is able to receive packets without first having sent a
    packet on that path.  Effective NAT traversal needs additional
    synchronization mechanisms that are not provided here.
@@ -2506,13 +2513,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    An endpoint MUST NOT send more than one PATH_RESPONSE frame in
    response to one PATH_CHALLENGE frame (see Section 13.3).  The peer is
-   expected to send more PATH_CHALLENGE frames as necessary to evoke
-   additional PATH_RESPONSE frames.
-
-
-
-
-
 
 
 
@@ -2521,6 +2521,9 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 45]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   expected to send more PATH_CHALLENGE frames as necessary to evoke
+   additional PATH_RESPONSE frames.
 
 8.5.  Successful Path Validation
 
@@ -2564,12 +2567,9 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    path is initiated while a path validation on the old path is in
    progress.
 
-9.  Connection Migration
 
-   The use of a connection ID allows connections to survive changes to
-   endpoint addresses (IP address and port), such as those caused by an
-   endpoint migrating to a new network.  This section describes the
-   process by which an endpoint migrates to a new address.
+
+
 
 
 
@@ -2577,6 +2577,13 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 46]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+9.  Connection Migration
+
+   The use of a connection ID allows connections to survive changes to
+   endpoint addresses (IP address and port), such as those caused by an
+   endpoint migrating to a new network.  This section describes the
+   process by which an endpoint migrates to a new address.
 
    The design of QUIC relies on endpoints retaining a stable address for
    the duration of the handshake.  An endpoint MUST NOT initiate
@@ -2614,6 +2621,19 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    packets from an unknown server address, the client MUST discard these
    packets.
 
+
+
+
+
+
+
+
+
+Iyengar & Thomson          Expires 1 June 2020                 [Page 47]
+
+Internet-Draft           QUIC Transport Protocol           November 2019
+
+
 9.1.  Probing a New Path
 
    An endpoint MAY probe for peer reachability from a new local address
@@ -2626,14 +2646,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    An endpoint uses a new connection ID for probes sent from a new local
    address, see Section 9.5 for further discussion.  An endpoint that
    uses a new local address needs to ensure that at least one new
-
-
-
-Iyengar & Thomson          Expires 1 June 2020                 [Page 47]
-
-Internet-Draft           QUIC Transport Protocol           November 2019
-
-
    connection ID is available at the peer.  That can be achieved by
    including a NEW_CONNECTION_ID frame in the probe.
 
@@ -2671,6 +2683,13 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    reachability on the new path, an endpoint MAY concurrently initiate
    path validation Section 8.2 on the new path.
 
+
+
+Iyengar & Thomson          Expires 1 June 2020                 [Page 48]
+
+Internet-Draft           QUIC Transport Protocol           November 2019
+
+
 9.3.  Responding to Connection Migration
 
    Receiving a packet from a new peer address containing a non-probing
@@ -2680,15 +2699,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    subsequent packets to the new peer address and MUST initiate path
    validation (Section 8.2) to verify the peer's ownership of the
    unvalidated address.
-
-
-
-
-
-Iyengar & Thomson          Expires 1 June 2020                 [Page 48]
-
-Internet-Draft           QUIC Transport Protocol           November 2019
-
 
    An endpoint MAY send data to an unvalidated peer address, but it MUST
    protect against potential attacks as described in Section 9.3.1 and
@@ -2729,22 +2739,15 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    time measurements to this address, the estimate SHOULD be the default
    initial value (see [QUIC-RECOVERY]).
 
-   If an endpoint skips validation of a peer address as described in
-   Section 9.3, it does not need to limit its sending rate.
-
-
-
-
-
-
-
-
 
 
 Iyengar & Thomson          Expires 1 June 2020                 [Page 49]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   If an endpoint skips validation of a peer address as described in
+   Section 9.3, it does not need to limit its sending rate.
 
 9.3.2.  On-Path Address Spoofing
 
@@ -2791,9 +2794,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    attack is more reliable if relatively few packets are sent or if
    packet loss coincides with the attempted attack.
 
-   A non-probing packet received on the original path that increases the
-   maximum received packet number will cause the endpoint to move back
-   to that path.  Eliciting packets on this path increases the
 
 
 
@@ -2802,6 +2802,9 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 50]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
+   A non-probing packet received on the original path that increases the
+   maximum received packet number will cause the endpoint to move back
+   to that path.  Eliciting packets on this path increases the
    likelihood that the attack is unsuccessful.  Therefore, mitigation of
    this attack relies on triggering the exchange of packets.
 
@@ -2847,9 +2850,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    path is likely to have similar bandwidth and round-trip time.
    However, this determination will be imperfect.  If the determination
    is incorrect, the congestion controller and the RTT estimator are
-   expected to adapt to the new path.  Generally, implementations are
-   advised to be cautious when using previous values on a new path.
-
 
 
 
@@ -2857,6 +2857,9 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 51]
 
 Internet-Draft           QUIC Transport Protocol           November 2019
 
+
+   expected to adapt to the new path.  Generally, implementations are
+   advised to be cautious when using previous values on a new path.
 
    There may be apparent reordering at the receiver when an endpoint
    sends data and probes from/to multiple addresses during the migration
@@ -2903,9 +2906,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
    Using different connection IDs for packets sent in both directions on
    each new network path eliminates the use of the connection ID for
    linking packets from the same connection across different network
-   paths.  Header protection ensures that packet numbers cannot be used
-   to correlate activity.  This does not prevent other properties of
-
 
 
 
@@ -2914,6 +2914,8 @@ Iyengar & Thomson          Expires 1 June 2020                 [Page 52]
 Internet-Draft           QUIC Transport Protocol           November 2019
 
 
+   paths.  Header protection ensures that packet numbers cannot be used
+   to correlate activity.  This does not prevent other properties of
    packets, such as timing and size, from being used to correlate
    activity.
 
@@ -2960,8 +2962,6 @@ Internet-Draft           QUIC Transport Protocol           November 2019
 
    A server conveys a preferred address by including the
    preferred_address transport parameter in the TLS handshake.
-
-
 
 
 
