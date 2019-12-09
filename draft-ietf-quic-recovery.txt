@@ -86,10 +86,10 @@ Table of Contents
    5.  Loss Detection  . . . . . . . . . . . . . . . . . . . . . . .   9
      5.1.  Acknowledgement-based Detection . . . . . . . . . . . . .  10
        5.1.1.  Packet Threshold  . . . . . . . . . . . . . . . . . .  10
-       5.1.2.  Time Threshold  . . . . . . . . . . . . . . . . . . .  10
+       5.1.2.  Time Threshold  . . . . . . . . . . . . . . . . . . .  11
      5.2.  Probe Timeout . . . . . . . . . . . . . . . . . . . . . .  11
-       5.2.1.  Computing PTO . . . . . . . . . . . . . . . . . . . .  11
-     5.3.  Handshakes and New Paths  . . . . . . . . . . . . . . . .  12
+       5.2.1.  Computing PTO . . . . . . . . . . . . . . . . . . . .  12
+     5.3.  Handshakes and New Paths  . . . . . . . . . . . . . . . .  13
        5.3.1.  Sending Probe Packets . . . . . . . . . . . . . . . .  13
        5.3.2.  Loss Detection  . . . . . . . . . . . . . . . . . . .  14
      5.4.  Handling Retry Packets  . . . . . . . . . . . . . . . . .  15
@@ -540,12 +540,27 @@ Internet-Draft             QUIC Loss Detection             December 2019
 
    The RECOMMENDED initial value for the packet reordering threshold
    (kPacketThreshold) is 3, based on best practices for TCP loss
-   detection [RFC5681] [RFC6675].
+   detection [RFC5681] [RFC6675].  Implementations SHOULD NOT use a
+   packet threshold less than 3, to keep in line with TCP [RFC5681].
 
    Some networks may exhibit higher degrees of reordering, causing a
    sender to detect spurious losses.  Implementers MAY use algorithms
    developed for TCP, such as TCP-NCR [RFC4653], to improve QUIC's
    reordering resilience.
+
+
+
+
+
+
+
+
+
+
+Iyengar & Swett           Expires 11 June 2020                 [Page 10]
+
+Internet-Draft             QUIC Loss Detection             December 2019
+
 
 5.1.2.  Time Threshold
 
@@ -554,13 +569,6 @@ Internet-Draft             QUIC Loss Detection             December 2019
    was sent a threshold amount of time in the past.  To avoid declaring
    packets as lost too early, this time threshold MUST be set to at
    least kGranularity.  The time threshold is:
-
-
-
-Iyengar & Swett           Expires 11 June 2020                 [Page 10]
-
-Internet-Draft             QUIC Loss Detection             December 2019
-
 
    max(kTimeThreshold * max(smoothed_rtt, latest_rtt), kGranularity)
 
@@ -601,6 +609,15 @@ Internet-Draft             QUIC Loss Detection             December 2019
    TCP [RFC5682].  The timeout computation is based on TCP's
    retransmission timeout period [RFC6298].
 
+
+
+
+
+Iyengar & Swett           Expires 11 June 2020                 [Page 11]
+
+Internet-Draft             QUIC Loss Detection             December 2019
+
+
 5.2.1.  Computing PTO
 
    When an ack-eliciting packet is transmitted, the sender schedules a
@@ -610,13 +627,6 @@ Internet-Draft             QUIC Loss Detection             December 2019
 
    kGranularity, smoothed_rtt, rttvar, and max_ack_delay are defined in
    Appendix A.2 and Appendix A.3.
-
-
-
-Iyengar & Swett           Expires 11 June 2020                 [Page 11]
-
-Internet-Draft             QUIC Loss Detection             December 2019
-
 
    The PTO period is the amount of time that a sender ought to wait for
    an acknowledgement of a sent packet.  This time period includes the
@@ -657,6 +667,13 @@ Internet-Draft             QUIC Loss Detection             December 2019
    expected to both expire earlier than the PTO and be less likely to
    spuriously retransmit data.
 
+
+
+Iyengar & Swett           Expires 11 June 2020                 [Page 12]
+
+Internet-Draft             QUIC Loss Detection             December 2019
+
+
 5.3.  Handshakes and New Paths
 
    The initial probe timeout for a new connection or new path SHOULD be
@@ -665,14 +682,6 @@ Internet-Draft             QUIC Loss Detection             December 2019
    as the resumed connection's initial RTT.  If no previous RTT is
    available, the initial RTT SHOULD be set to 500ms, resulting in a 1
    second initial timeout as recommended in [RFC6298].
-
-
-
-
-Iyengar & Swett           Expires 11 June 2020                 [Page 12]
-
-Internet-Draft             QUIC Loss Detection             December 2019
-
 
    A connection MAY use the delay between sending a PATH_CHALLENGE and
    receiving a PATH_RESPONSE to set the initial RTT (see kInitialRtt in
@@ -713,15 +722,6 @@ Internet-Draft             QUIC Loss Detection             December 2019
    expensive consecutive PTO expiration due to a single lost datagram or
    transmit data from multiple packet number spaces.
 
-   In addition to sending data in the packet number space for which the
-   timer expired, the sender SHOULD send ack-eliciting packets from
-   other packet number spaces with in-flight data, coalescing packets if
-   possible.
-
-   When the PTO timer expires, and there is new or previously sent
-   unacknowledged data, it MUST be sent.
-
-
 
 
 
@@ -729,6 +729,14 @@ Iyengar & Swett           Expires 11 June 2020                 [Page 13]
 
 Internet-Draft             QUIC Loss Detection             December 2019
 
+
+   In addition to sending data in the packet number space for which the
+   timer expired, the sender SHOULD send ack-eliciting packets from
+   other packet number spaces with in-flight data, coalescing packets if
+   possible.
+
+   When the PTO timer expires, and there is new or previously sent
+   unacknowledged data, it MUST be sent.
 
    It is possible the sender has no new or previously-sent data to send.
    As an example, consider the following sequence of events: new
@@ -771,20 +779,18 @@ Internet-Draft             QUIC Loss Detection             December 2019
    Delivery or loss of packets in flight is established when an ACK
    frame is received that newly acknowledges one or more packets.
 
-   A PTO timer expiration event does not indicate packet loss and MUST
-   NOT cause prior unacknowledged packets to be marked as lost.  When an
-   acknowledgement is received that newly acknowledges packets, loss
-   detection proceeds as dictated by packet and time threshold
-   mechanisms; see Section 5.1.
-
-
-
 
 
 Iyengar & Swett           Expires 11 June 2020                 [Page 14]
 
 Internet-Draft             QUIC Loss Detection             December 2019
 
+
+   A PTO timer expiration event does not indicate packet loss and MUST
+   NOT cause prior unacknowledged packets to be marked as lost.  When an
+   acknowledgement is received that newly acknowledges packets, loss
+   detection proceeds as dictated by packet and time threshold
+   mechanisms; see Section 5.1.
 
 5.4.  Handling Retry Packets
 
@@ -828,12 +834,6 @@ Internet-Draft             QUIC Loss Detection             December 2019
    them would be acknowledged or declared lost.  Initial secrets however
    might be destroyed sooner, as soon as handshake keys are available
    (see Section 4.9.1 of [QUIC-TLS]).
-
-
-
-
-
-
 
 
 
