@@ -104,7 +104,7 @@ Table of Contents
      5.5.  Receiving Protected Packets . . . . . . . . . . . . . . .  27
      5.6.  Use of 0-RTT Keys . . . . . . . . . . . . . . . . . . . .  27
      5.7.  Receiving Out-of-Order Protected Frames . . . . . . . . .  28
-   6.  Key Update  . . . . . . . . . . . . . . . . . . . . . . . . .  28
+   6.  Key Update  . . . . . . . . . . . . . . . . . . . . . . . . .  29
      6.1.  Initiating a Key Update . . . . . . . . . . . . . . . . .  30
 
 
@@ -1520,7 +1520,8 @@ Internet-Draft          Using TLS to Secure QUIC           December 2019
    endpoint before the final TLS handshake messages are received.  A
    client will be unable to decrypt 1-RTT packets from the server,
    whereas a server will be able to decrypt 1-RTT packets from the
-   client.
+   client.  Endpoints in either role MUST NOT decrypt 1-RTT packets from
+   their peer prior to completing the handshake.
 
    Even though 1-RTT keys are available to a server after receiving the
    first handshake messages from a client, it is missing assurances on
@@ -1536,14 +1537,19 @@ Internet-Draft          Using TLS to Secure QUIC           December 2019
    *  Any received 0-RTT data that the server responds to might be due
       to a replay attack.
 
-   Therefore, the server's use of 1-RTT keys is limited before the
-   handshake is complete.  A server MUST NOT process data from incoming
-   1-RTT protected packets before the TLS handshake is complete.
-   Because sending acknowledgments indicates that all frames in a packet
-   have been processed, a server cannot send acknowledgments for 1-RTT
-   packets until the TLS handshake is complete.  Received packets
-   protected with 1-RTT keys MAY be stored and later decrypted and used
-   once the handshake is complete.
+   Therefore, the server's use of 1-RTT keys MUST be limited to sending
+   data before the handshake is complete.  A server MUST NOT process
+   incoming 1-RTT protected packets before the TLS handshake is
+   complete.  Because sending acknowledgments indicates that all frames
+   in a packet have been processed, a server cannot send acknowledgments
+   for 1-RTT packets until the TLS handshake is complete.  Received
+   packets protected with 1-RTT keys MAY be stored and later decrypted
+   and used once the handshake is complete.
+
+   Note:  TLS implementations might provide all 1-RTT secrets prior to
+      handshake completion.  Even where QUIC implementations have 1-RTT
+      read keys, those keys cannot be used prior to completing the
+      handshake.
 
    The requirement for the server to wait for the client Finished
    message creates a dependency on that message being delivered.  A
@@ -1557,18 +1563,17 @@ Internet-Draft          Using TLS to Secure QUIC           December 2019
    receiving a TLS ClientHello.  The server MAY retain these packets for
    later decryption in anticipation of receiving a ClientHello.
 
-6.  Key Update
-
-   Once the handshake is confirmed (see Section 4.1.2), an endpoint MAY
-   initiate a key update.
-
-
 
 
 Thomson & Turner          Expires 11 June 2020                 [Page 28]
 
 Internet-Draft          Using TLS to Secure QUIC           December 2019
 
+
+6.  Key Update
+
+   Once the handshake is confirmed (see Section 4.1.2), an endpoint MAY
+   initiate a key update.
 
    The Key Phase bit indicates which packet protection keys are used to
    protect the packet.  The Key Phase bit is initially set to 0 for the
@@ -1612,11 +1617,6 @@ Internet-Draft          Using TLS to Secure QUIC           December 2019
                                     Key Update Permitted ...
 
                             Figure 8: Key Update
-
-
-
-
-
 
 
 
