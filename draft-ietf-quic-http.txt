@@ -153,11 +153,11 @@ Internet-Draft                   HTTP/3                    December 2019
    Appendix B.  Change Log . . . . . . . . . . . . . . . . . . . . .  51
      B.1.  Since draft-ietf-quic-http-24 . . . . . . . . . . . . . .  51
      B.2.  Since draft-ietf-quic-http-23 . . . . . . . . . . . . . .  51
-     B.3.  Since draft-ietf-quic-http-22 . . . . . . . . . . . . . .  51
+     B.3.  Since draft-ietf-quic-http-22 . . . . . . . . . . . . . .  52
      B.4.  Since draft-ietf-quic-http-21 . . . . . . . . . . . . . .  52
      B.5.  Since draft-ietf-quic-http-20 . . . . . . . . . . . . . .  52
      B.6.  Since draft-ietf-quic-http-19 . . . . . . . . . . . . . .  53
-     B.7.  Since draft-ietf-quic-http-18 . . . . . . . . . . . . . .  53
+     B.7.  Since draft-ietf-quic-http-18 . . . . . . . . . . . . . .  54
      B.8.  Since draft-ietf-quic-http-17 . . . . . . . . . . . . . .  54
      B.9.  Since draft-ietf-quic-http-16 . . . . . . . . . . . . . .  54
      B.10. Since draft-ietf-quic-http-15 . . . . . . . . . . . . . .  55
@@ -604,12 +604,12 @@ Internet-Draft                   HTTP/3                    December 2019
    entire request if the response does not depend on any portion of the
    request that has not been sent and received.  When the server does
    not need to receive the remainder of the request, it MAY abort
-   reading the request stream with error code H3_EARLY_RESPONSE, send a
-   complete response, and cleanly close the sending part of the stream.
-   Clients MUST NOT discard complete responses as a result of having
-   their request terminated abruptly, though clients can always discard
-   responses at their discretion for other reasons.  If the server sends
-   a partial or complete response but does not abort reading, clients
+   reading the request stream, send a complete response, and cleanly
+   close the sending part of the stream.  The error code H3_NO_ERROR
+   SHOULD be used when requesting that the client stop sending on the
+   request stream.  Clients MUST NOT discard complete responses as a
+   result of having their request terminated abruptly, though clients
+   can always discard responses at their discretion for other reasons.
 
 
 
@@ -618,8 +618,9 @@ Bishop                    Expires 11 June 2020                 [Page 11]
 Internet-Draft                   HTTP/3                    December 2019
 
 
-   SHOULD continue sending the body of the request and close the stream
-   normally.
+   If the server sends a partial or complete response but does not abort
+   reading, clients SHOULD continue sending the body of the request and
+   close the stream normally.
 
 4.1.1.  Header Formatting and Compression
 
@@ -665,7 +666,6 @@ Internet-Draft                   HTTP/3                    December 2019
    the message header it will accept on an individual HTTP message.  A
    server that receives a larger header field list than it is willing to
    handle can send an HTTP 431 (Request Header Fields Too Large) status
-   code [RFC6585].  A client can discard responses that it cannot
 
 
 
@@ -674,6 +674,7 @@ Bishop                    Expires 11 June 2020                 [Page 12]
 Internet-Draft                   HTTP/3                    December 2019
 
 
+   code [RFC6585].  A client can discard responses that it cannot
    process.  The size of a header field list is calculated based on the
    uncompressed size of header fields, including the length of the name
    and value in bytes plus an overhead of 32 bytes for each header
@@ -721,7 +722,6 @@ Internet-Draft                   HTTP/3                    December 2019
    response SHOULD NOT be used.  Automatically retrying such requests is
    not possible, unless this is otherwise permitted (e.g., idempotent
    actions like GET, PUT, or DELETE).
-
 
 
 
@@ -1933,9 +1933,6 @@ Internet-Draft                   HTTP/3                    December 2019
    H3_REQUEST_INCOMPLETE (0x10D):  The client's stream terminated
       without containing a fully-formed request.
 
-   H3_EARLY_RESPONSE (0x10E):  The remainder of the client's request is
-      not needed to produce a response.  For use in STOP_SENDING only.
-
    H3_CONNECT_ERROR (0x10F):  The connection established in response to
       a CONNECT request was reset or abnormally closed.
 
@@ -1953,7 +1950,10 @@ Internet-Draft                   HTTP/3                    December 2019
    does not affect the existing options for extending HTTP, such as
    defining new methods, status codes, or header fields.
 
-
+   Extensions are permitted to use new frame types (Section 7.2), new
+   settings (Section 7.2.4.1), new error codes (Section 8), or new
+   unidirectional stream types (Section 6.2).  Registries are
+   established for managing these extension points: frame types
 
 
 
@@ -1962,10 +1962,6 @@ Bishop                    Expires 11 June 2020                 [Page 35]
 Internet-Draft                   HTTP/3                    December 2019
 
 
-   Extensions are permitted to use new frame types (Section 7.2), new
-   settings (Section 7.2.4.1), new error codes (Section 8), or new
-   unidirectional stream types (Section 6.2).  Registries are
-   established for managing these extension points: frame types
    (Section 11.2), settings (Section 11.3), error codes (Section 11.4),
    and stream types (Section 11.5).
 
@@ -2010,6 +2006,10 @@ Internet-Draft                   HTTP/3                    December 2019
    HTTP/3 can either rely on transport-layer padding or employ the
    reserved frame and stream types discussed in Section 7.2.9 and
    Section 6.2.3.  These methods of padding produce different results in
+   terms of the granularity of padding, the effect of packet loss and
+   recovery, and how an implementation might control padding.
+
+
 
 
 
@@ -2017,9 +2017,6 @@ Bishop                    Expires 11 June 2020                 [Page 36]
 
 Internet-Draft                   HTTP/3                    December 2019
 
-
-   terms of the granularity of padding, the effect of packet loss and
-   recovery, and how an implementation might control padding.
 
 10.2.  Frame Parsing
 
@@ -2060,6 +2057,9 @@ Internet-Draft                   HTTP/3                    December 2019
    Identification Sequence:  0x68 0x33 ("h3")
 
    Specification:  This document
+
+
+
 
 
 
@@ -2330,10 +2330,6 @@ Internet-Draft                   HTTP/3                    December 2019
    |                           |        | terminated   |               |
    |                           |        | early        |               |
    +---------------------------+--------+--------------+---------------+
-   | H3_EARLY_RESPONSE         | 0x010E | Remainder    | Section 8.1   |
-   |                           |        | of request   |               |
-   |                           |        | not needed   |               |
-   +---------------------------+--------+--------------+---------------+
    | H3_CONNECT_ERROR          | 0x010F | TCP reset    | Section 8.1   |
    |                           |        | or error on  |               |
    |                           |        | CONNECT      |               |
@@ -2344,6 +2340,10 @@ Internet-Draft                   HTTP/3                    December 2019
    +---------------------------+--------+--------------+---------------+
 
                                   Table 4
+
+
+
+
 
 
 
@@ -2839,6 +2839,9 @@ Appendix B.  Change Log
 
 B.1.  Since draft-ietf-quic-http-24
 
+   *  Removed H3_EARLY_RESPONSE error code; H3_NO_ERROR is recommended
+      instead (#3130,#3208)
+
 B.2.  Since draft-ietf-quic-http-23
 
    *  Removed "quic" Alt-Svc parameter (#3061,#3118)
@@ -2848,15 +2851,14 @@ B.2.  Since draft-ietf-quic-http-23
 
    *  Clarify error cases around CANCEL_PUSH (#2819,#3083)
 
-B.3.  Since draft-ietf-quic-http-22
-
-
 
 
 Bishop                    Expires 11 June 2020                 [Page 51]
 
 Internet-Draft                   HTTP/3                    December 2019
 
+
+B.3.  Since draft-ietf-quic-http-22
 
    *  Removed priority signaling (#2922,#2924)
 
@@ -2904,8 +2906,6 @@ B.4.  Since draft-ietf-quic-http-21
 
 B.5.  Since draft-ietf-quic-http-20
 
-   *  Prohibit closing the control stream (#2509, #2666)
-
 
 
 
@@ -2913,6 +2913,8 @@ Bishop                    Expires 11 June 2020                 [Page 52]
 
 Internet-Draft                   HTTP/3                    December 2019
 
+
+   *  Prohibit closing the control stream (#2509, #2666)
 
    *  Change default priority to use an orphan node (#2502, #2690)
 
@@ -2960,8 +2962,6 @@ B.6.  Since draft-ietf-quic-http-19
    *  Non-zero bits in the Empty field of the PRIORITY frame MAY be
       treated as an error (#2501)
 
-B.7.  Since draft-ietf-quic-http-18
-
 
 
 
@@ -2969,6 +2969,8 @@ Bishop                    Expires 11 June 2020                 [Page 53]
 
 Internet-Draft                   HTTP/3                    December 2019
 
+
+B.7.  Since draft-ietf-quic-http-18
 
    *  Resetting streams following a GOAWAY is recommended, but not
       required (#2256,#2457)
@@ -3016,8 +3018,6 @@ B.9.  Since draft-ietf-quic-http-16
 
    *  Clarify message processing rules for streams that aren't closed
       (#1972, #2003)
-
-
 
 
 
