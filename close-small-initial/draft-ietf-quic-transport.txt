@@ -3371,7 +3371,10 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    whether the client has Handshake keys.  Under these circumstances, a
    server SHOULD send a CONNECTION_CLOSE frame in both Handshake and
    Initial packets to ensure that at least one of them is processable by
-   the client.  These packets can be coalesced into a single UDP
+   the client.  Similarly, a peer might be unable to read 1-RTT packets,
+   so an endpoint SHOULD send CONNECTION_CLOSE in Handshake and 1-RTT
+   packets prior to confirming the handshake; see Section 4.1.2 of
+   [QUIC-TLS].  These packets can be coalesced into a single UDP
    datagram; see Section 12.2.
 
    A CONNECTION_CLOSE frame might be sent in an Initial packet or in
@@ -3408,15 +3411,15 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    invalidated when their associated connection ID is retired via a
    RETIRE_CONNECTION_ID frame (Section 19.16).
 
-   An endpoint that receives packets that it cannot process sends a
-   packet in the following layout:
-
 
 
 Iyengar & Thomson         Expires 12 June 2020                 [Page 61]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+   An endpoint that receives packets that it cannot process sends a
+   packet in the following layout:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -3463,9 +3466,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    These values assume that the Stateless Reset Token is the same as the
    minimum expansion of the packet protection AEAD.  Additional
    unpredictable bytes are necessary if the endpoint could have
-   negotiated a packet protection scheme with a larger minimum
-   expansion.
-
 
 
 
@@ -3473,6 +3473,9 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 62]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+   negotiated a packet protection scheme with a larger minimum
+   expansion.
 
    An endpoint MUST NOT send a stateless reset that is three times or
    more larger than the packet it receives to avoid being used for
@@ -3518,9 +3521,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
 
    *  The randomly generated connection ID can be used by entities other
       than the peer to identify this as a potential stateless reset.  An
-      endpoint that occasionally uses different connection IDs might
-      introduce some uncertainty about this.
-
 
 
 
@@ -3529,6 +3529,9 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 63]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+      endpoint that occasionally uses different connection IDs might
+      introduce some uncertainty about this.
 
    This stateless reset design is specific to QUIC version 1.  An
    endpoint that supports multiple versions of QUIC needs to generate a
@@ -3574,9 +3577,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    packet was successfully decrypted, or the number of valid Stateless
    Reset Tokens.
 
-   If the last 16 bytes of the datagram are identical in value to a
-   Stateless Reset Token, the endpoint MUST enter the draining period
-   and not send any further packets on this connection.
 
 
 
@@ -3585,6 +3585,10 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 64]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+   If the last 16 bytes of the datagram are identical in value to a
+   Stateless Reset Token, the endpoint MUST enter the draining period
+   and not send any further packets on this connection.
 
 10.4.2.  Calculating a Stateless Reset Token
 
@@ -3629,10 +3633,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    that is reset by revealing the Stateless Reset Token MUST NOT be
    reused for new connections at nodes that share a static key.
 
-   The same Stateless Reset Token MUST NOT be used for multiple
-   connection IDs.  Endpoints are not required to compare new values
-   against all previous values, but a duplicate value MAY be treated as
-   a connection error of type PROTOCOL_VIOLATION.
 
 
 
@@ -3641,6 +3641,11 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 65]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+   The same Stateless Reset Token MUST NOT be used for multiple
+   connection IDs.  Endpoints are not required to compare new values
+   against all previous values, but a duplicate value MAY be treated as
+   a connection error of type PROTOCOL_VIOLATION.
 
    Note that Stateless Reset packets do not have any cryptographic
    protection.
@@ -3685,11 +3690,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    the frame that signals the error.  Where this specification
    identifies error conditions, it also identifies the error code that
    is used; though these are worded as requirements, different
-   implementation strategies might lead to different errors being
-   reported.  In particular, an endpoint MAY use any applicable error
-   code when it detects an error condition; a generic error code (such
-   as PROTOCOL_VIOLATION or INTERNAL_ERROR) can always be used in place
-   of specific error codes.
 
 
 
@@ -3697,6 +3697,12 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 66]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+   implementation strategies might lead to different errors being
+   reported.  In particular, an endpoint MAY use any applicable error
+   code when it detects an error condition; a generic error code (such
+   as PROTOCOL_VIOLATION or INTERNAL_ERROR) can always be used in place
+   of specific error codes.
 
    A stateless reset (Section 10.4) is not suitable for any error that
    can be signaled with a CONNECTION_CLOSE or RESET_STREAM frame.  A
@@ -3740,12 +3746,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
 
    Resetting a stream without the involvement of the application
    protocol could cause the application protocol to enter an
-   unrecoverable state.  RESET_STREAM MUST only be instigated by the
-   application protocol that uses QUIC.
-
-   RESET_STREAM carries an application error code, for which the
-   semantics are defined by the application protocol.  Only the
-   application protocol is able to cause a stream to be terminated.  A
 
 
 
@@ -3754,6 +3754,12 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 67]
 Internet-Draft           QUIC Transport Protocol           December 2019
 
 
+   unrecoverable state.  RESET_STREAM MUST only be instigated by the
+   application protocol that uses QUIC.
+
+   RESET_STREAM carries an application error code, for which the
+   semantics are defined by the application protocol.  Only the
+   application protocol is able to cause a stream to be terminated.  A
    local instance of the application protocol uses a direct API call and
    a remote instance uses the STOP_SENDING frame, which triggers an
    automatic RESET_STREAM.
@@ -3796,12 +3802,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
 
    All other packets are protected with keys derived from the
    cryptographic handshake.  The type of the packet from the long header
-   or key phase from the short header are used to identify which
-   encryption level - and therefore the keys - that are used.  Packets
-   protected with 0-RTT and 1-RTT keys are expected to have
-   confidentiality and data origin authentication; the cryptographic
-   handshake ensures that only the communicating endpoints receive the
-   corresponding keys.
 
 
 
@@ -3809,6 +3809,13 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 68]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+   or key phase from the short header are used to identify which
+   encryption level - and therefore the keys - that are used.  Packets
+   protected with 0-RTT and 1-RTT keys are expected to have
+   confidentiality and data origin authentication; the cryptographic
+   handshake ensures that only the communicating endpoints receive the
+   corresponding keys.
 
    The packet number field contains a packet number, which has
    additional confidentiality protection that is applied after packet
@@ -3850,13 +3857,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    them, as if they were received as the payload of different UDP
    datagrams.  For example, if decryption fails (because the keys are
    not available or any other reason), the receiver MAY either discard
-   or buffer the packet for later processing and MUST attempt to process
-   the remaining packets.
-
-   Retry packets (Section 17.2.5), Version Negotiation packets
-   (Section 17.2.1), and packets with a short header (Section 17.3) do
-   not contain a Length field and so cannot be followed by other packets
-   in the same UDP datagram.  Note also that there is no situation where
 
 
 
@@ -3866,6 +3866,13 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 69]
 Internet-Draft           QUIC Transport Protocol           December 2019
 
 
+   or buffer the packet for later processing and MUST attempt to process
+   the remaining packets.
+
+   Retry packets (Section 17.2.5), Version Negotiation packets
+   (Section 17.2.1), and packets with a short header (Section 17.3) do
+   not contain a Length field and so cannot be followed by other packets
+   in the same UDP datagram.  Note also that there is no situation where
    a Retry or Version Negotiation packet is coalesced with another
    packet.
 
@@ -3906,6 +3913,15 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    the Handshake encryption level and can only be acknowledged in
    Handshake packets.
 
+
+
+
+
+Iyengar & Thomson         Expires 12 June 2020                 [Page 70]
+
+Internet-Draft           QUIC Transport Protocol           December 2019
+
+
    This enforces cryptographic separation between the data sent in the
    different packet sequence number spaces.  Packet numbers in each
    space start at packet number 0.  Subsequent packets sent in the same
@@ -3914,13 +3930,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    0-RTT and 1-RTT data exist in the same packet number space to make
    loss recovery algorithms easier to implement between the two packet
    types.
-
-
-
-Iyengar & Thomson         Expires 12 June 2020                 [Page 70]
-
-Internet-Draft           QUIC Transport Protocol           December 2019
-
 
    A QUIC endpoint MUST NOT reuse a packet number within the same packet
    number space in one connection.  If the packet number for sending
@@ -3960,15 +3969,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
 
                            Figure 7: QUIC Payload
 
-   The payload of a packet that contains frames MUST contain at least
-   one frame, and MAY contain multiple frames and multiple frame types.
-   Frames always fit within a single QUIC packet and cannot span
-   multiple packets.
-
-   Each frame begins with a Frame Type, indicating its type, followed by
-   additional type-dependent fields:
-
-
 
 
 
@@ -3977,6 +3977,14 @@ Iyengar & Thomson         Expires 12 June 2020                 [Page 71]
 
 Internet-Draft           QUIC Transport Protocol           December 2019
 
+
+   The payload of a packet that contains frames MUST contain at least
+   one frame, and MAY contain multiple frames and multiple frame types.
+   Frames always fit within a single QUIC packet and cannot span
+   multiple packets.
+
+   Each frame begins with a Frame Type, indicating its type, followed by
+   additional type-dependent fields:
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -3993,14 +4001,6 @@ Internet-Draft           QUIC Transport Protocol           December 2019
    CONNECTION_CLOSE frames is used to carry other frame-specific flags.
    For all other frames, the Frame Type field simply identifies the
    frame.  These frames are explained in more detail in Section 19.
-
-
-
-
-
-
-
-
 
 
 
