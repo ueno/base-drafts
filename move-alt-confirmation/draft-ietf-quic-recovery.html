@@ -307,6 +307,7 @@ ul.toc li {
 <link href="#rfc.section.5.3.2" rel="Chapter" title="5.3.2 Loss Detection">
 <link href="#rfc.section.5.4" rel="Chapter" title="5.4 Retry and Version Negotiation">
 <link href="#rfc.section.5.5" rel="Chapter" title="5.5 Discarding Keys and Packet State">
+<link href="#rfc.section.5.6" rel="Chapter" title="5.6 Discussion">
 <link href="#rfc.section.6" rel="Chapter" title="6 Congestion Control">
 <link href="#rfc.section.6.1" rel="Chapter" title="6.1 Explicit Congestion Notification">
 <link href="#rfc.section.6.2" rel="Chapter" title="6.2 Slow Start">
@@ -374,12 +375,12 @@ ul.toc li {
 <link href="#rfc.authors" rel="Chapter">
 
 
-  <meta name="generator" content="xml2rfc version 2.34.0 - https://tools.ietf.org/tools/xml2rfc" />
+  <meta name="generator" content="xml2rfc version 2.36.0 - https://tools.ietf.org/tools/xml2rfc" />
   <link rel="schema.dct" href="http://purl.org/dc/terms/" />
 
   <meta name="dct.creator" content="Iyengar, J., Ed. and I. Swett, Ed." />
   <meta name="dct.identifier" content="urn:ietf:id:draft-ietf-quic-recovery-latest" />
-  <meta name="dct.issued" scheme="ISO8601" content="2019-10-28" />
+  <meta name="dct.issued" scheme="ISO8601" content="2019-12-11" />
   <meta name="dct.abstract" content="This document describes loss detection and congestion control mechanisms for QUIC." />
   <meta name="description" content="This document describes loss detection and congestion control mechanisms for QUIC." />
 
@@ -403,12 +404,12 @@ ul.toc li {
 <td class="right">I. Swett, Ed.</td>
 </tr>
 <tr>
-<td class="left">Expires: April 30, 2020</td>
+<td class="left">Expires: June 13, 2020</td>
 <td class="right">Google</td>
 </tr>
 <tr>
 <td class="left"></td>
-<td class="right">October 28, 2019</td>
+<td class="right">December 11, 2019</td>
 </tr>
 
     	
@@ -427,7 +428,7 @@ ul.toc li {
 <p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
 <p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.</p>
 <p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
-<p>This Internet-Draft will expire on April 30, 2020.</p>
+<p>This Internet-Draft will expire on June 13, 2020.</p>
 <h1 id="rfc.copyrightnotice"><a href="#rfc.copyrightnotice">Copyright Notice</a></h1>
 <p>Copyright (c) 2019 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
 <p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (https://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
@@ -486,6 +487,8 @@ ul.toc li {
 </ul><li>5.4.   <a href="#rfc.section.5.4">Retry and Version Negotiation</a>
 </li>
 <li>5.5.   <a href="#rfc.section.5.5">Discarding Keys and Packet State</a>
+</li>
+<li>5.6.   <a href="#rfc.section.5.6">Discussion</a>
 </li>
 </ul><li>6.   <a href="#rfc.section.6">Congestion Control</a>
 </li>
@@ -809,8 +812,8 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 </h2>
 <p id="rfc.section.5.3.p.1">The initial probe timeout for a new connection or new path SHOULD be set to twice the initial RTT.  Resumed connections over the same network SHOULD use the previous connection&#8217;s final smoothed RTT value as the resumed connection&#8217;s initial RTT.  If no previous RTT is available, the initial RTT SHOULD be set to 500ms, resulting in a 1 second initial timeout as recommended in <a href="#RFC6298" class="xref">[RFC6298]</a>.</p>
 <p id="rfc.section.5.3.p.2">A connection MAY use the delay between sending a PATH_CHALLENGE and receiving a PATH_RESPONSE to seed initial_rtt for a new path, but the delay SHOULD NOT be considered an RTT sample.</p>
-<p id="rfc.section.5.3.p.3">Data at Initial encryption MUST be retransmitted before Handshake data and data at Handshake encryption MUST be retransmitted before any ApplicationData data.</p>
-<p id="rfc.section.5.3.p.4">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited, as specified in Section 8.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  If the limit has been reached when the PTO expires, a single packet containing a PING with no PADDING MUST be sent.  This packet elicits a full-sized Initial packet from the client, allowing the server to send data again.</p>
+<p id="rfc.section.5.3.p.3">Until the server has validated the client&#8217;s address on the path, the amount of data it can send is limited, as specified in Section 8.1 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>.  Data at Initial encryption MUST be retransmitted before Handshake data and data at Handshake encryption MUST be retransmitted before any ApplicationData data.  If no data can be sent, then the PTO alarm MUST NOT be armed until data has been received from the client.</p>
+<p id="rfc.section.5.3.p.4">Since the server could be blocked until more packets are received from the client, it is the client&#8217;s responsibility to send packets to unblock the server until it is certain that the server has finished its address validation (see Section 8 of <a href="#QUIC-TRANSPORT" class="xref">[QUIC-TRANSPORT]</a>).  That is, the client MUST set the probe timer if the client has not received an acknowledgement for one of its Handshake or 1-RTT packets.</p>
 <p id="rfc.section.5.3.p.5">Prior to handshake completion, when few to none RTT samples have been generated, it is possible that the probe timer expiration is due to an incorrect RTT estimate at the client. To allow the client to improve its RTT estimate, the new packet that it sends MUST be ack-eliciting.  If Handshake keys are available to the client, it MUST send a Handshake packet, and otherwise it MUST send an Initial packet in a UDP datagram of at least 1200 bytes.</p>
 <p id="rfc.section.5.3.p.6">Initial packets and Handshake packets may never be acknowledged, but they are removed from bytes in flight when the Initial and Handshake keys are discarded.</p>
 <h3 id="rfc.section.5.3.1">
@@ -841,6 +844,11 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <p id="rfc.section.5.5.p.3">When 0-RTT is rejected, recovery state for all in-flight 0-RTT packets is discarded.</p>
 <p id="rfc.section.5.5.p.4">If a server accepts 0-RTT, but does not buffer 0-RTT packets that arrive before Initial packets, early 0-RTT packets will be declared lost, but that is expected to be infrequent.</p>
 <p id="rfc.section.5.5.p.5">It is expected that keys are discarded after packets encrypted with them would be acknowledged or declared lost.  Initial secrets however might be destroyed sooner, as soon as handshake keys are available (see Section 4.9.1 of <a href="#QUIC-TLS" class="xref">[QUIC-TLS]</a>).</p>
+<h2 id="rfc.section.5.6">
+<a href="#rfc.section.5.6">5.6.</a> <a href="#discussion" id="discussion">Discussion</a>
+</h2>
+<p id="rfc.section.5.6.p.1">The majority of constants were derived from best common practices among widely deployed TCP implementations on the internet.  Exceptions follow.</p>
+<p id="rfc.section.5.6.p.2">A shorter delayed ack time of 25ms was chosen because longer delayed acks can delay loss recovery and for the small number of connections where less than packet per 25ms is delivered, acking every packet is beneficial to congestion control and loss recovery.</p>
 <h1 id="rfc.section.6">
 <a href="#rfc.section.6">6.</a> <a href="#congestion-control" id="congestion-control">Congestion Control</a>
 </h1>
@@ -953,12 +961,12 @@ PTO = smoothed_rtt + max(4*rttvar, kGranularity) + max_ack_delay
 <tr>
 <td class="reference"><b id="QUIC-TLS">[QUIC-TLS]</b></td>
 <td class="top">
-<a title="Mozilla">Thomson, M.</a> and <a title="sn3rd">S. Turner</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-tls">Using TLS to Secure QUIC</a>", Internet-Draft draft-ietf-quic-tls, October 2019.</td>
+<a title="Mozilla">Thomson, M.</a> and <a title="sn3rd">S. Turner</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-tls">Using TLS to Secure QUIC</a>", Internet-Draft draft-ietf-quic-tls, December 2019.</td>
 </tr>
 <tr>
 <td class="reference"><b id="QUIC-TRANSPORT">[QUIC-TRANSPORT]</b></td>
 <td class="top">
-<a title="Fastly">Iyengar, J.</a> and <a title="Mozilla">M. Thomson</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-transport">QUIC: A UDP-Based Multiplexed and Secure Transport</a>", Internet-Draft draft-ietf-quic-transport, October 2019.</td>
+<a title="Fastly">Iyengar, J.</a> and <a title="Mozilla">M. Thomson</a>, "<a href="https://tools.ietf.org/html/draft-ietf-quic-transport">QUIC: A UDP-Based Multiplexed and Secure Transport</a>", Internet-Draft draft-ietf-quic-transport, December 2019.</td>
 </tr>
 <tr>
 <td class="reference"><b id="RFC2119">[RFC2119]</b></td>
@@ -1308,9 +1316,18 @@ OnLossDetectionTimeout():
     SetLossDetectionTimer()
     return
 
-  // PTO. Send new data if available, else retransmit old data.
-  // If neither is available, send a single PING frame.
-  SendOneOrTwoAckElicitingPackets()
+  if (endpoint is client without 1-RTT keys):
+    // Client sends an anti-deadlock packet: Initial is padded
+    // to earn more anti-amplification credit,
+    // a Handshake packet proves address ownership.
+    if (has Handshake keys):
+      SendOneAckElicitingHandshakePacket()
+    else:
+      SendOneAckElicitingPaddedInitialPacket()
+  else:
+    // PTO. Send new data if available, else retransmit old data.
+    // If neither is available, send a single PING frame.
+    SendOneOrTwoAckElicitingPackets()
 
   pto_count++
   SetLossDetectionTimer()
@@ -1585,7 +1602,7 @@ DetectLostPackets(pn_space):
 <li>Reduce congestion window after idle, unless pacing is used (#2007, #2023)</li>
 <li>Disable RTT calculation for packets that don&#8217;t elicit acknowledgment (#2060, #2078)</li>
 <li>Limit ack_delay by max_ack_delay (#2060, #2099)</li>
-<li>Initial keys are discarded once Handshake keys are available (#1951, #2045)</li>
+<li>Initial keys are discarded once Handshake are avaialble (#1951, #2045)</li>
 <li>Reorder ECN and loss detection in pseudocode (#2142)</li>
 <li>Only cancel loss detection timer if ack-eliciting packets are in flight (#2093, #2117)</li>
 </ul>
