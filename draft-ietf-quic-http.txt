@@ -97,10 +97,10 @@ Table of Contents
      5.1.  Idle Connections  . . . . . . . . . . . . . . . . . . . .  17
      5.2.  Connection Shutdown . . . . . . . . . . . . . . . . . . .  18
      5.3.  Immediate Application Closure . . . . . . . . . . . . . .  19
-     5.4.  Transport Closure . . . . . . . . . . . . . . . . . . . .  20
+     5.4.  Transport Closure . . . . . . . . . . . . . . . . . . . .  19
    6.  Stream Mapping and Usage  . . . . . . . . . . . . . . . . . .  20
      6.1.  Bidirectional Streams . . . . . . . . . . . . . . . . . .  20
-     6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  21
+     6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  20
        6.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .  22
        6.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .  22
        6.2.3.  Reserved Stream Types . . . . . . . . . . . . . . . .  23
@@ -175,7 +175,7 @@ Internet-Draft                   HTTP/3                     January 2020
      B.13. Since draft-ietf-quic-http-12 . . . . . . . . . . . . . .  55
      B.14. Since draft-ietf-quic-http-11 . . . . . . . . . . . . . .  55
      B.15. Since draft-ietf-quic-http-10 . . . . . . . . . . . . . .  55
-     B.16. Since draft-ietf-quic-http-09 . . . . . . . . . . . . . .  56
+     B.16. Since draft-ietf-quic-http-09 . . . . . . . . . . . . . .  55
      B.17. Since draft-ietf-quic-http-08 . . . . . . . . . . . . . .  56
      B.18. Since draft-ietf-quic-http-07 . . . . . . . . . . . . . .  56
      B.19. Since draft-ietf-quic-http-06 . . . . . . . . . . . . . .  56
@@ -957,41 +957,38 @@ Internet-Draft                   HTTP/3                     January 2020
 5.2.  Connection Shutdown
 
    Even when a connection is not idle, either endpoint can decide to
-   stop using the connection and initiate a graceful connection close.
-   Endpoints initiate the graceful shutdown of a connection by sending a
-   GOAWAY frame (Section 7.2.6).  The GOAWAY frame contains an
-   identifier that indicates to the receiver the range of requests or
-   pushes that were or might be processed in this connection.  The
-   server sends a client-initiated bidirectional Stream ID; the client
-   sends a Push ID.  Requests or pushes with the indicated identifier or
-   greater are rejected by the sender of the GOAWAY.  This identifier
-   MAY be zero if no requests or pushes were processed.
+   stop using the connection and let the connection close gracefully.
+   Since clients drive request generation, clients perform a connection
+   shutdown by not sending additional requests on the connection;
+   responses and pushed responses associated to previous requests will
+   continue to completion.  Servers perform the same function by
+   communicating with clients.
 
-   The information in the GOAWAY frame enables a client and server to
-   agree on which requests or pushes were accepted prior to the
-   connection shutdown.  Endpoints SHOULD abruptly terminate any
-   requests or pushes that have identifiers greater than or equal to the
-   smallest identifier sent in a GOAWAY frame.
+   Servers initiate the shutdown of a connection by sending a GOAWAY
+   frame (Section 7.2.6).  The GOAWAY frame indicates that client-
+   initiated requests on lower stream IDs were or might be processed in
+   this connection, while requests on the indicated stream ID and
+   greater were rejected.  This enables client and server to agree on
+   which requests were accepted prior to the connection shutdown.  This
+   identifier MAY be zero if no requests were processed.  Servers SHOULD
+   NOT permit additional QUIC streams after sending a GOAWAY frame.
 
-   Endpoints MUST NOT initiate new requests or promise new pushes on the
-   connection after receipt of a GOAWAY frame from the peer.  Clients
-   MAY establish a new connection to send additional requests.
+   Clients MUST NOT send new requests on the connection after receiving
+   GOAWAY; a new connection MAY be established to send additional
+   requests.
 
-   Some requests or pushes might already be in transit.  If the endpoint
-   has already sent requests or promised pushes with an identifier
-   greater than or equal to that received in a GOAWAY frame, those
-   requests or pushes will not be processed; requests MAY be retried by
-   the client on a different connection.  The endpoint that initiated
-   these requests or pushes MAY cancel them.  It is RECOMMENDED that the
-   receiving endpoint explicitly reject such requests (see
-   Section 4.1.2) or pushes (see Section 7.2.3) in order to clean up
-   transport state for the affected streams.  Pushes which have been
-   promised MAY still be fulfilled by the server.
+   Some requests might already be in transit.  If the client has already
+   sent requests on streams with a Stream ID greater than or equal to
+   that indicated in the GOAWAY frame, those requests will not be
+   processed and MAY be retried by the client on a different connection.
+   The client MAY cancel these requests.  It is RECOMMENDED that the
+   server explicitly reject such requests (see Section 4.1.2) in order
+   to clean up transport state for the affected streams.
 
-   Requests on Stream IDs less than the Stream ID in a GOAWAY frame from
-   the server might have been processed; their status cannot be known
-   until a response is received, the stream is reset individually, or
-   the connection terminates.  Servers MAY reject individual requests on
+   Requests on Stream IDs less than the Stream ID in the GOAWAY frame
+   might have been processed; their status cannot be known until a
+   response is received, the stream is reset individually, or the
+   connection terminates.  Servers MAY reject individual requests on
    streams below the indicated ID if these requests were not processed.
 
    Servers SHOULD send a GOAWAY frame when the closing of a connection
@@ -1002,6 +999,9 @@ Internet-Draft                   HTTP/3                     January 2020
    server started to process that POST request if the server does not
    send a GOAWAY frame to indicate what streams it might have acted on.
 
+   A client that is unable to retry requests loses all requests that are
+   in flight when the server closes the connection.  A server MAY send
+   multiple GOAWAY frames indicating different stream IDs, but MUST NOT
 
 
 
@@ -1010,11 +1010,8 @@ Bishop                    Expires 17 July 2020                 [Page 18]
 Internet-Draft                   HTTP/3                     January 2020
 
 
-   A client that is unable to retry requests loses all requests that are
-   in flight when the server closes the connection.  An endpoint MAY
-   send multiple GOAWAY frames indicating different identifiers, but
-   MUST NOT increase the identifier value they send, in particular since
-   clients might already have retried unprocessed requests on another
+   increase the value they send in the last Stream ID, since clients
+   might already have retried unprocessed requests on another
    connection.  A server that is attempting to gracefully shut down a
    connection SHOULD send an initial GOAWAY frame with the last Stream
    ID set to the maximum value allowed by QUIC's MAX_STREAMS and SHOULD
@@ -1025,21 +1022,10 @@ Internet-Draft                   HTTP/3                     January 2020
    GOAWAY frame with an updated last Stream ID.  This ensures that a
    connection can be cleanly shut down without losing requests.
 
-   A client has more flexibility in the value it chooses for the Push ID
-   in a GOAWAY that it sends.  A value of 2^62 - 1 indicates that the
-   server can continue fulfilling pushes which have already been
-   promised, and the client can continue granting push credit as needed
-   (see Section 7.2.7).  A smaller value indicates the client will
-   reject pushes with Push IDs greater than or equal to this value.
-   Like the server, the client MAY send subsequent GOAWAY frames so long
-   as the specified Push ID is strictly smaller than all previously sent
-   values.
-
-   Once all accepted requests and pushes have been processed, the
-   endpoint can permit the connection to become idle, or MAY initiate an
-   immediate closure of the connection.  An endpoint that completes a
-   graceful shutdown SHOULD use the HTTP_NO_ERROR code when closing the
-   connection.
+   Once all accepted requests have been processed, the server can permit
+   the connection to become idle, or MAY initiate an immediate closure
+   of the connection.  An endpoint that completes a graceful shutdown
+   SHOULD use the H3_NO_ERROR code when closing the connection.
 
    If a client has consumed all available bidirectional stream IDs with
    requests, the server need not send a GOAWAY frame, since the client
@@ -1053,18 +1039,10 @@ Internet-Draft                   HTTP/3                     January 2020
    connection is being closed.  See Section 8 for error codes which can
    be used when closing a connection.
 
-   Before closing the connection, a GOAWAY frame MAY be sent to allow
-   the client to retry some requests.  Including the GOAWAY frame in the
+   Before closing the connection, a GOAWAY MAY be sent to allow the
+   client to retry some requests.  Including the GOAWAY frame in the
    same packet as the QUIC CONNECTION_CLOSE frame improves the chances
    of the frame being received by clients.
-
-
-
-
-Bishop                    Expires 17 July 2020                 [Page 19]
-
-Internet-Draft                   HTTP/3                     January 2020
-
 
 5.4.  Transport Closure
 
@@ -1076,6 +1054,17 @@ Internet-Draft                   HTTP/3                     January 2020
    If a connection terminates without a GOAWAY frame, clients MUST
    assume that any request which was sent, whether in whole or in part,
    might have been processed.
+
+
+
+
+
+
+
+Bishop                    Expires 17 July 2020                 [Page 19]
+
+Internet-Draft                   HTTP/3                     January 2020
+
 
 6.  Stream Mapping and Usage
 
@@ -1113,15 +1102,6 @@ Internet-Draft                   HTTP/3                     January 2020
    HTTP/3 does not use server-initiated bidirectional streams, though an
    extension could define a use for these streams.  Clients MUST treat
    receipt of a server-initiated bidirectional stream as a connection
-
-
-
-
-Bishop                    Expires 17 July 2020                 [Page 20]
-
-Internet-Draft                   HTTP/3                     January 2020
-
-
    error of type H3_STREAM_CREATION_ERROR unless such an extension has
    been negotiated.
 
@@ -1132,6 +1112,15 @@ Internet-Draft                   HTTP/3                     January 2020
    as a variable-length integer at the start of the stream.  The format
    and structure of data that follows this integer is determined by the
    stream type.
+
+
+
+
+
+Bishop                    Expires 17 July 2020                 [Page 20]
+
+Internet-Draft                   HTTP/3                     January 2020
+
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1171,13 +1160,6 @@ Internet-Draft                   HTTP/3                     January 2020
    QPACK encoder and decoder streams) first, and then create additional
    streams as allowed by their peer.
 
-
-
-Bishop                    Expires 17 July 2020                 [Page 21]
-
-Internet-Draft                   HTTP/3                     January 2020
-
-
    If the stream header indicates a stream type which is not supported
    by the recipient, the remainder of the stream cannot be consumed as
    the semantics are unknown.  Recipients of unknown stream types MAY
@@ -1187,6 +1169,15 @@ Internet-Draft                   HTTP/3                     January 2020
 
    Implementations MAY send stream types before knowing whether the peer
    supports them.  However, stream types which could modify the state or
+
+
+
+
+Bishop                    Expires 17 July 2020                 [Page 21]
+
+Internet-Draft                   HTTP/3                     January 2020
+
+
    semantics of existing protocol components, including QPACK or other
    extensions, MUST NOT be sent until the peer is known to support them.
 
@@ -1226,14 +1217,6 @@ Internet-Draft                   HTTP/3                     January 2020
 
    A push stream is indicated by a stream type of "0x01", followed by
    the Push ID of the promise that it fulfills, encoded as a variable-
-
-
-
-Bishop                    Expires 17 July 2020                 [Page 22]
-
-Internet-Draft                   HTTP/3                     January 2020
-
-
    length integer.  The remaining data on this stream consists of HTTP/3
    frames, as defined in Section 7.2, and fulfills a promised server
    push by zero or more non-final HTTP responses followed by a single
@@ -1243,6 +1226,13 @@ Internet-Draft                   HTTP/3                     January 2020
    Only servers can push; if a server receives a client-initiated push
    stream, this MUST be treated as a connection error of type
    H3_STREAM_CREATION_ERROR.
+
+
+
+Bishop                    Expires 17 July 2020                 [Page 22]
+
+Internet-Draft                   HTTP/3                     January 2020
+
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1279,6 +1269,16 @@ Internet-Draft                   HTTP/3                     January 2020
    streams types on which they are permitted; see Table 1 for an
    overview.  A comparison between HTTP/2 and HTTP/3 frames is provided
    in Appendix A.2.
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1703,33 +1703,33 @@ Internet-Draft                   HTTP/3                     January 2020
 7.2.6.  GOAWAY
 
    The GOAWAY frame (type=0x7) is used to initiate graceful shutdown of
-   a connection by either endpoint.  GOAWAY allows an endpoint to stop
-   accepting new requests or pushes while still finishing processing of
-   previously received requests and pushes.  This enables administrative
-   actions, like server maintenance.  GOAWAY by itself does not close a
-   connection.
+   a connection by a server.  GOAWAY allows a server to stop accepting
+   new requests while still finishing processing of previously received
+   requests.  This enables administrative actions, like server
+   maintenance.  GOAWAY by itself does not close a connection.
 
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                  Stream ID/Push ID (i)                      ...
+   |                          Stream ID (i)                      ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                        Figure 9: GOAWAY Frame Payload
 
-   The GOAWAY frame is always sent on the control stream.  In the server
-   to client direction, it carries a QUIC Stream ID for a client-
-   initiated bidirectional stream encoded as a variable-length integer.
-   A client MUST treat receipt of a GOAWAY frame containing a Stream ID
-   of any other type as a connection error of type H3_ID_ERROR.
+   The GOAWAY frame is always sent on the control stream.  It carries a
+   QUIC Stream ID for a client-initiated bidirectional stream encoded as
+   a variable-length integer.  A client MUST treat receipt of a GOAWAY
+   frame containing a Stream ID of any other type as a connection error
+   of type H3_ID_ERROR.
 
-   In the client to server direction, the GOAWAY frame carries a Push ID
-   encoded as a variable-length integer.
+   Clients do not need to send GOAWAY to initiate a graceful shutdown;
+   they simply stop making new requests.  A server MUST treat receipt of
+   a GOAWAY frame on any stream as a connection error (Section 8) of
+   type H3_FRAME_UNEXPECTED.
 
    The GOAWAY frame applies to the connection, not a specific stream.  A
    client MUST treat a GOAWAY frame on a stream other than the control
    stream as a connection error (Section 8) of type H3_FRAME_UNEXPECTED.
-
 
 
 
@@ -1867,10 +1867,10 @@ Internet-Draft                   HTTP/3                     January 2020
    to treat a stream error as a connection error.
 
    Because new error codes can be defined without negotiation (see
-   Section 9), receipt of an unknown error code or use of an error code
-   in an unexpected context MUST NOT be treated as an error.  However,
-   closing a stream can constitute an error regardless of the error code
-   (see Section 4.1).
+   Section 9), use of an error code in an unexpected context or receipt
+   of an unknown error code MUST be treated as equivalent to
+   H3_NO_ERROR.  However, closing a stream can have other effects
+   regardless of the error code (see Section 4.1).
 
    This section describes HTTP/3-specific error codes which can be used
    to express the cause of a connection or stream error.
@@ -2669,9 +2669,8 @@ A.2.4.  Mapping Between HTTP/2 and HTTP/3 Frame Types
    PING (0x6):  PING frames do not exist, since QUIC provides equivalent
       functionality.
 
-   GOAWAY (0x7):  GOAWAY does not contain an error code.  In the client
-      to server direction, it carries a Push ID instead of a server
-      initiated stream ID.  See Section 7.2.6.
+   GOAWAY (0x7):  GOAWAY is sent only from server to client and does not
+      contain an error code.  See Section 7.2.6.
 
    WINDOW_UPDATE (0x8):  WINDOW_UPDATE frames do not exist, since QUIC
       provides flow control.
@@ -2682,6 +2681,7 @@ A.2.4.  Mapping Between HTTP/2 and HTTP/3 Frame Types
    Frame types defined by extensions to HTTP/2 need to be separately
    registered for HTTP/3 if still applicable.  The IDs of frames defined
    in [HTTP2] have been reserved for simplicity.  Note that the frame
+   type space in HTTP/3 is substantially larger (62 bits versus 8 bits),
 
 
 
@@ -2690,7 +2690,6 @@ Bishop                    Expires 17 July 2020                 [Page 48]
 Internet-Draft                   HTTP/3                     January 2020
 
 
-   type space in HTTP/3 is substantially larger (62 bits versus 8 bits),
    so many HTTP/3 frame types have no equivalent HTTP/2 code points.
    See Section 11.2.1.
 
@@ -2738,6 +2737,7 @@ A.3.  HTTP/2 SETTINGS Parameters
    Settings need to be defined separately for HTTP/2 and HTTP/3.  The
    IDs of settings defined in [HTTP2] have been reserved for simplicity.
    Note that the settings identifier space in HTTP/3 is substantially
+
 
 
 
@@ -2822,8 +2822,6 @@ B.1.  Since draft-ietf-quic-http-24
    *  Removed H3_EARLY_RESPONSE error code; H3_NO_ERROR is recommended
       instead (#3130,#3208)
 
-   *  Unknown error codes are equivalent to H3_NO_ERROR (#3276,#3331)
-
 B.2.  Since draft-ietf-quic-http-23
 
    *  Removed "quic" Alt-Svc parameter (#3061,#3118)
@@ -2850,6 +2848,8 @@ B.3.  Since draft-ietf-quic-http-22
    *  Describe interactions with the transport in terms of defined
       interface terms (#2857,#2805)
 
+   *  Require the use of the "http-opportunistic" resource (RFC 8164)
+      when scheme is "http" (#2439,#2973)
 
 
 
@@ -2857,9 +2857,6 @@ Bishop                    Expires 17 July 2020                 [Page 51]
 
 Internet-Draft                   HTTP/3                     January 2020
 
-
-   *  Require the use of the "http-opportunistic" resource (RFC 8164)
-      when scheme is "http" (#2439,#2973)
 
    *  Settings identifiers cannot be duplicated (#2979)
 
@@ -2906,6 +2903,9 @@ B.5.  Since draft-ietf-quic-http-20
    *  Allow extensions to use server-initiated bidirectional streams
       (#2711, #2773)
 
+   *  Clarify use of maximum header list size setting (#2516, #2774)
+
+   *  Extensive changes to error codes and conditions of their sending
 
 
 
@@ -2913,10 +2913,6 @@ Bishop                    Expires 17 July 2020                 [Page 52]
 
 Internet-Draft                   HTTP/3                     January 2020
 
-
-   *  Clarify use of maximum header list size setting (#2516, #2774)
-
-   *  Extensive changes to error codes and conditions of their sending
 
       -  Require connection errors for more error conditions (#2511,
          #2510)
@@ -2962,6 +2958,10 @@ B.7.  Since draft-ietf-quic-http-18
    *  Frame layout switched from Length-Type-Value to Type-Length-Value
       (#2395,#2235)
 
+   *  Specified error code for servers receiving DUPLICATE_PUSH (#2497)
+
+   *  Use connection error for invalid PRIORITY (#2507, #2508)
+
 
 
 
@@ -2969,10 +2969,6 @@ Bishop                    Expires 17 July 2020                 [Page 53]
 
 Internet-Draft                   HTTP/3                     January 2020
 
-
-   *  Specified error code for servers receiving DUPLICATE_PUSH (#2497)
-
-   *  Use connection error for invalid PRIORITY (#2507, #2508)
 
 B.8.  Since draft-ietf-quic-http-17
 
@@ -3018,6 +3014,10 @@ B.11.  Since draft-ietf-quic-http-14
 
    *  Define error for missing SETTINGS frame (#1697,#1808)
 
+   *  Setting values are variable-length integers (#1556,#1807) and do
+      not have separate maximum values (#1820)
+
+   *  Expanded discussion of connection closure (#1599,#1717,#1712)
 
 
 
@@ -3025,11 +3025,6 @@ Bishop                    Expires 17 July 2020                 [Page 54]
 
 Internet-Draft                   HTTP/3                     January 2020
 
-
-   *  Setting values are variable-length integers (#1556,#1807) and do
-      not have separate maximum values (#1820)
-
-   *  Expanded discussion of connection closure (#1599,#1717,#1712)
 
    *  HTTP_VERSION_FALLBACK falls back to HTTP/1.1 (#1677,#1685)
 
@@ -3073,6 +3068,11 @@ B.15.  Since draft-ietf-quic-http-10
    *  Settings need to be remembered when attempting and accepting 0-RTT
       (#1157, #1207)
 
+B.16.  Since draft-ietf-quic-http-09
+
+   *  Selected QCRAM for header compression (#228, #1117)
+
+   *  The server_name TLS extension is now mandatory (#296, #495)
 
 
 
@@ -3081,12 +3081,6 @@ Bishop                    Expires 17 July 2020                 [Page 55]
 
 Internet-Draft                   HTTP/3                     January 2020
 
-
-B.16.  Since draft-ietf-quic-http-09
-
-   *  Selected QCRAM for header compression (#228, #1117)
-
-   *  The server_name TLS extension is now mandatory (#296, #495)
 
    *  Specified handling of unsupported versions in Alt-Svc (#1093,
       #1097)
@@ -3130,6 +3124,12 @@ B.21.  Since draft-ietf-quic-http-04
 
    *  Restored GOAWAY (#696)
 
+   *  Identify server push using Push ID rather than a stream ID
+      (#702,#281)
+
+   *  DATA frames cannot be empty (#700)
+
+
 
 
 
@@ -3137,11 +3137,6 @@ Bishop                    Expires 17 July 2020                 [Page 56]
 
 Internet-Draft                   HTTP/3                     January 2020
 
-
-   *  Identify server push using Push ID rather than a stream ID
-      (#702,#281)
-
-   *  DATA frames cannot be empty (#700)
 
 B.22.  Since draft-ietf-quic-http-03
 
@@ -3187,17 +3182,17 @@ B.25.  Since draft-ietf-quic-http-00
    *  Adopted SETTINGS format from draft-bishop-httpbis-extended-
       settings-01
 
+   *  Reworked SETTINGS_ACK to account for indeterminate inter-stream
+      order (#75)
+
+   *  Described CONNECT pseudo-method (#95)
+
 
 
 Bishop                    Expires 17 July 2020                 [Page 57]
 
 Internet-Draft                   HTTP/3                     January 2020
 
-
-   *  Reworked SETTINGS_ACK to account for indeterminate inter-stream
-      order (#75)
-
-   *  Described CONNECT pseudo-method (#95)
 
    *  Updated ALPN token and Alt-Svc guidance (#13,#87)
 
@@ -3223,6 +3218,11 @@ Author's Address
    Akamai
 
    Email: mbishop@evequefou.be
+
+
+
+
+
 
 
 
