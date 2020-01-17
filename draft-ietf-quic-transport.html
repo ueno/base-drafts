@@ -1396,7 +1396,10 @@ code and issues list for this draft can be found at
                 <p id="section-toc.1-1.19.2.19.1"><a href="#section-19.19" class="xref">19.19</a>. <a href="#name-connection_close-frames" class="xref">CONNECTION_CLOSE Frames</a><a href="#section-toc.1-1.19.2.19.1" class="pilcrow">¶</a></p>
 </li>
 <li class="toc ulEmpty" id="section-toc.1-1.19.2.20">
-                <p id="section-toc.1-1.19.2.20.1"><a href="#section-19.20" class="xref">19.20</a>. <a href="#name-extension-frames" class="xref">Extension Frames</a><a href="#section-toc.1-1.19.2.20.1" class="pilcrow">¶</a></p>
+                <p id="section-toc.1-1.19.2.20.1"><a href="#section-19.20" class="xref">19.20</a>. <a href="#name-handshake_done-frame" class="xref">HANDSHAKE_DONE frame</a><a href="#section-toc.1-1.19.2.20.1" class="pilcrow">¶</a></p>
+</li>
+<li class="toc ulEmpty" id="section-toc.1-1.19.2.21">
+                <p id="section-toc.1-1.19.2.21.1"><a href="#section-19.21" class="xref">19.21</a>. <a href="#name-extension-frames" class="xref">Extension Frames</a><a href="#section-toc.1-1.19.2.21.1" class="pilcrow">¶</a></p>
 </li>
 </ul>
 </li>
@@ -4795,6 +4798,14 @@ frames are explained in more detail in <a href="#frame-formats" class="xref">Sec
 </td>
               <td class="text-left" rowspan="1" colspan="1">IH_1*</td>
             </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0x1e</td>
+              <td class="text-left" rowspan="1" colspan="1">HANDSHAKE_DONE</td>
+              <td class="text-left" rowspan="1" colspan="1">
+                <a href="#frame-handshake-done" class="xref">Section 19.20</a>
+</td>
+              <td class="text-left" rowspan="1" colspan="1">___1</td>
+            </tr>
           </tbody>
         </table>
 </div>
@@ -5154,6 +5165,8 @@ frames other than a direct comparison of the frame contents.<a href="#section-13
 </li>
 <li id="section-13.3-3.15">PING and PADDING frames contain no information, so lost PING or PADDING frames
 do not require repair.<a href="#section-13.3-3.15" class="pilcrow">¶</a>
+</li>
+<li id="section-13.3-3.16">The HANDSHAKE_DONE frame MUST be retransmitted until it is acknowledged.<a href="#section-13.3-3.16" class="pilcrow">¶</a>
 </li>
 </ul>
 <p id="section-13.3-4">Endpoints SHOULD prioritize retransmission of data over sending new data, unless
@@ -7714,25 +7727,39 @@ CONNECTION_CLOSE frame (type 0x1c) with an error code of 0x15a ("user_canceled"
 alert; see <span>[<a href="#TLS13" class="xref">TLS13</a>]</span>) in an Initial or a Handshake packet.<a href="#section-19.19-7" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="extension-frames">
+<div id="frame-handshake-done">
 <section id="section-19.20">
-        <h3 id="name-extension-frames">
-<a href="#section-19.20" class="section-number selfRef">19.20. </a><a href="#name-extension-frames" class="section-name selfRef">Extension Frames</a>
+        <h3 id="name-handshake_done-frame">
+<a href="#section-19.20" class="section-number selfRef">19.20. </a><a href="#name-handshake_done-frame" class="section-name selfRef">HANDSHAKE_DONE frame</a>
         </h3>
-<p id="section-19.20-1">QUIC frames do not use a self-describing encoding.  An endpoint therefore needs
+<p id="section-19.20-1">The server uses the HANDSHAKE_DONE frame (type=0x1e) to signal confirmation of
+the handshake to the client.  The HANDSHAKE_DONE frame contains no additional
+fields.<a href="#section-19.20-1" class="pilcrow">¶</a></p>
+<p id="section-19.20-2">This frame can only be sent by the server. Servers MUST NOT send a
+HANDSHAKE_DONE frame before completing the handshake.  A server MUST treat
+receipt of a HANDSHAKE_DONE frame as a connection error of type
+PROTOCOL_VIOLATION.<a href="#section-19.20-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="extension-frames">
+<section id="section-19.21">
+        <h3 id="name-extension-frames">
+<a href="#section-19.21" class="section-number selfRef">19.21. </a><a href="#name-extension-frames" class="section-name selfRef">Extension Frames</a>
+        </h3>
+<p id="section-19.21-1">QUIC frames do not use a self-describing encoding.  An endpoint therefore needs
 to understand the syntax of all frames before it can successfully process a
 packet.  This allows for efficient encoding of frames, but it means that an
-endpoint cannot send a frame of a type that is unknown to its peer.<a href="#section-19.20-1" class="pilcrow">¶</a></p>
-<p id="section-19.20-2">An extension to QUIC that wishes to use a new type of frame MUST first ensure
+endpoint cannot send a frame of a type that is unknown to its peer.<a href="#section-19.21-1" class="pilcrow">¶</a></p>
+<p id="section-19.21-2">An extension to QUIC that wishes to use a new type of frame MUST first ensure
 that a peer is able to understand the frame.  An endpoint can use a transport
 parameter to signal its willingness to receive one or more extension frame types
-with the one transport parameter.<a href="#section-19.20-2" class="pilcrow">¶</a></p>
-<p id="section-19.20-3">Extension frames MUST be congestion controlled and MUST cause an ACK frame to
+with the one transport parameter.<a href="#section-19.21-2" class="pilcrow">¶</a></p>
+<p id="section-19.21-3">Extension frames MUST be congestion controlled and MUST cause an ACK frame to
 be sent.  The exception is extension frames that replace or supplement the ACK
 frame.  Extension frames are not included in flow control unless specified
-in the extension.<a href="#section-19.20-3" class="pilcrow">¶</a></p>
-<p id="section-19.20-4">An IANA registry is used to manage the assignment of frame types; see
-<a href="#iana-frames" class="xref">Section 22.3</a>.<a href="#section-19.20-4" class="pilcrow">¶</a></p>
+in the extension.<a href="#section-19.21-3" class="pilcrow">¶</a></p>
+<p id="section-19.21-4">An IANA registry is used to manage the assignment of frame types; see
+<a href="#iana-frames" class="xref">Section 22.3</a>.<a href="#section-19.21-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
