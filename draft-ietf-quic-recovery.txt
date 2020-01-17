@@ -861,20 +861,23 @@ Internet-Draft             QUIC Loss Detection              January 2020
 
 6.  Congestion Control
 
-   QUIC's congestion control is based on TCP NewReno [RFC6582].  NewReno
-   is a congestion window based congestion control.  QUIC specifies the
-   congestion window in bytes rather than packets due to finer control
-   and the ease of appropriate byte counting [RFC3465].
+   This document specifies a Reno congestion controller for QUIC
+   [RFC6582].
 
-   QUIC hosts MUST NOT send packets if they would increase
-   bytes_in_flight (defined in Appendix B.2) beyond the available
-   congestion window, unless the packet is a probe packet sent after a
-   PTO timer expires, as described in Section 5.2.
+   The signals QUIC provides for congestion control are generic and are
+   designed to support different algorithms.  Endpoints can unilaterally
+   choose a different algorithm to use, such as Cubic [RFC8312].
 
-   Implementations MAY use other congestion control algorithms, such as
-   Cubic [RFC8312], and endpoints MAY use different algorithms from one
-   another.  The signals QUIC provides for congestion control are
-   generic and are designed to support different algorithms.
+   If an endpoint uses a different controller than that specified in
+   this document, the chosen controller MUST conform to the congestion
+   control guidelines specified in Section 3.1 of [RFC8085].
+
+   The algorithm in this document specifies and uses the controller's
+   congestion window in bytes.
+
+   An endpoint MUST NOT send a packet if it would cause bytes_in_flight
+   (see Appendix B.2) to be larger than the congestion window, unless
+   the packet is sent on a PTO timer expiration (see Section 5.2).
 
 6.1.  Explicit Congestion Notification
 
@@ -883,9 +886,6 @@ Internet-Draft             QUIC Loss Detection              January 2020
    signal of congestion.  This document specifies an endpoint's response
    when its peer receives packets with the Congestion Experienced
    codepoint.
-
-
-
 
 
 
@@ -1150,6 +1150,10 @@ Internet-Draft             QUIC Loss Detection              January 2020
               DOI 10.17487/RFC2119, March 1997,
               <https://www.rfc-editor.org/info/rfc2119>.
 
+   [RFC8085]  Eggert, L., Fairhurst, G., and G. Shepherd, "UDP Usage
+              Guidelines", BCP 145, RFC 8085, DOI 10.17487/RFC8085,
+              March 2017, <https://www.rfc-editor.org/info/rfc8085>.
+
    [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
               2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
               May 2017, <https://www.rfc-editor.org/info/rfc8174>.
@@ -1166,10 +1170,6 @@ Internet-Draft             QUIC Loss Detection              January 2020
               April 2019, <http://www.ietf.org/internet-drafts/draft-
               ietf-tcpm-rack-05.txt>.
 
-   [RFC3168]  Ramakrishnan, K., Floyd, S., and D. Black, "The Addition
-              of Explicit Congestion Notification (ECN) to IP",
-              RFC 3168, DOI 10.17487/RFC3168, September 2001,
-              <https://www.rfc-editor.org/info/rfc3168>.
 
 
 
@@ -1178,9 +1178,10 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 21]
 Internet-Draft             QUIC Loss Detection              January 2020
 
 
-   [RFC3465]  Allman, M., "TCP Congestion Control with Appropriate Byte
-              Counting (ABC)", RFC 3465, DOI 10.17487/RFC3465, February
-              2003, <https://www.rfc-editor.org/info/rfc3465>.
+   [RFC3168]  Ramakrishnan, K., Floyd, S., and D. Black, "The Addition
+              of Explicit Congestion Notification (ECN) to IP",
+              RFC 3168, DOI 10.17487/RFC3168, September 2001,
+              <https://www.rfc-editor.org/info/rfc3168>.
 
    [RFC4653]  Bhandarkar, S., Reddy, A. L. N., Allman, M., and E.
               Blanton, "Improving the Robustness of TCP to Non-
@@ -1224,8 +1225,7 @@ Internet-Draft             QUIC Loss Detection              January 2020
               DOI 10.17487/RFC6928, April 2013,
               <https://www.rfc-editor.org/info/rfc6928>.
 
-   [RFC7661]  Fairhurst, G., Sathiaseelan, A., and R. Secchi, "Updating
-              TCP to Support Rate-Limited Traffic", RFC 7661,
+
 
 
 
@@ -1234,6 +1234,8 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 22]
 Internet-Draft             QUIC Loss Detection              January 2020
 
 
+   [RFC7661]  Fairhurst, G., Sathiaseelan, A., and R. Secchi, "Updating
+              TCP to Support Rate-Limited Traffic", RFC 7661,
               DOI 10.17487/RFC7661, October 2015,
               <https://www.rfc-editor.org/info/rfc7661>.
 
@@ -1280,8 +1282,6 @@ A.1.1.  Sent Packet Fields
    in_flight:  A boolean that indicates whether the packet counts
       towards bytes in flight.
 
-   sent_bytes:  The number of bytes sent in the packet, not including
-      UDP or IP overhead, but including QUIC framing overhead.
 
 
 
@@ -1290,13 +1290,15 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 23]
 Internet-Draft             QUIC Loss Detection              January 2020
 
 
+   sent_bytes:  The number of bytes sent in the packet, not including
+      UDP or IP overhead, but including QUIC framing overhead.
+
    time_sent:  The time the packet was sent.
 
 A.2.  Constants of interest
 
    Constants used in loss recovery are based on a combination of RFCs,
-   papers, and common practice.  Some may need to be changed or
-   negotiated in order to better suit a variety of environments.
+   papers, and common practice.
 
    kPacketThreshold:  Maximum reordering in packets before packet
       threshold loss detection considers a packet lost.  The RECOMMENDED
@@ -1336,8 +1338,6 @@ A.3.  Variables of interest
 
    min_rtt:  The minimum RTT seen in the connection, ignoring ack delay.
 
-   max_ack_delay:  The maximum amount of time by which the receiver
-      intends to delay acknowledgments for packets in the
 
 
 
@@ -1346,6 +1346,8 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 24]
 Internet-Draft             QUIC Loss Detection              January 2020
 
 
+   max_ack_delay:  The maximum amount of time by which the receiver
+      intends to delay acknowledgments for packets in the
       ApplicationData packet number space.  The actual ack_delay in a
       received ACK frame may be larger due to late timers, reordering,
       or lost ACK frames.
@@ -1392,8 +1394,6 @@ A.5.  On Sending a Packet
    parameters to OnPacketSent are described in detail above in
    Appendix A.1.1.
 
-   Pseudocode for OnPacketSent follows:
-
 
 
 
@@ -1401,6 +1401,8 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 25]
 
 Internet-Draft             QUIC Loss Detection              January 2020
 
+
+   Pseudocode for OnPacketSent follows:
 
     OnPacketSent(packet_number, pn_space, ack_eliciting,
                  in_flight, sent_bytes):
@@ -1448,8 +1450,6 @@ A.6.  On Receiving an Acknowledgment
        UpdateRtt(ack_delay)
 
      // Process ECN information if present.
-     if (ACK frame contains ECN information):
-         ProcessECN(ack, pn_space)
 
 
 
@@ -1457,6 +1457,9 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 26]
 
 Internet-Draft             QUIC Loss Detection              January 2020
 
+
+     if (ACK frame contains ECN information):
+         ProcessECN(ack, pn_space)
 
      for acked_packet in newly_acked_packets:
        OnPacketAcked(acked_packet.packet_number, pn_space)
@@ -1501,10 +1504,7 @@ A.7.  On Packet Acknowledgment
 
    Pseudocode for OnPacketAcked follows:
 
-      OnPacketAcked(acked_packet, pn_space):
-        if (acked_packet.in_flight):
-          OnPacketAckedCC(acked_packet)
-        sent_packets[pn_space].remove(acked_packet.packet_number)
+
 
 
 
@@ -1513,6 +1513,11 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 27]
 
 Internet-Draft             QUIC Loss Detection              January 2020
 
+
+      OnPacketAcked(acked_packet, pn_space):
+        if (acked_packet.in_flight):
+          OnPacketAckedCC(acked_packet)
+        sent_packets[pn_space].remove(acked_packet.packet_number)
 
 A.8.  Setting the Loss Detection Timer
 
@@ -1527,11 +1532,6 @@ A.8.  Setting the Loss Detection Timer
    fire immediately.
 
    Pseudocode for SetLossDetectionTimer follows:
-
-
-
-
-
 
 
 
@@ -1725,11 +1725,11 @@ Appendix B.  Congestion Control Pseudocode
 B.1.  Constants of interest
 
    Constants used in congestion control are based on a combination of
-   RFCs, papers, and common practice.  Some may need to be changed or
-   negotiated in order to better suit a variety of environments.
+   RFCs, papers, and common practice.
 
    kInitialWindow:  Default limit on the initial amount of data in
       flight, in bytes.  Taken from [RFC6928], but increased slightly to
+      account for the smaller 8 byte overhead of UDP vs 20 bytes for
 
 
 
@@ -1738,7 +1738,6 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 31]
 Internet-Draft             QUIC Loss Detection              January 2020
 
 
-      account for the smaller 8 byte overhead of UDP vs 20 bytes for
       TCP.  The RECOMMENDED value is the minimum of 10 *
       max_datagram_size and max(2 * max_datagram_size, 14720)).
 
@@ -1785,7 +1784,8 @@ B.2.  Variables of interest
    congestion_window:  Maximum number of bytes-in-flight that may be
       sent.
 
-
+   congestion_recovery_start_time:  The time when QUIC first detects
+      congestion due to loss or ECN, causing it to enter congestion
 
 
 
@@ -1794,8 +1794,6 @@ Iyengar & Swett           Expires 20 July 2020                 [Page 32]
 Internet-Draft             QUIC Loss Detection              January 2020
 
 
-   congestion_recovery_start_time:  The time when QUIC first detects
-      congestion due to loss or ECN, causing it to enter congestion
       recovery.  When a packet sent after this time is acknowledged,
       QUIC exits congestion recovery.
 
@@ -1827,6 +1825,8 @@ B.5.  On Packet Acknowledgement
 
    Invoked from loss detection's OnPacketAcked and is supplied with the
    acked_packet from sent_packets.
+
+
 
 
 
