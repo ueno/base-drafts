@@ -101,7 +101,7 @@ Table of Contents
    6.  Stream Mapping and Usage  . . . . . . . . . . . . . . . . . .  19
      6.1.  Bidirectional Streams . . . . . . . . . . . . . . . . . .  20
      6.2.  Unidirectional Streams  . . . . . . . . . . . . . . . . .  20
-       6.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .  21
+       6.2.1.  Control Streams . . . . . . . . . . . . . . . . . . .  22
        6.2.2.  Push Streams  . . . . . . . . . . . . . . . . . . . .  22
        6.2.3.  Reserved Stream Types . . . . . . . . . . . . . . . .  23
    7.  HTTP Framing Layer  . . . . . . . . . . . . . . . . . . . . .  23
@@ -859,12 +859,16 @@ Internet-Draft                   HTTP/3                     January 2020
 
    The header of the request message is carried by a PUSH_PROMISE frame
    (see Section 7.2.5) on the request stream which generated the push.
-   This allows the server push to be associated with a client request.
    Promised requests MUST conform to the requirements in Section 8.2 of
    [HTTP2].
 
-   The same server push can be associated with additional client
-   requests using a DUPLICATE_PUSH frame (see Section 7.2.8).
+   Each pushed response is associated with one or more client requests.
+   The push is associated with the request stream on which the
+   PUSH_PROMISE frame was received.  The same server push can be
+   associated with additional client requests using a DUPLICATE_PUSH
+   frame (see Section 7.2.8).  These associations do not affect the
+   operation of the protocol, but MAY be used by user agents when
+   deciding how to use pushed resources.
 
    Ordering of a PUSH_PROMISE or DUPLICATE_PUSH in relation to certain
    parts of the response is important.  The server SHOULD send
@@ -886,10 +890,6 @@ Internet-Draft                   HTTP/3                     January 2020
    client can either delay generating new requests for content
    referenced following the DUPLICATE_PUSH frame until the request
    headers become available, or can initiate requests for discovered
-   resources and cancel the requests if the requested resource is
-   already being pushed.  When a client receives a new push stream with
-   an as-yet-unknown Push ID, both the associated client request and the
-   pushed request headers are unknown.  The client can buffer the stream
 
 
 
@@ -898,6 +898,10 @@ Bishop                    Expires 24 July 2020                 [Page 16]
 Internet-Draft                   HTTP/3                     January 2020
 
 
+   resources and cancel the requests if the requested resource is
+   already being pushed.  When a client receives a new push stream with
+   an as-yet-unknown Push ID, both the associated client request and the
+   pushed request headers are unknown.  The client can buffer the stream
    data in expectation of the matching PUSH_PROMISE.  The client can use
    stream flow control (see section 4.1 of [QUIC-TRANSPORT]) to limit
    the amount of data a server may commit to the pushed stream.
@@ -942,10 +946,6 @@ Internet-Draft                   HTTP/3                     January 2020
    Since clients drive request generation, clients perform a connection
    shutdown by not sending additional requests on the connection;
    responses and pushed responses associated to previous requests will
-   continue to completion.  Servers perform the same function by
-   communicating with clients.
-
-
 
 
 
@@ -953,6 +953,9 @@ Bishop                    Expires 24 July 2020                 [Page 17]
 
 Internet-Draft                   HTTP/3                     January 2020
 
+
+   continue to completion.  Servers perform the same function by
+   communicating with clients.
 
    Servers initiate the shutdown of a connection by sending a GOAWAY
    frame (Section 7.2.6).  The GOAWAY frame indicates that client-
@@ -999,9 +1002,6 @@ Internet-Draft                   HTTP/3                     January 2020
    A server that is attempting to gracefully shut down a connection can
    send an initial GOAWAY frame with the last Stream ID set to the
    maximum possible value for a client-initiated, bidirectional stream
-   (i.e. 2^62-4 in case of QUIC version 1).  This GOAWAY frame signals
-   to the client that shutdown is imminent and that initiating further
-   requests is prohibited.  After allowing time for any in-flight
 
 
 
@@ -1010,6 +1010,9 @@ Bishop                    Expires 24 July 2020                 [Page 18]
 Internet-Draft                   HTTP/3                     January 2020
 
 
+   (i.e. 2^62-4 in case of QUIC version 1).  This GOAWAY frame signals
+   to the client that shutdown is imminent and that initiating further
+   requests is prohibited.  After allowing time for any in-flight
    requests to reach the server, the server can send another GOAWAY
    frame indicating which requests it will accept before the end of the
    connection.  This ensures that a connection can be cleanly shut down
@@ -1055,9 +1058,6 @@ Internet-Draft                   HTTP/3                     January 2020
    streams.  On the wire, data is framed into QUIC STREAM frames, but
    this framing is invisible to the HTTP framing layer.  The transport
    layer buffers and orders received QUIC STREAM frames, exposing the
-   data contained within as a reliable byte stream to the application.
-   Although QUIC permits out-of-order delivery within a stream, HTTP/3
-   does not make use of this feature.
 
 
 
@@ -1065,6 +1065,10 @@ Bishop                    Expires 24 July 2020                 [Page 19]
 
 Internet-Draft                   HTTP/3                     January 2020
 
+
+   data contained within as a reliable byte stream to the application.
+   Although QUIC permits out-of-order delivery within a stream, HTTP/3
+   does not make use of this feature.
 
    QUIC streams can be either unidirectional, carrying data only from
    initiator to receiver, or bidirectional.  Streams can be initiated by
@@ -1110,10 +1114,6 @@ Internet-Draft                   HTTP/3                     January 2020
 
                    Figure 1: Unidirectional Stream Header
 
-   Some stream types are reserved (Section 6.2.3).  Two stream types are
-   defined in this document: control streams (Section 6.2.1) and push
-   streams (Section 6.2.2).  [QPACK] defines two additional stream
-
 
 
 
@@ -1122,6 +1122,9 @@ Bishop                    Expires 24 July 2020                 [Page 20]
 Internet-Draft                   HTTP/3                     January 2020
 
 
+   Some stream types are reserved (Section 6.2.3).  Two stream types are
+   defined in this document: control streams (Section 6.2.1) and push
+   streams (Section 6.2.2).  [QPACK] defines two additional stream
    types.  Other stream types can be defined by extensions to HTTP/3;
    see Section 9 for more details.
 
@@ -1166,10 +1169,7 @@ Internet-Draft                   HTTP/3                     January 2020
    closed or reset prior to the reception of the unidirectional stream
    header.
 
-6.2.1.  Control Streams
 
-   A control stream is indicated by a stream type of "0x00".  Data on
-   this stream consists of HTTP/3 frames, as defined in Section 7.2.
 
 
 
@@ -1177,6 +1177,11 @@ Bishop                    Expires 24 July 2020                 [Page 21]
 
 Internet-Draft                   HTTP/3                     January 2020
 
+
+6.2.1.  Control Streams
+
+   A control stream is indicated by a stream type of "0x00".  Data on
+   this stream consists of HTTP/3 frames, as defined in Section 7.2.
 
    Each side MUST initiate a single control stream at the beginning of
    the connection and send its SETTINGS frame as the first frame on this
@@ -1222,11 +1227,6 @@ Internet-Draft                   HTTP/3                     January 2020
    |                          Push ID (i)                        ...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-                        Figure 2: Push Stream Header
-
-   Each Push ID MUST only be used once in a push stream header.  If a
-   push stream header includes a Push ID that was used in another push
-
 
 
 Bishop                    Expires 24 July 2020                 [Page 22]
@@ -1234,6 +1234,10 @@ Bishop                    Expires 24 July 2020                 [Page 22]
 Internet-Draft                   HTTP/3                     January 2020
 
 
+                        Figure 2: Push Stream Header
+
+   Each Push ID MUST only be used once in a push stream header.  If a
+   push stream header includes a Push ID that was used in another push
    stream header, the client MUST treat this as a connection error of
    type H3_ID_ERROR.
 
@@ -1257,10 +1261,6 @@ Internet-Draft                   HTTP/3                     January 2020
    streams types on which they are permitted; see Table 1 for an
    overview.  A comparison between HTTP/2 and HTTP/3 frames is provided
    in Appendix A.2.
-
-
-
-
 
 
 
