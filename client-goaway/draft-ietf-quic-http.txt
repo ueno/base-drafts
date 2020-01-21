@@ -962,24 +962,23 @@ Internet-Draft                   HTTP/3                     January 2020
 
    The information in the GOAWAY frame enables a client and server to
    agree on which requests or pushes were accepted prior to the
-   connection shutdown.  Endpoints SHOULD abruptly terminate any
-   requests or pushes that have identifiers greater than or equal to the
-   smallest identifier sent in a GOAWAY frame.
+   connection shutdown.  Upon sending a GOAWAY frame, the endpoint
+   SHOULD explicitly cancel (see Section 4.1.2 and Section 7.2.3) any
+   requests or pushes that have identifiers greater than or equal to
+   that indicated, in order to clean up transport state for the affected
+   streams.  The endpoint SHOULD continue to do so as more requests or
+   pushes arrive.
 
    Endpoints MUST NOT initiate new requests or promise new pushes on the
    connection after receipt of a GOAWAY frame from the peer.  Clients
    MAY establish a new connection to send additional requests.
 
-   Some requests or pushes might already be in transit.  If the endpoint
-   has already sent requests or promised pushes with an identifier
-   greater than or equal to that received in a GOAWAY frame, those
-   requests or pushes will not be processed; requests MAY be retried by
-   the client on a different connection.  The endpoint that initiated
-   these requests or pushes MAY cancel them.  It is RECOMMENDED that
-   such requests be explicitly rejected (see Section 4.1.2 and
-   Section 7.2.3) upon receipt in order to clean up transport state for
-   the affected streams.  Pushes which have been promised MAY still be
-   fulfilled by the server.
+   Some requests or pushes might already be in transit.  Upon receipt of
+   a GOAWAY frame, if the endpoint has already sent requests or promised
+   pushes with an identifier greater than or equal to that received in a
+   GOAWAY frame, those requests or pushes will not be processed.  The
+   endpoint that initiated these requests or pushes MAY cancel them.
+   Clients MAY retry such requests on a different connection.
 
    Requests on Stream IDs less than the Stream ID in a GOAWAY frame from
    the server might have been processed; their status cannot be known
@@ -1001,7 +1000,8 @@ Internet-Draft                   HTTP/3                     January 2020
    MUST NOT increase the identifier value they send, since clients might
    already have retried unprocessed requests on another connection.
 
-
+   A server that is attempting to gracefully shut down a connection can
+   send an initial GOAWAY frame with the last Stream ID set to the
 
 
 
@@ -1010,8 +1010,6 @@ Bishop                    Expires 24 July 2020                 [Page 18]
 Internet-Draft                   HTTP/3                     January 2020
 
 
-   A server that is attempting to gracefully shut down a connection can
-   send an initial GOAWAY frame with the last Stream ID set to the
    maximum possible value for a client-initiated, bidirectional stream
    (i.e. 2^62-4 in case of QUIC version 1).  This GOAWAY frame signals
    to the client that a shutdown is imminent and that initiating further
@@ -1054,6 +1052,8 @@ Internet-Draft                   HTTP/3                     January 2020
    the client to retry some requests.  Including the GOAWAY frame in the
    same packet as the QUIC CONNECTION_CLOSE frame improves the chances
    of the frame being received by clients.
+
+
 
 
 
