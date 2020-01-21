@@ -3252,32 +3252,35 @@ Internet-Draft           QUIC Transport Protocol            January 2020
 
 10.2.  Idle Timeout
 
-   If the idle timeout is enabled, a connection is silently closed and
-   the state is discarded when it remains idle for longer than both the
-   advertised idle timeout (see Section 18.2) and three times the
-   current Probe Timeout (PTO).
+   If the idle timeout is enabled by either peer, a connection is
+   silently closed and its state is discarded when it remains idle for
+   longer than the minimum of the max_idle_timeouts (see Section 18.2)
+   and three times the current Probe Timeout (PTO).
 
-   Each endpoint advertises its own idle timeout to its peer.  An
-   endpoint restarts any timer it maintains when a packet from its peer
-   is received and processed successfully.  The timer is also restarted
-   when sending an ack-eliciting packet (see [QUIC-RECOVERY]), but only
-   if no other ack-eliciting packets have been sent since last receiving
-   a packet.  Restarting when sending packets ensures that connections
-   do not prematurely time out when initiating new activity.  An
-   endpoint might need to send packets to avoid an idle timeout if it is
-   unable to send application data due to being blocked on flow control
-   limits; see Section 4.
+   Each endpoint advertises a max_idle_timeout, but the effective value
+   at an endpoint is computed as the minimum of the two advertised
+   values.  By announcing a max_idle_timeout, an endpoint commits to
+   initiating an immediate close (Section 10.3) if it abandons the
+   connection prior to the effective value.
 
-   The value for an idle timeout can be asymmetric.  The value
-   advertised by an endpoint is only used to determine whether the
-   connection is live at that endpoint.  An endpoint that sends packets
-   near the end of the idle timeout period of a peer risks having those
-   packets discarded if its peer enters the draining state before the
-   packets arrive.  If a peer could timeout within a Probe Timeout (PTO;
-   see Section 6.3 of [QUIC-RECOVERY]), it is advisable to test for
-   liveness before sending any data that cannot be retried safely.  Note
-   that it is likely that only applications or application protocols
-   will know what information can be retried.
+   An endpoint restarts its idle timer when a packet from its peer is
+   received and processed successfully.  The idle timer is also
+   restarted when sending an ack-eliciting packet (see [QUIC-RECOVERY]),
+   but only if no other ack-eliciting packets have been sent since last
+   receiving a packet.  Restarting when sending packets ensures that
+   connections do not prematurely time out when initiating new activity.
+   An endpoint might need to send packets to avoid an idle timeout if it
+   is unable to send application data due to being blocked on flow
+   control limits; see Section 4.
+
+   An endpoint that sends packets near the end of the idle timeout
+   period risks having those packets discarded if its peer enters the
+   draining state before the packets arrive.  If a peer could time out
+   within a Probe Timeout (PTO; see Section 6.2.2 of [QUIC-RECOVERY]),
+   it is advisable to test for liveness before sending any data that
+   cannot be retried safely.  Note that it is likely that only
+   applications or application protocols will know what information can
+   be retried.
 
 10.3.  Immediate Close
 
@@ -3294,9 +3297,6 @@ Internet-Draft           QUIC Transport Protocol            January 2020
    with another packet containing a CONNECTION_CLOSE frame.  Such an
    endpoint SHOULD limit the number of packets it generates containing a
    CONNECTION_CLOSE frame.  For instance, an endpoint could wait for a
-   progressively increasing number of received packets or amount of time
-   before responding to a received packet.
-
 
 
 
@@ -3305,6 +3305,9 @@ Iyengar & Thomson         Expires 24 July 2020                 [Page 59]
 
 Internet-Draft           QUIC Transport Protocol            January 2020
 
+
+   progressively increasing number of received packets or amount of time
+   before responding to a received packet.
 
    An endpoint is allowed to drop the packet protection keys when
    entering the closing period (Section 10.1) and send a packet
@@ -3351,9 +3354,6 @@ Internet-Draft           QUIC Transport Protocol            January 2020
    will process the frame.  Generally, this means sending the frame in a
    packet with the highest level of packet protection to avoid the
    packet being discarded.  After the handshake is confirmed (see
-   Section 4.1.2 of [QUIC-TLS]), an endpoint MUST send any
-   CONNECTION_CLOSE frames in a 1-RTT packet.  However, prior to
-   confirming the handshake, it is possible that more advanced packet
 
 
 
@@ -3362,6 +3362,9 @@ Iyengar & Thomson         Expires 24 July 2020                 [Page 60]
 Internet-Draft           QUIC Transport Protocol            January 2020
 
 
+   Section 4.1.2 of [QUIC-TLS]), an endpoint MUST send any
+   CONNECTION_CLOSE frames in a 1-RTT packet.  However, prior to
+   confirming the handshake, it is possible that more advanced packet
    protection keys are not available to the peer, so the frame MAY be
    replicated in a packet that uses a lower packet protection level.
 
@@ -3401,9 +3404,6 @@ Internet-Draft           QUIC Transport Protocol            January 2020
 
    An endpoint that receives packets that it cannot process sends a
    packet in the following layout:
-
-
-
 
 
 
@@ -5953,9 +5953,10 @@ Internet-Draft           QUIC Transport Protocol            January 2020
       include the original_connection_id transport parameter if it sent
       a Retry packet.
 
-   idle_timeout (0x0001):  The idle timeout is a value in milliseconds
-      that is encoded as an integer; see (Section 10.2).  If this
-      parameter is absent or zero then the idle timeout is disabled.
+   max_idle_timeout (0x0001):  The max idle timeout is a value in
+      milliseconds that is encoded as an integer; see (Section 10.2).
+      Idle timeout is disabled when both endpoints omit this transport
+      parameteter or specify a value of 0.
 
    stateless_reset_token (0x0002):  A stateless reset token is used in
       verifying a stateless reset; see Section 10.4.  This parameter is
@@ -5985,7 +5986,6 @@ Internet-Draft           QUIC Transport Protocol            January 2020
       newly created bidirectional streams opened by the endpoint that
       sends the transport parameter.  In client transport parameters,
       this applies to streams with an identifier with the least
-      significant two bits set to 0x0; in server transport parameters,
 
 
 
@@ -5994,6 +5994,7 @@ Iyengar & Thomson         Expires 24 July 2020                [Page 107]
 Internet-Draft           QUIC Transport Protocol            January 2020
 
 
+      significant two bits set to 0x0; in server transport parameters,
       this applies to streams with the least significant two bits set to
       0x1.
 
@@ -6041,7 +6042,6 @@ Internet-Draft           QUIC Transport Protocol            January 2020
       indicating the maximum amount of time in milliseconds by which the
       endpoint will delay sending acknowledgments.  This value SHOULD
       include the receiver's expected delays in alarms firing.  For
-      example, if a receiver sets a timer for 5ms and alarms commonly
 
 
 
@@ -6050,6 +6050,7 @@ Iyengar & Thomson         Expires 24 July 2020                [Page 108]
 Internet-Draft           QUIC Transport Protocol            January 2020
 
 
+      example, if a receiver sets a timer for 5ms and alarms commonly
       fire up to 1ms late, then it should send a max_ack_delay of 6ms.
       If this value is absent, a default of 25 milliseconds is assumed.
       Values of 2^14 or greater are invalid.
@@ -6071,7 +6072,6 @@ Internet-Draft           QUIC Transport Protocol            January 2020
       port (0.0.0.0:0 or ::.0) for the other family.  IP addresses are
       encoded in network byte order.  The CID Length field contains the
       length of the Connection ID field.
-
 
 
 
@@ -6206,10 +6206,10 @@ Internet-Draft           QUIC Transport Protocol            January 2020
    packets and poor performance.
 
    A connection will time out if no packets are sent or received for a
-   period longer than the time specified in the idle_timeout transport
-   parameter (see Section 10).  However, state in middleboxes might time
-   out earlier than that.  Though REQ-5 in [RFC4787] recommends a 2
-   minute timeout interval, experience shows that sending packets every
+   period longer than the time negotiated using the max_idle_timeout
+   transport parameter (see Section 10).  However, state in middleboxes
+   might time out earlier than that.  Though REQ-5 in [RFC4787]
+   recommends a 2 minute timeout interval, experience shows that sending
 
 
 
@@ -6218,8 +6218,8 @@ Iyengar & Thomson         Expires 24 July 2020                [Page 111]
 Internet-Draft           QUIC Transport Protocol            January 2020
 
 
-   15 to 30 seconds is necessary to prevent the majority of middleboxes
-   from losing state for UDP flows.
+   packets every 15 to 30 seconds is necessary to prevent the majority
+   of middleboxes from losing state for UDP flows.
 
 19.3.  ACK Frames
 
@@ -7847,7 +7847,7 @@ Internet-Draft           QUIC Transport Protocol            January 2020
      +========+=====================================+===============+
      | 0x0000 | original_connection_id              | Section 18.2  |
      +--------+-------------------------------------+---------------+
-     | 0x0001 | idle_timeout                        | Section 18.2  |
+     | 0x0001 | max_idle_timeout                    | Section 18.2  |
      +--------+-------------------------------------+---------------+
      | 0x0002 | stateless_reset_token               | Section 18.2  |
      +--------+-------------------------------------+---------------+
