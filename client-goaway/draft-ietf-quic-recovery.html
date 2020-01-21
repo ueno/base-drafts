@@ -820,7 +820,7 @@ table.left {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Iyengar &amp; Swett</td>
-<td class="center">Expires 18 July 2020</td>
+<td class="center">Expires 24 July 2020</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -833,12 +833,12 @@ table.left {
 <dd class="internet-draft">draft-ietf-quic-recovery-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2020-01-15" class="published">15 January 2020</time>
+<time datetime="2020-01-21" class="published">21 January 2020</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2020-07-18">18 July 2020</time></dd>
+<dd class="expires"><time datetime="2020-07-24">24 July 2020</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -890,7 +890,7 @@ code and issues list for this draft can be found at
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 18 July 2020.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 24 July 2020.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1271,12 +1271,6 @@ ack-eliciting.<a href="#section-2-3.6" class="pilcrow">¶</a>
   Packets that contain ack-eliciting frames elicit an ACK from the receiver
 within the maximum ack delay and are called ack-eliciting packets.<a href="#section-2-3.8" class="pilcrow">¶</a>
 </dd>
-<dt id="section-2-3.9">Out-of-order Packets:</dt>
-<dd id="section-2-3.10">
-  Packets that do not increase the largest received packet number for its
-packet number space by exactly one. Packets arrive out of order
-when earlier packets are lost or delayed.<a href="#section-2-3.10" class="pilcrow">¶</a>
-</dd>
 </dl>
 </section>
 </div>
@@ -1418,10 +1412,10 @@ more accurate round-trip time estimate (see Section 13.2 of <span>[<a href="#QUI
       </h2>
 <p id="section-4-1">At a high level, an endpoint measures the time from when a packet was sent to
 when it is acknowledged as a round-trip time (RTT) sample.  The endpoint uses
-RTT samples and peer-reported ACK delays (see Section 13.2 of
-<span>[<a href="#QUIC-TRANSPORT" class="xref">QUIC-TRANSPORT</a>]</span>) to generate a statistical description of the connection's
-RTT. An endpoint computes the following three values: the minimum value
-observed over the lifetime of the connection (min_rtt), an
+RTT samples and peer-reported host delays (see Section 13.2 of
+<span>[<a href="#QUIC-TRANSPORT" class="xref">QUIC-TRANSPORT</a>]</span>) to generate a statistical description of the network
+path's RTT. An endpoint computes the following three values for each path:
+the minimum value observed over the lifetime of the path (min_rtt), an
 exponentially-weighted moving average (smoothed_rtt), and the mean deviation
 (referred to as "variation" in the rest of this document) in the observed RTT
 samples (rttvar).<a href="#section-4-1" class="pilcrow">¶</a></p>
@@ -1470,14 +1464,20 @@ retain sufficient history is an open research question.<a href="#section-4.1-8" 
         <h3 id="name-estimating-min_rtt">
 <a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-estimating-min_rtt" class="section-name selfRef">Estimating min_rtt</a>
         </h3>
-<p id="section-4.2-1">min_rtt is the minimum RTT observed over the lifetime of the connection.
-min_rtt is set to the latest_rtt on the first sample in a connection, and to the
-lesser of min_rtt and latest_rtt on subsequent samples.<a href="#section-4.2-1" class="pilcrow">¶</a></p>
+<p id="section-4.2-1">min_rtt is the minimum RTT observed for a given network path.  min_rtt is set
+to the latest_rtt on the first RTT sample, and to the lesser of min_rtt and
+latest_rtt on subsequent samples.  In this document, min_rtt is used by loss
+detection to reject implausibly small rtt samples.<a href="#section-4.2-1" class="pilcrow">¶</a></p>
 <p id="section-4.2-2">An endpoint uses only locally observed times in computing the min_rtt and does
 not adjust for ACK delays reported by the peer.  Doing so allows the endpoint
 to set a lower bound for the smoothed_rtt based entirely on what it observes
 (see <a href="#smoothed-rtt" class="xref">Section 4.3</a>), and limits potential underestimation due to
 erroneously-reported delays by the peer.<a href="#section-4.2-2" class="pilcrow">¶</a></p>
+<p id="section-4.2-3">The RTT for a network path may change over time.  If a path's actual RTT
+decreases, the min_rtt will adapt immediately on the first low sample.  If
+the path's actual RTT increases, the min_rtt will not adapt to it, allowing
+future RTT samples that are smaller than the new RTT be included in
+smoothed_rtt.<a href="#section-4.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="smoothed-rtt">
@@ -1511,10 +1511,10 @@ min_rtt.  This limits the underestimation that a misreporting peer can cause
 to the smoothed_rtt.<a href="#section-4.3-4.3" class="pilcrow">¶</a>
 </li>
 </ul>
-<p id="section-4.3-5">On the first RTT sample in a connection, the smoothed_rtt is set to the
+<p id="section-4.3-5">On the first RTT sample for a network path, the smoothed_rtt is set to the
 latest_rtt.<a href="#section-4.3-5" class="pilcrow">¶</a></p>
 <p id="section-4.3-6">smoothed_rtt and rttvar are computed as follows, similar to <span>[<a href="#RFC6298" class="xref">RFC6298</a>]</span>.  On
-the first RTT sample in a connection:<a href="#section-4.3-6" class="pilcrow">¶</a></p>
+the first RTT sample for a network path:<a href="#section-4.3-6" class="pilcrow">¶</a></p>
 <div class="artwork art-text alignLeft" id="section-4.3-7">
 <pre>
 smoothed_rtt = latest_rtt
@@ -1806,8 +1806,8 @@ initial RTT estimate.<a href="#section-5.4-3" class="pilcrow">¶</a></p>
         <h3 id="name-discarding-keys-and-packet-">
 <a href="#section-5.5" class="section-number selfRef">5.5. </a><a href="#name-discarding-keys-and-packet-" class="section-name selfRef">Discarding Keys and Packet State</a>
         </h3>
-<p id="section-5.5-1">When packet protection keys are discarded (see Section 4.9 of <span>[<a href="#QUIC-TLS" class="xref">QUIC-TLS</a>]</span>), all
-packets that were sent with those keys can no longer be acknowledged because
+<p id="section-5.5-1">When packet protection keys are discarded (see Section 4.10 of <span>[<a href="#QUIC-TLS" class="xref">QUIC-TLS</a>]</span>),
+all packets that were sent with those keys can no longer be acknowledged because
 their acknowledgements cannot be processed anymore. The sender MUST discard
 all recovery state associated with those packets and MUST remove them from
 the count of bytes in flight.<a href="#section-5.5-1" class="pilcrow">¶</a></p>
@@ -1821,7 +1821,7 @@ before Initial packets, early 0-RTT packets will be declared lost, but that
 is expected to be infrequent.<a href="#section-5.5-4" class="pilcrow">¶</a></p>
 <p id="section-5.5-5">It is expected that keys are discarded after packets encrypted with them would
 be acknowledged or declared lost.  Initial secrets however might be destroyed
-sooner, as soon as handshake keys are available (see Section 4.9.1 of
+sooner, as soon as handshake keys are available (see Section 4.10.1 of
 <span>[<a href="#QUIC-TLS" class="xref">QUIC-TLS</a>]</span>).<a href="#section-5.5-5" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -1832,18 +1832,18 @@ sooner, as soon as handshake keys are available (see Section 4.9.1 of
       <h2 id="name-congestion-control">
 <a href="#section-6" class="section-number selfRef">6. </a><a href="#name-congestion-control" class="section-name selfRef">Congestion Control</a>
       </h2>
-<p id="section-6-1">QUIC's congestion control is based on TCP NewReno <span>[<a href="#RFC6582" class="xref">RFC6582</a>]</span>.  NewReno is a
-congestion window based congestion control.  QUIC specifies the congestion
-window in bytes rather than packets due to finer control and the ease of
-appropriate byte counting <span>[<a href="#RFC3465" class="xref">RFC3465</a>]</span>.<a href="#section-6-1" class="pilcrow">¶</a></p>
-<p id="section-6-2">QUIC hosts MUST NOT send packets if they would increase bytes_in_flight (defined
-in <a href="#vars-of-interest" class="xref">Appendix B.2</a>) beyond the available congestion window, unless the
-packet is a probe packet sent after a PTO timer expires, as described in
-<a href="#pto" class="xref">Section 5.2</a>.<a href="#section-6-2" class="pilcrow">¶</a></p>
-<p id="section-6-3">Implementations MAY use other congestion control algorithms, such as
-Cubic <span>[<a href="#RFC8312" class="xref">RFC8312</a>]</span>, and endpoints MAY use different algorithms from one another.
-The signals QUIC provides for congestion control are generic and are designed
-to support different algorithms.<a href="#section-6-3" class="pilcrow">¶</a></p>
+<p id="section-6-1">This document specifies a Reno congestion controller for QUIC <span>[<a href="#RFC6582" class="xref">RFC6582</a>]</span>.<a href="#section-6-1" class="pilcrow">¶</a></p>
+<p id="section-6-2">The signals QUIC provides for congestion control are generic and are designed to
+support different algorithms. Endpoints can unilaterally choose a different
+algorithm to use, such as Cubic <span>[<a href="#RFC8312" class="xref">RFC8312</a>]</span>.<a href="#section-6-2" class="pilcrow">¶</a></p>
+<p id="section-6-3">If an endpoint uses a different controller than that specified in this document,
+the chosen controller MUST conform to the congestion control guidelines
+specified in Section 3.1 of <span>[<a href="#RFC8085" class="xref">RFC8085</a>]</span>.<a href="#section-6-3" class="pilcrow">¶</a></p>
+<p id="section-6-4">The algorithm in this document specifies and uses the controller's congestion
+window in bytes.<a href="#section-6-4" class="pilcrow">¶</a></p>
+<p id="section-6-5">An endpoint MUST NOT send a packet if it would cause bytes_in_flight (see
+<a href="#vars-of-interest" class="xref">Appendix B.2</a>) to be larger than the congestion window, unless the packet
+is sent on a PTO timer expiration (see <a href="#pto" class="xref">Section 5.2</a>).<a href="#section-6-5" class="pilcrow">¶</a></p>
 <div id="congestion-ecn">
 <section id="section-6.1">
         <h3 id="name-explicit-congestion-notific">
@@ -2110,13 +2110,16 @@ detect.<a href="#section-7.3-4" class="pilcrow">¶</a></p>
 <dl class="references">
 <dt id="QUIC-TLS">[QUIC-TLS]</dt>
 <dd>
-<span class="refAuthor">Thomson, M., Ed.</span><span class="refAuthor"> and S. Turner, Ed.</span>, <span class="refTitle">"Using TLS to Secure QUIC"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-tls-latest</span>, <time datetime="2020-01-15">15 January 2020</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-tls-latest">https://tools.ietf.org/html/draft-ietf-quic-tls-latest</a>&gt;</span>. </dd>
+<span class="refAuthor">Thomson, M., Ed.</span><span class="refAuthor"> and S. Turner, Ed.</span>, <span class="refTitle">"Using TLS to Secure QUIC"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-tls-latest</span>, <time datetime="2020-01-21">21 January 2020</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-tls-latest">https://tools.ietf.org/html/draft-ietf-quic-tls-latest</a>&gt;</span>. </dd>
 <dt id="QUIC-TRANSPORT">[QUIC-TRANSPORT]</dt>
 <dd>
-<span class="refAuthor">Iyengar, J., Ed.</span><span class="refAuthor"> and M. Thomson, Ed.</span>, <span class="refTitle">"QUIC: A UDP-Based Multiplexed and Secure Transport"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-transport-latest</span>, <time datetime="2020-01-15">15 January 2020</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-transport-latest">https://tools.ietf.org/html/draft-ietf-quic-transport-latest</a>&gt;</span>. </dd>
+<span class="refAuthor">Iyengar, J., Ed.</span><span class="refAuthor"> and M. Thomson, Ed.</span>, <span class="refTitle">"QUIC: A UDP-Based Multiplexed and Secure Transport"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-quic-transport-latest</span>, <time datetime="2020-01-21">21 January 2020</time>, <span>&lt;<a href="https://tools.ietf.org/html/draft-ietf-quic-transport-latest">https://tools.ietf.org/html/draft-ietf-quic-transport-latest</a>&gt;</span>. </dd>
 <dt id="RFC2119">[RFC2119]</dt>
 <dd>
 <span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
+<dt id="RFC8085">[RFC8085]</dt>
+<dd>
+<span class="refAuthor">Eggert, L.</span><span class="refAuthor">, Fairhurst, G.</span><span class="refAuthor">, and G. Shepherd</span>, <span class="refTitle">"UDP Usage Guidelines"</span>, <span class="seriesInfo">BCP 145</span>, <span class="seriesInfo">RFC 8085</span>, <span class="seriesInfo">DOI 10.17487/RFC8085</span>, <time datetime="2017-03">March 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8085">https://www.rfc-editor.org/info/rfc8085</a>&gt;</span>. </dd>
 <dt id="RFC8174">[RFC8174]</dt>
 <dd>
 <span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8174">https://www.rfc-editor.org/info/rfc8174</a>&gt;</span>. </dd>
@@ -2136,9 +2139,6 @@ detect.<a href="#section-7.3-4" class="pilcrow">¶</a></p>
 <dt id="RFC3168">[RFC3168]</dt>
 <dd>
 <span class="refAuthor">Ramakrishnan, K.</span><span class="refAuthor">, Floyd, S.</span><span class="refAuthor">, and D. Black</span>, <span class="refTitle">"The Addition of Explicit Congestion Notification (ECN) to IP"</span>, <span class="seriesInfo">RFC 3168</span>, <span class="seriesInfo">DOI 10.17487/RFC3168</span>, <time datetime="2001-09">September 2001</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc3168">https://www.rfc-editor.org/info/rfc3168</a>&gt;</span>. </dd>
-<dt id="RFC3465">[RFC3465]</dt>
-<dd>
-<span class="refAuthor">Allman, M.</span>, <span class="refTitle">"TCP Congestion Control with Appropriate Byte Counting (ABC)"</span>, <span class="seriesInfo">RFC 3465</span>, <span class="seriesInfo">DOI 10.17487/RFC3465</span>, <time datetime="2003-02">February 2003</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc3465">https://www.rfc-editor.org/info/rfc3465</a>&gt;</span>. </dd>
 <dt id="RFC4653">[RFC4653]</dt>
 <dd>
 <span class="refAuthor">Bhandarkar, S.</span><span class="refAuthor">, Reddy, A. L. N.</span><span class="refAuthor">, Allman, M.</span><span class="refAuthor">, and E. Blanton</span>, <span class="refTitle">"Improving the Robustness of TCP to Non-Congestion Events"</span>, <span class="seriesInfo">RFC 4653</span>, <span class="seriesInfo">DOI 10.17487/RFC4653</span>, <time datetime="2006-08">August 2006</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc4653">https://www.rfc-editor.org/info/rfc4653</a>&gt;</span>. </dd>
@@ -2239,8 +2239,7 @@ overhead, but including QUIC framing overhead.<a href="#section-a.1.1-1.8" class
 <a href="#section-a.2" class="section-number selfRef">A.2. </a><a href="#name-constants-of-interest" class="section-name selfRef">Constants of interest</a>
         </h2>
 <p id="section-a.2-1">Constants used in loss recovery are based on a combination of RFCs, papers, and
-common practice.  Some may need to be changed or negotiated in order to better
-suit a variety of environments.<a href="#section-a.2-1" class="pilcrow">¶</a></p>
+common practice.<a href="#section-a.2-1" class="pilcrow">¶</a></p>
 <dl class="dlParallel" id="section-a.2-2">
           <dt id="section-a.2-2.1">kPacketThreshold:</dt>
 <dd id="section-a.2-2.2">
@@ -2650,16 +2649,17 @@ in <a href="#congestion-control" class="xref">Section 6</a>.<a href="#section-ap
         <h2 id="name-constants-of-interest-2">
 <a href="#section-b.1" class="section-number selfRef">B.1. </a><a href="#name-constants-of-interest-2" class="section-name selfRef">Constants of interest</a>
         </h2>
-<p id="section-b.1-1">Constants used in congestion control are based on a combination of RFCs,
-papers, and common practice.  Some may need to be changed or negotiated
-in order to better suit a variety of environments.<a href="#section-b.1-1" class="pilcrow">¶</a></p>
+<p id="section-b.1-1">Constants used in congestion control are based on a combination of RFCs, papers,
+and common practice.<a href="#section-b.1-1" class="pilcrow">¶</a></p>
 <dl class="dlParallel" id="section-b.1-2">
           <dt id="section-b.1-2.1">kInitialWindow:</dt>
 <dd id="section-b.1-2.2">
-  Default limit on the initial amount of data in flight, in bytes.  Taken from
-<span>[<a href="#RFC6928" class="xref">RFC6928</a>]</span>, but increased slightly to account for the smaller 8 byte
-overhead of UDP vs 20 bytes for TCP.  The RECOMMENDED value is the minimum
-of 10 * max_datagram_size and max(2 * max_datagram_size, 14720)).<a href="#section-b.1-2.2" class="pilcrow">¶</a>
+  Default limit on the initial amount of data in flight, in bytes.
+The RECOMMENDED value is the minimum of 10 * max_datagram_size and
+max(2 * max_datagram_size, 14720)).  This follows the analysis and
+recommendations in <span>[<a href="#RFC6928" class="xref">RFC6928</a>]</span>, increasing the byte limit to account
+for the smaller 8 byte overhead of UDP compared to the 20 byte overhead
+for TCP.<a href="#section-b.1-2.2" class="pilcrow">¶</a>
 </dd>
 <dt id="section-b.1-2.3">kMinimumWindow:</dt>
 <dd id="section-b.1-2.4">
