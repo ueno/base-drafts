@@ -1447,6 +1447,20 @@ code and issues list for this draft can be found at
 <li class="toc ulEmpty" id="section-toc.1-1.21.2.11">
                 <p id="section-toc.1-1.21.2.11.1"><a href="#section-21.11" class="xref">21.11</a>. <a href="#name-targeted-attacks-by-routing" class="xref">Targeted Attacks by Routing</a><a href="#section-toc.1-1.21.2.11.1" class="pilcrow">¶</a></p>
 </li>
+<li class="toc ulEmpty" id="section-toc.1-1.21.2.12">
+                <p id="section-toc.1-1.21.2.12.1"><a href="#section-21.12" class="xref">21.12</a>. <a href="#name-overview-of-security-proper" class="xref">Overview of Security Properties</a><a href="#section-toc.1-1.21.2.12.1" class="pilcrow">¶</a></p>
+<ul class="toc ulEmpty">
+<li class="toc ulEmpty" id="section-toc.1-1.21.2.12.2.1">
+                    <p id="section-toc.1-1.21.2.12.2.1.1"><a href="#section-21.12.1" class="xref">21.12.1</a>.  <a href="#name-handshake" class="xref">Handshake</a><a href="#section-toc.1-1.21.2.12.2.1.1" class="pilcrow">¶</a></p>
+</li>
+<li class="toc ulEmpty" id="section-toc.1-1.21.2.12.2.2">
+                    <p id="section-toc.1-1.21.2.12.2.2.1"><a href="#section-21.12.2" class="xref">21.12.2</a>.  <a href="#name-protected-packets-2" class="xref">Protected Packets</a><a href="#section-toc.1-1.21.2.12.2.2.1" class="pilcrow">¶</a></p>
+</li>
+<li class="toc ulEmpty" id="section-toc.1-1.21.2.12.2.3">
+                    <p id="section-toc.1-1.21.2.12.2.3.1"><a href="#section-21.12.3" class="xref">21.12.3</a>.  <a href="#name-connection-migration-2" class="xref">Connection Migration</a><a href="#section-toc.1-1.21.2.12.2.3.1" class="pilcrow">¶</a></p>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc ulEmpty" id="section-toc.1-1.22">
@@ -8116,6 +8130,339 @@ decisions are made independently of client-selected values; a Source Connection
 ID can be selected to route later packets to the same server.<a href="#section-21.11-1" class="pilcrow">¶</a></p>
 </section>
 </div>
+<div id="security-properties">
+<section id="section-21.12">
+        <h3 id="name-overview-of-security-proper">
+<a href="#section-21.12" class="section-number selfRef">21.12. </a><a href="#name-overview-of-security-proper" class="section-name selfRef">Overview of Security Properties</a>
+        </h3>
+<p id="section-21.12-1">A complete security analysis of QUIC is outside the scope of this document.
+This section provides an informal description of the desired security properties
+as an aid to implementors and to help guide protocol analysis.<a href="#section-21.12-1" class="pilcrow">¶</a></p>
+<p id="section-21.12-2">QUIC assumes the threat model described in <span>[<a href="#SEC-CONS" class="xref">SEC-CONS</a>]</span> and provides
+protections against many of the attacks that arise from that model.<a href="#section-21.12-2" class="pilcrow">¶</a></p>
+<p id="section-21.12-3">For this purpose, attacks are divided into passive and active attacks.  Passive
+attackers have the capability to read packets from the network, while active
+attackers also have the capability to write packets into the network.  However,
+a passive attack may involve an attacker with the ability to cause a routing
+change or other modification in the path taken by packets that comprise a
+connection.<a href="#section-21.12-3" class="pilcrow">¶</a></p>
+<p id="section-21.12-4">Attackers are additionally categorized as either on-path attackers or off-path
+attackers; see Section 3.5 of <span>[<a href="#SEC-CONS" class="xref">SEC-CONS</a>]</span>.  An on-path attacker can read,
+modify, or remove any packet it observes such that it no longer reaches its
+destination, while an off-path attacker observes the packets, but cannot prevent
+the original packet from reaching its intended destination.  An off-path
+attacker can also transmit arbitrary packets.<a href="#section-21.12-4" class="pilcrow">¶</a></p>
+<p id="section-21.12-5">Properties of the handshake, protected packets, and connection migration are
+considered separately.<a href="#section-21.12-5" class="pilcrow">¶</a></p>
+<div id="handshake-properties">
+<section id="section-21.12.1">
+          <h4 id="name-handshake">
+<a href="#section-21.12.1" class="section-number selfRef">21.12.1. </a><a href="#name-handshake" class="section-name selfRef">Handshake</a>
+          </h4>
+<p id="section-21.12.1-1">The QUIC handshake incorporates the TLS 1.3 handshake and enjoys the
+cryptographic properties described in Appendix E.1 of <span>[<a href="#TLS13" class="xref">TLS13</a>]</span>.<a href="#section-21.12.1-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.1-2">In addition to those properties, the handshake is intended to provide some
+defense against DoS attacks on the handshake, as described below.<a href="#section-21.12.1-2" class="pilcrow">¶</a></p>
+<div id="anti-amplification">
+<section id="section-21.12.1.1">
+            <h5 id="name-anti-amplification">
+<a href="#section-21.12.1.1" class="section-number selfRef">21.12.1.1. </a><a href="#name-anti-amplification" class="section-name selfRef">Anti-Amplification</a>
+            </h5>
+<p id="section-21.12.1.1-1">Address validation (<a href="#address-validation" class="xref">Section 8</a>) is used to verify that an entity
+that claims a given address is able to receive packets at that address. Address
+validation limits amplification attack targets to addresses for which an
+attacker is either on-path or off-path.<a href="#section-21.12.1.1-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.1.1-2">Prior to validation, endpoints are limited in what they are able to send.
+During the handshake, a server cannot send more than three times the data it
+receives; clients that initiate new connections or migrate to a new network
+path are limited.<a href="#section-21.12.1.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="server-side-dos">
+<section id="section-21.12.1.2">
+            <h5 id="name-server-side-dos">
+<a href="#section-21.12.1.2" class="section-number selfRef">21.12.1.2. </a><a href="#name-server-side-dos" class="section-name selfRef">Server-Side DoS</a>
+            </h5>
+<p id="section-21.12.1.2-1">Computing the server's first flight for a full handshake is potentially
+expensive, requiring both a signature and a key exchange computation. In order
+to prevent computational DoS attacks, the Retry packet provides a cheap token
+exchange mechanism which allows servers to validate a client's IP address prior
+to doing any expensive computations at the cost of a single round trip. After a
+successful handshake, servers can issue new tokens to a client which will allow
+new connection establishment without incurring this cost.<a href="#section-21.12.1.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="on-path-handshake-termination">
+<section id="section-21.12.1.3">
+            <h5 id="name-on-path-handshake-terminati">
+<a href="#section-21.12.1.3" class="section-number selfRef">21.12.1.3. </a><a href="#name-on-path-handshake-terminati" class="section-name selfRef">On-Path Handshake Termination</a>
+            </h5>
+<p id="section-21.12.1.3-1">An on-path or off-path attacker can force a handshake to fail by replacing or
+racing Initial packets. Once valid Initial packets have been exchanged,
+subsequent Handshake packets are protected with the handshake keys and an
+on-path attacker cannot force handshake failure other than by dropping packets
+to cause endpoints to abandon the attempt.<a href="#section-21.12.1.3-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.1.3-2">An on-path attacker can also replace the addresses of packets on either side and
+therefore cause the client or server to have an incorrect view of the remote
+addresses. Such an attack is indistinguishable from the functions performed by a
+NAT.<a href="#section-21.12.1.3-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="parameter-negotiation">
+<section id="section-21.12.1.4">
+            <h5 id="name-parameter-negotiation">
+<a href="#section-21.12.1.4" class="section-number selfRef">21.12.1.4. </a><a href="#name-parameter-negotiation" class="section-name selfRef">Parameter Negotiation</a>
+            </h5>
+<p id="section-21.12.1.4-1">The entire handshake is cryptographically protected, with the Initial packets
+being encrypted with per-version keys and the Handshake and later packets being
+encrypted with keys derived from the TLS key exchange.  Further, parameter
+negotiation is folded into the TLS transcript and thus provides the same
+security guarantees as ordinary TLS negotiation.  Thus, an attacker can observe
+the client's transport parameters (as long as it knows the version-specific
+salt) but cannot observe the server's transport parameters and cannot influence
+parameter negotiation.<a href="#section-21.12.1.4-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.1.4-2">Connection IDs are unencrypted but integrity protected in all packets.<a href="#section-21.12.1.4-2" class="pilcrow">¶</a></p>
+<p id="section-21.12.1.4-3">This version of QUIC does not incorporate a version negotiation mechanism;
+implementations of incompatible versions will simply fail to establish a
+connection.<a href="#section-21.12.1.4-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="protected-packet-properties">
+<section id="section-21.12.2">
+          <h4 id="name-protected-packets-2">
+<a href="#section-21.12.2" class="section-number selfRef">21.12.2. </a><a href="#name-protected-packets-2" class="section-name selfRef">Protected Packets</a>
+          </h4>
+<p id="section-21.12.2-1">Packet protection (<a href="#packet-protected" class="xref">Section 12.1</a>) provides authentication and encryption
+of all packets except Version Negotiation packets, though Initial and Retry
+packets have limited encryption and authentication based on version-specific
+keys; see <span>[<a href="#QUIC-TLS" class="xref">QUIC-TLS</a>]</span> for more details. This section considers passive and
+active attacks against protected packets.<a href="#section-21.12.2-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.2-2">Both on-path and off-path attackers can mount a passive attack in which they
+save observed packets for an offline attack against packet protection at a
+future time; this is true for any observer of any packet on any network.<a href="#section-21.12.2-2" class="pilcrow">¶</a></p>
+<p id="section-21.12.2-3">A blind attacker, one who injects packets without being able to observe valid
+packets for a connection, is unlikely to be successful, since packet protection
+ensures that valid packets are only generated by endpoints which possess the
+key material established during the handshake; see <a href="#handshake" class="xref">Section 7</a> and
+<a href="#handshake-properties" class="xref">Section 21.12.1</a>. Similarly, any active attacker that observes packets
+and attempts to insert new data or modify existing data in those packets should
+not be able to generate packets deemed valid by the receiving endpoint.<a href="#section-21.12.2-3" class="pilcrow">¶</a></p>
+<p id="section-21.12.2-4">A spoofing attack, in which an active attacker rewrites unprotected parts of a
+packet that it forwards or injects, such as the source or destination
+address, is only effective if the attacker can forward packets to the original
+endpoint.  Packet protection ensures that the packet payloads can only be
+processed by the endpoints that completed the handshake, and invalid
+packets are ignored by those endpoints.<a href="#section-21.12.2-4" class="pilcrow">¶</a></p>
+<p id="section-21.12.2-5">An attacker can also modify the boundaries between packets and UDP datagrams,
+causing multiple packets to be coalesced into a single datagram, or splitting
+coalesced packets into multiple datagrams. Aside from datagrams containing
+Initial packets, which require padding, modification of how packets are
+arranged in datagrams has no functional effect on a connection, although it
+might change some performance characteristics.<a href="#section-21.12.2-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="migration-properties">
+<section id="section-21.12.3">
+          <h4 id="name-connection-migration-2">
+<a href="#section-21.12.3" class="section-number selfRef">21.12.3. </a><a href="#name-connection-migration-2" class="section-name selfRef">Connection Migration</a>
+          </h4>
+<p id="section-21.12.3-1">Connection Migration (<a href="#migration" class="xref">Section 9</a>) provides endpoints with the ability to
+transition between IP addresses and ports on multiple paths, using one path at a
+time for transmission and receipt of non-probing frames.  Path validation
+(<a href="#migrate-validate" class="xref">Section 8.2</a>) establishes that a peer is both willing and able
+to receive packets sent on a particular path.  This helps reduce the effects of
+address spoofing by limiting the number of packets sent to a spoofed address.<a href="#section-21.12.3-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.3-2">This section describes the intended security properties of connection migration
+when under various types of DoS attacks.<a href="#section-21.12.3-2" class="pilcrow">¶</a></p>
+<div id="on-path-active-attacks">
+<section id="section-21.12.3.1">
+            <h5 id="name-on-path-active-attacks">
+<a href="#section-21.12.3.1" class="section-number selfRef">21.12.3.1. </a><a href="#name-on-path-active-attacks" class="section-name selfRef">On-Path Active Attacks</a>
+            </h5>
+<p id="section-21.12.3.1-1">An attacker that can cause a packet it observes to no longer reach its intended
+destination is considered an on-path attacker. When an attacker is present
+between a client and server, endpoints are required to send packets through the
+attacker to establish connectivity on a given path.<a href="#section-21.12.3.1-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.1-2">An on-path attacker can:<a href="#section-21.12.3.1-2" class="pilcrow">¶</a></p>
+<ul>
+<li id="section-21.12.3.1-3.1">Inspect packets<a href="#section-21.12.3.1-3.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-3.2">Modify IP and UDP packet headers<a href="#section-21.12.3.1-3.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-3.3">Inject new packets<a href="#section-21.12.3.1-3.3" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-3.4">Delay packets<a href="#section-21.12.3.1-3.4" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-3.5">Reorder packets<a href="#section-21.12.3.1-3.5" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-3.6">Drop packets<a href="#section-21.12.3.1-3.6" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-3.7">Split and merge datagrams along packet boundaries<a href="#section-21.12.3.1-3.7" class="pilcrow">¶</a>
+</li>
+</ul>
+<p id="section-21.12.3.1-4">An on-path attacker cannot:<a href="#section-21.12.3.1-4" class="pilcrow">¶</a></p>
+<ul>
+<li id="section-21.12.3.1-5.1">Modify an authenticated portion of a packet and cause the recipient to accept
+that packet<a href="#section-21.12.3.1-5.1" class="pilcrow">¶</a>
+</li>
+</ul>
+<p id="section-21.12.3.1-6">An on-path attacker has the opportunity to modify the packets that it observes,
+however any modifications to an authenticated portion of a packet will cause it
+to be dropped by the receiving endpoint as invalid, as packet payloads are both
+authenticated and encrypted.<a href="#section-21.12.3.1-6" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.1-7">In the presence of an on-path attacker, QUIC aims to provide the following
+properties:<a href="#section-21.12.3.1-7" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal" id="section-21.12.3.1-8">
+              <li id="section-21.12.3.1-8.1">An on-path attacker can prevent use of a path for a connection, causing
+it to fail if it cannot use a different path that does not contain the
+attacker. This can be achieved by dropping all packets, modifying them so
+that they fail to decrypt, or other methods.<a href="#section-21.12.3.1-8.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-8.2">An on-path attacker can prevent migration to a new path for which the
+attacker is also on-path by causing path validation to fail on the new path.<a href="#section-21.12.3.1-8.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-8.3">An on-path attacker cannot prevent a client from migrating to a path for
+which the attacker is not on-path.<a href="#section-21.12.3.1-8.3" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-8.4">An on-path attacker can reduce the throughput of a connection by delaying
+packets or dropping them.<a href="#section-21.12.3.1-8.4" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.1-8.5">An on-path attacker cannot cause an endpoint to accept a packet for which it
+has modified an authenticated portion of that packet.<a href="#section-21.12.3.1-8.5" class="pilcrow">¶</a>
+</li>
+</ol>
+</section>
+</div>
+<div id="off-path-active-attacks">
+<section id="section-21.12.3.2">
+            <h5 id="name-off-path-active-attacks">
+<a href="#section-21.12.3.2" class="section-number selfRef">21.12.3.2. </a><a href="#name-off-path-active-attacks" class="section-name selfRef">Off-Path Active Attacks</a>
+            </h5>
+<p id="section-21.12.3.2-1">An off-path attacker is not directly on the path between a client and server,
+but could be able to obtain copies of some or all packets sent between the
+client and the server. It is also able to send copies of those packets to
+either endpoint.<a href="#section-21.12.3.2-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.2-2">An off-path attacker can:<a href="#section-21.12.3.2-2" class="pilcrow">¶</a></p>
+<ul>
+<li id="section-21.12.3.2-3.1">Inspect packets<a href="#section-21.12.3.2-3.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-3.2">Inject new packets<a href="#section-21.12.3.2-3.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-3.3">Reorder injected packets<a href="#section-21.12.3.2-3.3" class="pilcrow">¶</a>
+</li>
+</ul>
+<p id="section-21.12.3.2-4">An off-path attacker cannot:<a href="#section-21.12.3.2-4" class="pilcrow">¶</a></p>
+<ul>
+<li id="section-21.12.3.2-5.1">Modify any part of a packet<a href="#section-21.12.3.2-5.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-5.2">Delay packets<a href="#section-21.12.3.2-5.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-5.3">Drop packets<a href="#section-21.12.3.2-5.3" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-5.4">Reorder original packets<a href="#section-21.12.3.2-5.4" class="pilcrow">¶</a>
+</li>
+</ul>
+<p id="section-21.12.3.2-6">An off-path attacker can modify packets that it has observed and inject them
+back into the network, potentially with spoofed source and destination
+addresses.<a href="#section-21.12.3.2-6" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.2-7">For the purposes of this discussion, it is assumed that an off-path attacker
+has the ability to observe, modify, and re-inject a packet into the network
+that will reach the destination endpoint prior to the arrival of the original
+packet observed by the attacker. In other words, an attacker has the ability to
+consistently "win" a race with the legitimate packets between the endpoints,
+potentially causing the original packet to be ignored by the recipient.<a href="#section-21.12.3.2-7" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.2-8">It is also assumed that an attacker has the resources necessary to affect NAT
+state, potentially both causing an endpoint to lose its NAT binding, and an
+attacker to obtain the same port for use with its traffic.<a href="#section-21.12.3.2-8" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.2-9">In the presence of an off-path attacker, QUIC aims to provide the following
+properties:<a href="#section-21.12.3.2-9" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal" id="section-21.12.3.2-10">
+              <li id="section-21.12.3.2-10.1">An off-path attacker can race packets and attempt to become a "limited"
+on-path attacker.<a href="#section-21.12.3.2-10.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-10.2">An off-path attacker can cause path validation to succeed for forwarded
+packets with the source address listed as the off-path attacker as long as
+it can provide improved connectivity between the client and the server.<a href="#section-21.12.3.2-10.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-10.3">An off-path attacker cannot cause a connection to close once the handshake
+has completed.<a href="#section-21.12.3.2-10.3" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-10.4">An off-path attacker cannot cause migration to a new path to fail if it
+cannot observe the new path.<a href="#section-21.12.3.2-10.4" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-10.5">An off-path attacker can become a limited on-path attacker during migration
+to a new path for which it is also an off-path attacker.<a href="#section-21.12.3.2-10.5" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.2-10.6">An off-path attacker can become a limited on-path attacker by affecting
+shared NAT state such that it sends packets to the server from the same IP
+address and port that the client originally used.<a href="#section-21.12.3.2-10.6" class="pilcrow">¶</a>
+</li>
+</ol>
+</section>
+</div>
+<div id="limited-on-path-active-attacks">
+<section id="section-21.12.3.3">
+            <h5 id="name-limited-on-path-active-atta">
+<a href="#section-21.12.3.3" class="section-number selfRef">21.12.3.3. </a><a href="#name-limited-on-path-active-atta" class="section-name selfRef">Limited On-Path Active Attacks</a>
+            </h5>
+<p id="section-21.12.3.3-1">A limited on-path attacker is an off-path attacker that has offered improved
+routing of packets by duplicating and forwarding original packets between the
+server and the client, causing those packets to arrive before the original
+copies such that the original packets are dropped by the destination endpoint.<a href="#section-21.12.3.3-1" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.3-2">A limited on-path attacker differs from an on-path attacker in that it is not on
+the original path between endpoints, and therefore the original packets sent by
+an endpoint are still reaching their destination.  This means that a future
+failure to route copied packets to the destination faster than their original
+path will not prevent the original packets from reaching the destination.<a href="#section-21.12.3.3-2" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.3-3">A limited on-path attacker can:<a href="#section-21.12.3.3-3" class="pilcrow">¶</a></p>
+<ul>
+<li id="section-21.12.3.3-4.1">Inspect packets<a href="#section-21.12.3.3-4.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.3-4.2">Inject new packets<a href="#section-21.12.3.3-4.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.3-4.3">Modify unencrypted packet headers<a href="#section-21.12.3.3-4.3" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.3-4.4">Reorder packets<a href="#section-21.12.3.3-4.4" class="pilcrow">¶</a>
+</li>
+</ul>
+<p id="section-21.12.3.3-5">A limited on-path attacker cannot:<a href="#section-21.12.3.3-5" class="pilcrow">¶</a></p>
+<ul>
+<li id="section-21.12.3.3-6.1">Delay packets so that they arrive later than packets sent on the original path<a href="#section-21.12.3.3-6.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.3-6.2">Drop packets<a href="#section-21.12.3.3-6.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.3-6.3">Modify the authenticated and encrypted portion of a packet and cause the
+ recipient to accept that packet<a href="#section-21.12.3.3-6.3" class="pilcrow">¶</a>
+</li>
+</ul>
+<p id="section-21.12.3.3-7">A limited on-path attacker can only delay packets up to the point that the
+original packets arrive before the duplicate packets, meaning that it cannot
+offer routing with worse latency than the original path.  If a limited on-path
+attacker drops packets, the original copy will still arrive at the destination
+endpoint.<a href="#section-21.12.3.3-7" class="pilcrow">¶</a></p>
+<p id="section-21.12.3.3-8">In the presence of a limited on-path attacker, QUIC aims to provide the
+following properties:<a href="#section-21.12.3.3-8" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal" id="section-21.12.3.3-9">
+              <li id="section-21.12.3.3-9.1">A limited on-path attacker cannot cause a connection to close once the
+handshake has completed.<a href="#section-21.12.3.3-9.1" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.3-9.2">A limited on-path attacker cannot cause an idle connection to close if the
+client is first to resume activity.<a href="#section-21.12.3.3-9.2" class="pilcrow">¶</a>
+</li>
+<li id="section-21.12.3.3-9.3">A limited on-path attacker can cause an idle connection to be deemed lost if
+the server is the first to resume activity.<a href="#section-21.12.3.3-9.3" class="pilcrow">¶</a>
+</li>
+</ol>
+<p id="section-21.12.3.3-10">Note that these guarantees are the same guarantees provided for any NAT, for the
+same reasons.<a href="#section-21.12.3.3-10" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+</section>
+</div>
 </section>
 </div>
 <div id="iana">
@@ -8703,6 +9050,9 @@ specification reference is provided.<a href="#section-22.4-4.4" class="pilcrow">
 <dt id="RFC8200">[RFC8200]</dt>
 <dd>
 <span class="refAuthor">Deering, S.</span><span class="refAuthor"> and R. Hinden</span>, <span class="refTitle">"Internet Protocol, Version 6 (IPv6) Specification"</span>, <span class="seriesInfo">STD 86</span>, <span class="seriesInfo">RFC 8200</span>, <span class="seriesInfo">DOI 10.17487/RFC8200</span>, <time datetime="2017-07">July 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8200">https://www.rfc-editor.org/info/rfc8200</a>&gt;</span>. </dd>
+<dt id="SEC-CONS">[SEC-CONS]</dt>
+<dd>
+<span class="refAuthor">Rescorla, E.</span><span class="refAuthor"> and B. Korver</span>, <span class="refTitle">"Guidelines for Writing RFC Text on Security Considerations"</span>, <span class="seriesInfo">BCP 72</span>, <span class="seriesInfo">RFC 3552</span>, <span class="seriesInfo">DOI 10.17487/RFC3552</span>, <time datetime="2003-07">July 2003</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc3552">https://www.rfc-editor.org/info/rfc3552</a>&gt;</span>. </dd>
 <dt id="SLOWLORIS">[SLOWLORIS]</dt>
 <dd>
 <span class="refAuthor">RSnake Hansen, R.</span>, <span class="refTitle">"Welcome to Slowloris..."</span>, <time datetime="2009-06">June 2009</time>, <span>&lt;<a href="https://web.archive.org/web/20150315054838/http://ha.ckers.org/slowloris/">https://web.archive.org/web/20150315054838/http://ha.ckers.org/slowloris/</a>&gt;</span>. </dd>
