@@ -1460,8 +1460,8 @@ packet received from a server.  Once a client has received an Initial packet
 from the server, it MUST discard any packet it receives with a different Source
 Connection ID.
 
-Each endpoint includes the Source Connection ID it includes in Initial packets
-in the handshake_connection_id transport parameter; see
+Each endpoint includes the value of the Source Connection ID from Initial
+packets it sends in the handshake_connection_id transport parameter; see
 {{transport-parameter-definitions}}.  Each endpoint validates that the value
 received from the peer is identical to the value of the transport parameter.
 Absense of the handshake_connection_id transport parameter or a mismatch in
