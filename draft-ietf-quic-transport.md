@@ -1460,13 +1460,16 @@ packet received from a server.  Once a client has received an Initial packet
 from the server, it MUST discard any packet it receives with a different Source
 Connection ID.
 
-Each endpoint includes the connection ID it includes in Initial packets in the
-handshake_connection_id transport parameter and validates the value chosen by
-its peer; see {{transport-parameter-definitions}}. When sending a Retry packet
-or the first Initial packet, a server MUST select values for the Source
-Connection ID field that differ from the values the client includes in the
-Destination Connection ID field. These measures ensure that the choice of
-connection ID cannot be influenced by an attacker.
+Each endpoint includes the Source Connection ID it includes in Initial packets
+in the handshake_connection_id transport parameter; see
+{{transport-parameter-definitions}}.  Each endpoint validates that the value
+received from the peer is identical to the value of the transport parameter.
+Absense of the handshake_connection_id transport parameter or a mismatch in
+values MUST be treated as a connection error of type PROTOCOL_VIOLATION.  When
+sending a Retry packet or the first Initial packet, a server MUST select values
+for the Source Connection ID field that differ from the values the client
+includes in the Destination Connection ID field.  These measures ensure that the
+choice of connection ID cannot be influenced by an attacker.
 
 A client MUST only change the value it sends in the Destination Connection ID in
 response to the first packet of each type it receives from the server (Retry or
