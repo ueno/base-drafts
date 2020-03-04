@@ -1453,12 +1453,20 @@ ID values as the client's first Initial.
 
 Upon first receiving an Initial or Retry packet from the server, the client uses
 the Source Connection ID supplied by the server as the Destination Connection ID
-for subsequent packets, including any subsequent 0-RTT packets.  That means that
-a client might change the Destination Connection ID twice during connection
-establishment, once in response to a Retry and once in response to the first
-Initial packet from the server. Once a client has received an Initial packet
+for subsequent packets, including any 0-RTT packets.  A client changes the
+Destination Connection ID field if it receives a Retry packet.  A client always
+changes the Destination Connection ID field in response to the first Initial
+packet received from a server.  Once a client has received an Initial packet
 from the server, it MUST discard any packet it receives with a different Source
 Connection ID.
+
+Each endpoint includes the connection ID it includes in Initial packets in the
+handshake_connection_id transport parameter and validates the value chosen by
+its peer; see {{transport-parameter-definitions}}. When sending a Retry packet
+or the first Initial packet, a server MUST select values for the Source
+Connection ID field that differ from the values the client includes in the
+Destination Connection ID field. These measures ensure that the choice of
+connection ID cannot be influenced by an attacker.
 
 A client MUST only change the value it sends in the Destination Connection ID in
 response to the first packet of each type it receives from the server (Retry or
@@ -1520,9 +1528,9 @@ not store a transport parameter it cannot process.
 
 A client MUST NOT use remembered values for the following parameters:
 original_connection_id, preferred_address, stateless_reset_token,
-ack_delay_exponent and active_connection_id_limit. The client MUST use the
-server's new values in the handshake instead, and absent new values from the
-server, the default value.
+ack_delay_exponent, active_connection_id_limit, and handshake_connection_id.
+The client MUST use the server's new values in the handshake instead, and
+absent new values from the server, the default value.
 
 A client that attempts to send 0-RTT data MUST remember all other transport
 parameters used by the server. The server can remember these transport
@@ -4736,6 +4744,15 @@ active_connection_id_limit (0x0e):
   When a zero-length connection ID is being used, the active_connection_id_limit
   parameter MUST NOT be sent.
 
+handshake_connection_id (0x0f):
+
+: The value that the endpoint included in the Source Connection ID field of the
+  first Initial packet it sends during the handshake. Endpoints MUST validate
+  that this transport parameter is present and that it matches the value that
+  was received in Initial packets. Authenticating this value ensures that an
+  attacker is unable to influence the selection of connection IDs during the
+  handshake.
+
 If present, transport parameters that set initial flow control limits
 (initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, and
 initial_max_stream_data_uni) are equivalent to sending a MAX_STREAM_DATA frame
@@ -6543,6 +6560,7 @@ The initial contents of this registry are shown in {{iana-tp-table}}.
 | 0x0c | disable_active_migration    | {{transport-parameter-definitions}} |
 | 0x0d | preferred_address           | {{transport-parameter-definitions}} |
 | 0x0e | active_connection_id_limit  | {{transport-parameter-definitions}} |
+| 0x0f | handshake_connection_id     | {{transport-parameter-definitions}} |
 {: #iana-tp-table title="Initial QUIC Transport Parameters Entries"}
 
 Additionally, each value of the format `31 * N + 27` for integer values of N
